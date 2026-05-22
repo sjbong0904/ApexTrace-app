@@ -32,22 +32,24 @@ function loadSeed(lang: string): Record<string, unknown> {
 
 const LANGUAGE_PACKS: { lang: string; display_name: string; is_default?: boolean }[] = [
     { lang: 'en', display_name: 'English', is_default: true },
-    { lang: 'ko', display_name: '한국어' },
     { lang: 'ja', display_name: '日本語' },
-    { lang: 'zh', display_name: '简体中文（中国大陆）' },
-    { lang: 'zh-tw', display_name: '繁體中文（台灣）' },
+    { lang: 'ko', display_name: '한국어' },
+    { lang: 'zh-CN', display_name: '简体中文（中国大陆）' },
+    { lang: 'zh-TW', display_name: '繁體中文（台灣）' },
     { lang: 'fr', display_name: 'Français' },
-    { lang: 'es', display_name: 'Español (España)' },
-    { lang: 'es-mx', display_name: 'Español (México)' },
-    { lang: 'pt', display_name: 'Português (Brasil)' },
-    { lang: 'pt-pt', display_name: 'Português (Portugal)' },
+    { lang: 'es-ES', display_name: 'Español (España)' },
+    { lang: 'es-MX', display_name: 'Español (México)' },
+    { lang: 'pt-BR', display_name: 'Português (Brasil)' },
+    { lang: 'pt-PT', display_name: 'Português (Portugal)' },
 ];
+
+const LEGACY_LANGS = ['zh', 'zh-tw', 'es', 'es-mx', 'pt', 'pt-pt'];
 
 async function main() {
     const packs = LANGUAGE_PACKS.map((meta) => ({
         ...meta,
         strings: loadSeed(meta.lang),
-        version: 1,
+        version: 2,
         is_default: meta.is_default ?? false,
     }));
 
@@ -65,6 +67,17 @@ async function main() {
             process.exit(1);
         }
         console.log(`✅ languages.${pack.lang} (${Object.keys(pack.strings).length} top-level keys)`);
+    }
+
+    const { error: deactivateError } = await supabase
+        .from('languages')
+        .update({ is_active: false })
+        .in('lang', LEGACY_LANGS);
+
+    if (deactivateError) {
+        console.warn('Could not deactivate legacy lang codes:', deactivateError.message);
+    } else {
+        console.log(`✅ Deactivated legacy codes: ${LEGACY_LANGS.join(', ')}`);
     }
 }
 

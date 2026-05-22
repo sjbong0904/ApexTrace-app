@@ -26,7 +26,8 @@ npm run build          # Output to dist/ — load via Overwolf unpacked extensio
 - **Runtime:** translations are loaded from Supabase `languages` (see `src/lib/loadLanguages.ts`).
 - **Source of truth in Git:** `scripts/locale-seeds/*.json`
 - **Push to Supabase:** `npm run seed:languages` (requires `SUPABASE_SERVICE_ROLE_KEY` or temporary RPC grant)
-- **Regenerate zh-tw from zh:** `node scripts/generate-zh-tw.mjs`
+- **Regenerate zh-TW from zh-CN:** `node scripts/generate-zh-tw.mjs`
+- **Lang codes:** BCP 47 style (`zh-CN`, `es-ES`, `pt-BR`, …)
 
 ## Project layout
 

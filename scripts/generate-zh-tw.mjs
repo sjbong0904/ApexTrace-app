@@ -1,5 +1,5 @@
 /**
- * Build scripts/locale-seeds/zh-tw.json from zh.json (Simplified → Traditional, Taiwan).
+ * Build scripts/locale-seeds/zh-TW.json from zh-CN.json (Simplified → Traditional, Taiwan).
  * Run: node scripts/generate-zh-tw.mjs
  */
 import { readFileSync, writeFileSync } from 'fs';
@@ -68,9 +68,9 @@ const TW_PHRASES = [
     ['加入服務器', '加入伺服器'],
 ];
 
-let zhTw = converter(readFileSync(join(seedsDir, 'zh.json'), 'utf8'));
+let zhTw = converter(readFileSync(join(seedsDir, 'zh-CN.json'), 'utf8'));
 for (const [from, to] of TW_PHRASES) {
     zhTw = zhTw.split(from).join(to);
 }
-writeFileSync(join(seedsDir, 'zh-tw.json'), zhTw);
-console.log('Wrote locale-seeds/zh-tw.json');
+writeFileSync(join(seedsDir, 'zh-TW.json'), zhTw);
+console.log('Wrote locale-seeds/zh-TW.json');

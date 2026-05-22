@@ -1,4 +1,2 @@
--- Traditional Chinese (Taiwan) locale zh-tw.
--- Payload: scripts/locale-seeds/zh-tw.json via npm run seed:languages
-
-update public.languages set display_name = '简体中文（中国大陆）' where lang = 'zh';
+-- Legacy migration (superseded by 20260522130000_language_bcp47_codes.sql).
+-- Use lang codes zh-CN / zh-TW and npm run seed:languages.

@@ -8,8 +8,8 @@ const outPath = join(__dirname, '..', 'supabase', 'migrations', '20260522110000_
 
 /** Regenerate full SQL upsert migration (optional; prefer npm run seed:languages). */
 const NEW_PACKS = [
-    { lang: 'es-mx', display_name: 'Español (México)', file: 'es-mx.json' },
-    { lang: 'pt-pt', display_name: 'Português (Portugal)', file: 'pt-pt.json' },
+    { lang: 'es-MX', display_name: 'Español (México)', file: 'es-MX.json' },
+    { lang: 'pt-PT', display_name: 'Português (Portugal)', file: 'pt-PT.json' },
 ];
 
 let sql = '-- Regional locales: es-mx, pt-pt; clarify es/pt display names\n';
@@ -20,8 +20,8 @@ for (const pack of NEW_PACKS) {
     sql += `select upsert_language_pack('${pack.lang}', '${pack.display_name.replace(/'/g, "''")}', $${tag}$${json}$${tag}$::jsonb, false, 1);\n`;
 }
 
-sql += `update public.languages set display_name = 'Español (España)' where lang = 'es';\n`;
-sql += `update public.languages set display_name = 'Português (Brasil)' where lang = 'pt';\n`;
+sql += `update public.languages set display_name = 'Español (España)' where lang = 'es-ES';\n`;
+sql += `update public.languages set display_name = 'Português (Brasil)' where lang = 'pt-BR';\n`;
 
 writeFileSync(outPath, sql);
 console.log(`Wrote ${outPath} (${sql.length} bytes)`);

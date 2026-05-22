@@ -1,7 +1,7 @@
 import i18n from 'i18next';
 import { supabase } from './supabase';
 
-const CACHE_KEY = 'languages_cache_v1';
+const CACHE_KEY = 'languages_cache_v2';
 
 type LanguageRow = { lang: string; strings: Record<string, unknown>; version?: number };
 
