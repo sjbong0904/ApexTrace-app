@@ -1,0 +1,644 @@
+{
+  "app": {
+    "title": "APEXTRACE"
+  },
+  "search": {
+    "placeholder": "搜尋玩家...",
+    "defaultName": "搜尋玩家...",
+    "notFoundExact": "未找到該使用者，請輸入準確的遊戲名。",
+    "serverTimeout": "伺服器逾時，請重試。",
+    "error": "發生錯誤。",
+    "failedToLoad": "無法載入使用者資料。",
+    "serverError": "伺服器錯誤，無法取得資料。",
+    "notFoundApi": "未找到該使用者。"
+  },
+  "sync": {
+    "archiveComplete": "同步完成：已下載 {{count}} 場對局。",
+    "syncingArchive": "同步中..."
+  },
+  "nav": {
+    "matchHistory": "對局記錄",
+    "favorites": "收藏",
+    "statistics": "統計",
+    "weapons": "武器資料庫",
+    "settings": "設定"
+  },
+  "controls": {
+    "waitSec": "等待 {{sec}} 秒",
+    "refresh": "重新整理",
+    "collapseAll": "全部摺疊",
+    "prev": "◀ 上一頁",
+    "page": "頁",
+    "of": "/",
+    "next": "下一頁 ▶",
+    "tutorial": "開始教學",
+    "pin": "固定",
+    "unpin": "取消固定",
+    "returnToPinned": "返回已固定的資料",
+    "minimize": "最小化",
+    "maximize": "最大化",
+    "restore": "還原",
+    "close": "關閉"
+  },
+  "favorites": {
+    "empty": "暫無收藏的玩家。",
+    "unranked": "Unranked",
+    "predator": "Predator",
+    "level": "Lv."
+  },
+  "match": {
+    "emptyTitle": "尚無對局記錄。",
+    "emptyDesc": "遊玩時請保持此視窗打開以記錄對局。",
+    "rank": "RANK",
+    "gamemode": "GAMEMODE",
+    "map": "MAP",
+    "damage": "DAMAGE",
+    "kills": "KILLS",
+    "assists": "ASSISTS",
+    "knocks": "KNOCKS"
+  },
+  "premium": {
+    "betaUsers": "測試使用者：",
+    "allUnlocked": "已解鎖全部已記錄對局。",
+    "archiveTitle": "對局記錄",
+    "archiveDesc1": "顯示最近對局。較早的對局保存在",
+    "archiveDescBold": "歸檔",
+    "subscribe": "訂閱以解鎖",
+    "redirecting": "正在跳轉到訂閱頁面..."
+  },
+  "tutorial": {
+    "dashboardTitle": "儀表盤",
+    "dashboardDesc": "查看對局記錄與表現概覽。",
+    "searchTitle": "搜尋玩家",
+    "searchDesc": "搜尋玩家以查看其資料與歷史記錄。",
+    "profileTitle": "我的資料",
+    "profileDesc": "顯示遊戲內資料，每場對局結束後自動更新。",
+    "statisticsTitle": "詳細統計",
+    "statisticsDesc": "深入查看地圖、傳奇與武器等分析。",
+    "settingsTitle": "設定",
+    "settingsDesc": "可隨時在設定中重新開始本教學。"
+  },
+  "weapons": {
+    "viewList": "查看列表",
+    "weapons": "武器",
+    "weaponStatistics": "武器統計",
+    "bodyDamage": "身體",
+    "headshot": "頭部",
+    "legDamage": "腿部",
+    "unlockHopUp": "解鎖 Hop-Up",
+    "pts": "pts",
+    "magSize": "彈匣容量",
+    "base": "基礎",
+    "white": "1 級",
+    "blue": "2 級",
+    "purple": "3 級",
+    "gold": "4 級",
+    "compatibility": "兼容配件",
+    "noDescription": "暫無說明。",
+    "cp": "補給箱",
+    "elite": "精英",
+    "standard": "標準",
+    "akimbo": "雙持",
+    "hopUpFallback": "Hop-Up",
+    "disruptor": "Disruptor",
+    "hammerpoint": "Hammerpoint",
+    "graffiti": "Graffiti Mod"
+  },
+  "weaponDb": {
+    "names": {
+      "r301": "R-301 Carbine",
+      "flatline": "VK-47 Flatline",
+      "hemlok": "Hemlok Burst AR",
+      "hemlok_elite": "Hemlok Breach AR",
+      "havoc": "HAVOC Rifle",
+      "nemesis": "Nemesis Burst AR",
+      "alternator": "Alternator SMG",
+      "r99": "R-99 SMG",
+      "volt": "Volt SMG",
+      "prowler": "Prowler Burst PDW",
+      "car": "C.A.R. SMG",
+      "carCp": "C.A.R. SMG (Season 28)",
+      "devotion": "Devotion LMG",
+      "spitfire": "M600 Spitfire",
+      "rampage": "Rampage LMG",
+      "lstar": "L-STAR EMG",
+      "tripletake": "Triple Take",
+      "bocek": "Bocek Compound Bow",
+      "g7scout": "G7 Scout",
+      "g7scoutCp": "G7 Scout (Season 28)",
+      "repeater3030": "30-30 Repeater",
+      "chargerifle": "Charge Rifle",
+      "kraber": "Kraber .50-Cal Sniper",
+      "sentinel": "Sentinel",
+      "longbow": "Longbow",
+      "mozambique": "Mozambique",
+      "mozambiqueAkimbo": "Mozambique Akimbo",
+      "mastiff": "Mastiff Shotgun",
+      "peacekeeper": "Peacekeeper",
+      "eva8": "EVA-8 Auto",
+      "wingman": "Wingman",
+      "re45": "RE-45 Burst",
+      "p2020": "P2020",
+      "p2020Akimbo": "P2020 Akimbo",
+      "p2020Cp": "P2020 Akimbo (Season 27)"
+    },
+    "ammo": {
+      "light": "輕型彈藥",
+      "heavy": "重型彈藥",
+      "energy": "能量彈藥",
+      "sniper": "狙擊彈藥",
+      "shotgun": "霰彈彈藥",
+      "arrows": "箭矢",
+      "mythic": "神話"
+    },
+    "attachments": {
+      "barrel": "槍管穩定器",
+      "mag": "擴容彈匣",
+      "lightMag": "輕型擴容彈匣",
+      "heavyMag": "重型擴容彈匣",
+      "energyMag": "能量擴容彈匣",
+      "sniperMag": "狙擊擴容彈匣",
+      "shotgunBolt": "霰彈槍槍栓",
+      "optic": "瞄具",
+      "stock": "標準槍托",
+      "sniperStock": "狙擊槍托",
+      "laserSight": "激光瞄準器",
+      "razerSight": "激光瞄準器"
+    },
+    "hopups": {
+      "turbocharger": "Turbocharger",
+      "hammerpointRounds": "Hammerpoint Rounds",
+      "disruptorRounds": "Disruptor Rounds",
+      "kineticFeeder": "Kinetic Feeder",
+      "gunShieldGenerator": "Gun Shield Generator",
+      "doubleTapTrigger": "Double Tap Trigger",
+      "selectfireReceiver": "Selectfire Receiver",
+      "graffitiMod": "Graffiti Mod",
+      "elite": "Elite",
+      "boostedLoader": "Boosted Loader",
+      "shatterCaps": "Shatter Caps",
+      "dualShell": "Dual Shell"
+    },
+    "consumables": {
+      "thermite": "鋁熱劑",
+      "amped": "強化",
+      "frag": "破片手雷"
+    },
+    "desc": {
+      "r301": "後坐力低、可靠的全自動步槍。",
+      "flatline": "傷害高、後坐力大的全自動突擊步槍。",
+      "hemlok": "使用重型彈藥的三連發突擊步槍。",
+      "hemlok_elite": "帶突破模式的全自動精英突擊步槍。",
+      "havoc": "高 DPS 的能量突擊步槍。",
+      "nemesis": "四連發、射速逐漸提升的突擊步槍。",
+      "alternator": "雙管衝鋒槍。",
+      "r99": "射速極快的衝鋒槍。",
+      "volt": "能量衝鋒槍。",
+      "prowler": "五連發衝鋒槍。",
+      "car": "兼容輕型與重型彈藥的萬能衝鋒槍。",
+      "carCp": "神話 C.A.R.，支持 Disruptor 與 Hammerpoint 模式。",
+      "devotion": "強力能量輕機槍。",
+      "spitfire": "大容量輕型輕機槍。",
+      "rampage": "單發傷害高的重型輕機槍。",
+      "lstar": "等離子輕機槍。",
+      "tripletake": "能量神射手步槍。",
+      "bocek": "精準複合弓。",
+      "g7scout": "半自動神射手步槍。",
+      "g7scoutCp": "神話 G7 Scout。",
+      "repeater3030": "蓄力越久傷害越高的重型神射手步槍。",
+      "chargerifle": "距離越遠傷害越高的狙擊步槍。",
+      "kraber": "威力極強的 .50 口徑狙擊步槍。",
+      "sentinel": "可充能的栓動狙擊槍。",
+      "longbow": "遠距離 DMR。",
+      "mozambique": "手槍與霰彈槍混合體。",
+      "mozambiqueAkimbo": "雙持 Mozambique，火力翻倍。",
+      "mastiff": "半自動霰彈槍。",
+      "peacekeeper": "槓桿式霰彈槍。",
+      "eva8": "全自動霰彈槍。",
+      "wingman": "高威力左輪。",
+      "re45": "傷害高的三連發能量手槍。",
+      "re45Elite": "RE-45 的三連發版本。",
+      "p2020": "標準半自動手槍。",
+      "p2020Akimbo": "高速雙持 P2020。",
+      "p2020Cp": "帶 Kinetic Feeder 的神話雙持。"
+    }
+  },
+  "sidebarStats": {
+    "noMatches": "暫無對局記錄",
+    "recentGames": "最近 {{count}} 場",
+    "winRate": "勝率",
+    "top5Rate": "前五率",
+    "avgKills": "平均擊殺",
+    "avgDamage": "平均傷害",
+    "avgAssists": "平均助攻",
+    "mostPlayed": "最常使用"
+  },
+  "combatLog": {
+    "noEvents": "暫無戰鬥事件記錄。",
+    "title": "戰鬥日誌",
+    "eventsCount": "{{count}} 個事件",
+    "me": "我",
+    "unknown": "未知"
+  },
+  "gameStatus": {
+    "good": "狀態：正常\n所有遊戲事件執行正常。",
+    "partial": "狀態：部分異常\n因遊戲補丁，部分事件（擊殺、傷害、名次等）可能缺失。",
+    "unavailable": "狀態：不可用\nApex Legends API 當前離線，追蹤已禁用。",
+    "unknown": "狀態：未知"
+  },
+  "loadout": {
+    "title": "裝備",
+    "noWeapon": "無武器",
+    "slot1": "槽位 #1",
+    "slot2": "槽位 #2"
+  },
+  "settings": {
+    "alerts": {
+      "fsMissing": "❌ 缺少「FileSystem」權限！\n\n請檢查 manifest.json 並重啟應用。",
+      "openFolderFailed": "無法自動打開檔案夾。\n請複製路徑："
+    },
+    "sections": {
+      "community": "社區與支持",
+      "tools": "工具與實用功能",
+      "appInfo": "應用資訊"
+    },
+    "discord": {
+      "title": "加入 Discord",
+      "desc1": "錯誤報告、功能建議與諮詢。",
+      "desc2": "加入我們的社區！",
+      "button": "加入伺服器"
+    },
+    "items": {
+      "tutorialTitle": "應用程式教學",
+      "tutorialDesc": "執行教學以瞭解如何使用本應用程式。",
+      "hotkeyTitle": "應用快捷鍵",
+      "hotkeyDesc": "更改快捷鍵 — 將跳轉到 Overwolf 設定。",
+      "logsTitle": "打開日誌檔案夾",
+      "logsDesc": "打開存放應用日誌的本地檔案夾。",
+      "versionTitle": "應用版本",
+      "versionDesc": "當前安裝的版本"
+    },
+    "footer": {
+      "copyright": "© 2026 ApexTrace. 保留所有權利。",
+      "poweredBy": "Powered by Overwolf"
+    }
+  },
+  "playstyles": {
+    "deathbox": {
+      "name": "死亡盒",
+      "sub": "光速回大廳"
+    },
+    "aimbot": {
+      "name": "自瞄",
+      "sub": "人肉自瞄"
+    },
+    "dominator": {
+      "name": "主宰者",
+      "sub": "整局恐懼之源"
+    },
+    "warlord": {
+      "name": "軍閥",
+      "sub": "基本是副本 BOSS"
+    },
+    "atlas": {
+      "name": "支柱",
+      "sub": "隊伍的脊樑"
+    },
+    "protagonist": {
+      "name": "主角",
+      "sub": "主角光環綜合徵"
+    },
+    "observer": {
+      "name": "觀察者",
+      "sub": "看隊友打架"
+    },
+    "pacifist": {
+      "name": "和平主義者",
+      "sub": "熱愛和平"
+    },
+    "backpack": {
+      "name": "背包",
+      "sub": "被隊友拖著走"
+    },
+    "champion": {
+      "name": "冠軍",
+      "sub": "GG WP（贏家）"
+    },
+    "unluckyAce": {
+      "name": "倒霉王牌",
+      "sub": "贏了架，輸了局"
+    },
+    "assassin": {
+      "name": "刺客",
+      "sub": "高效獵手"
+    },
+    "sniper": {
+      "name": "狙擊手",
+      "sub": "刷進化模式"
+    },
+    "sidekick": {
+      "name": "配角",
+      "sub": "我的擊殺呢？"
+    },
+    "berserker": {
+      "name": "狂戰士",
+      "sub": "熱門跳傘點專家"
+    },
+    "janitor": {
+      "name": "清潔工",
+      "sub": "補刀大師"
+    },
+    "sweeper": {
+      "name": "清掃者",
+      "sub": "掃清敵人"
+    },
+    "soldier": {
+      "name": "士兵",
+      "sub": "該做的都做了"
+    },
+    "chihuahua": {
+      "name": "吉娃娃",
+      "sub": "叫得兇，咬不著"
+    },
+    "runner": {
+      "name": "跑者",
+      "sub": "2026 馬拉松模擬器"
+    },
+    "ghost": {
+      "name": "幽靈",
+      "sub": "專業搜刮"
+    },
+    "rat": {
+      "name": "老鼠",
+      "sub": "苟活到底"
+    },
+    "heartbreaker": {
+      "name": "心碎者",
+      "sub": "就差一點"
+    },
+    "delivery": {
+      "name": "快遞",
+      "sub": "謝謝你的裝備"
+    },
+    "tourist": {
+      "name": "遊客",
+      "sub": "只為看風景"
+    },
+    "npc": {
+      "name": "NPC",
+      "sub": "只是存在"
+    }
+  },
+  "matchStats": {
+    "playedLike": "打法風格",
+    "matchPlaystyle": "本局風格",
+    "survivalTime": "存活時間",
+    "killParticipant": "KP%",
+    "knockToKill": "擊倒轉擊殺%",
+    "knockToKillTooltip1": "在所有擊倒的敵人中，",
+    "knockToKillTooltip2": "實際轉化為擊殺的百分比。",
+    "damagePerKill": "每擊殺傷害",
+    "dmgKillSuffix": " 傷害/擊殺",
+    "damagePerMin": "每分鐘傷害",
+    "dmgMinSuffix": " 傷害/分鐘",
+    "travelDistance": "移動距離",
+    "mSuffix": " m",
+    "avgMoveSpeed": "平均移動速度",
+    "msSuffix": " m/s",
+    "clickToViewProfile": "點擊查看資料",
+    "profileNotAvailable": "資料不可用",
+    "killsSuffix": " 擊殺",
+    "totalKnocks": "總擊倒",
+    "knocksSuffix": " 擊倒",
+    "totalAssists": "總助攻",
+    "assistsSuffix": " 助攻"
+  },
+  "statistics": {
+    "tabs": {
+      "overview": "概覽",
+      "maps": "地圖",
+      "legends": "傳奇",
+      "weapons": "武器"
+    },
+    "modes": {
+      "all": "全部",
+      "ranked": "排位",
+      "trio": "三人",
+      "duo": "雙人"
+    },
+    "showingStatsFor": "統計範圍：",
+    "allBrModes": "全部大逃殺模式",
+    "betaNotice": "測試使用者：",
+    "fullAnalyticsUnlocked": "已解鎖完整分析",
+    "overview": {
+      "analytics": "分析",
+      "tier": "TIER",
+      "kdRatio": "K/D",
+      "totalKills": "共 {{count}} 擊殺",
+      "avgDamage": "平均傷害",
+      "totalDamage": "共 {{count}} 傷害",
+      "avgSurvival": "平均存活",
+      "avgSurvivedTime": "平均存活 {{m}} 分 {{s}} 秒",
+      "performance": "表現",
+      "peakKills": "最高 {{count}} 擊殺",
+      "killContribute": "平均 {{rate}}% 擊殺貢獻",
+      "performanceChartTitle": "表現（最近 20 場）",
+      "performanceChartLegend": "● 傷害與擊殺 ━ 名次"
+    },
+    "maps": {
+      "statistics": "統計",
+      "totalMatches": "總場次",
+      "winRate": "勝率",
+      "kdRatio": "K/D",
+      "avgDamage": "平均傷害",
+      "avgSurvival": "平均存活",
+      "totalKills": "總擊殺",
+      "playstyle": "打法風格",
+      "mostPlayedLegend": "最常使用傳奇",
+      "favoriteWeapon": "最愛武器",
+      "noMatchesFound": "{{map}} 上暫無對局記錄"
+    },
+    "legends": {
+      "top5PickRates": "前五選用率",
+      "matches": "場次",
+      "winRate": "勝率",
+      "kd": "K/D",
+      "avgDamage": "平均傷害",
+      "avgSurvival": "平均存活",
+      "totalKills": "總擊殺",
+      "avgKillsMatch": "場均擊殺",
+      "mostUsedWeapon": "最常用武器",
+      "wins": "勝場",
+      "noMatchesFound": "使用 {{legend}} 暫無對局記錄",
+      "noData": "無資料"
+    },
+    "weapons": {
+      "kadTooltip": "裝備該武器時的（擊殺+助攻）/死亡比。",
+      "mostUsed": "🏆 最常用",
+      "pick": "第 {{rank}} 名",
+      "matches": "場次",
+      "kd": "K/D",
+      "kad": "KA/D",
+      "winPercent": "勝率%",
+      "noWeaponData": "暫無武器資料。",
+      "detailedStatsTitle": "武器詳細統計",
+      "rank4Plus": "前 4 名+",
+      "rank": "排名",
+      "weapon": "武器",
+      "winRate": "勝率",
+      "noMoreWeapons": "沒有更多使用的武器。"
+    },
+    "premiumLock": {
+      "unlockAnalytics": "解鎖 {{title}} 分析",
+      "goBeyond": "超越基礎資料。",
+      "getDetailedInsights": "取得關於",
+      "performance": "表現的詳細洞察。",
+      "upgradeToPremium": "升級至 Premium"
+    },
+    "emptyState": {
+      "title": "∅ 未找到資料"
+    }
+  },
+  "networkStatus": {
+    "disconnected": "網路已斷開",
+    "reconnecting": "重新連接中..."
+  },
+  "performanceTrend": {
+    "title": "最近名次",
+    "subtitle": "（最早 → 最新）",
+    "noData": "尚無對局資料。"
+  },
+  "playerModal": {
+    "title": "選擇玩家",
+    "found": "找到 {{count}} 個資料。",
+    "neverSearched": "從未搜尋",
+    "searched": "{{time}} 前搜尋過"
+  },
+  "sidebar": {
+    "emptyNotice": "請先進行一場對局以註冊賬號，然後再搜尋。",
+    "tags": {
+      "playstyle": {
+        "grimReaper": {
+          "label": "死神",
+          "desc": "壓倒性的擊殺/傷害怪物（場均 6+ 擊殺或 2000+ 傷害）"
+        },
+        "champion": {
+          "label": "冠軍",
+          "desc": "高勝率玩家（勝率 20%+）"
+        },
+        "killMove": {
+          "label": "擊殺流",
+          "desc": "激進戰鬥風格（場均 4+ 擊殺）"
+        },
+        "fighter": {
+          "label": "戰士",
+          "desc": "穩定的戰鬥表現（場均 2+ 擊殺）"
+        },
+        "mainDps": {
+          "label": "主輸出",
+          "desc": "高傷害輸出（場均 1200+ 傷害）"
+        },
+        "bruiser": {
+          "label": "肉搏手",
+          "desc": "穩定的傷害貢獻（場均 700+ 傷害）"
+        },
+        "teamPlayer": {
+          "label": "隊友型",
+          "desc": "高助攻，出色的團隊支援"
+        },
+        "top5Machine": {
+          "label": "前五機器",
+          "desc": "生存大師（前五率 50%+）"
+        },
+        "consistent": {
+          "label": "穩定型",
+          "desc": "經常存活到後期"
+        },
+        "hotDropper": {
+          "label": "熱門跳點",
+          "desc": "高傷害但低存活（早期交戰專家）"
+        },
+        "survivor": {
+          "label": "生存者",
+          "desc": "低傷害但高存活（苟分專家）"
+        }
+      },
+      "suffix": {
+        "god": " 之神",
+        "master": " 大師",
+        "user": " 使用者",
+        "oneTrick": " 絕活",
+        "main": " 本命"
+      },
+      "desc": {
+        "weaponGod": "對該武器掌握極佳",
+        "weaponMaster": "對該武器非常熟練",
+        "weaponUser": "經常使用該武器",
+        "legendOneTrick": "只玩這一名傳奇",
+        "legendMaster": "使用該傳奇表現優異",
+        "legendMain": "主要玩該傳奇"
+      }
+    },
+    "weaponNames": {
+      "r301": "R-301",
+      "flatline": "Flatline",
+      "hemlok": "Hemlok",
+      "hemlok_elite": "Hemlok",
+      "havoc": "HAVOC",
+      "nemesis": "Nemesis",
+      "alternator": "Alternator",
+      "r99": "R-99",
+      "volt": "Volt",
+      "prowler": "Prowler",
+      "car": "C.A.R.",
+      "devotion": "Devotion",
+      "spitfire": "Spitfire",
+      "rampage": "Rampage",
+      "lstar": "L-STAR",
+      "tripletake": "Triple Take",
+      "bocek": "Bocek",
+      "g7scout": "G7 Scout",
+      "repeater3030": "30-30",
+      "chargerifle": "Charge Rifle",
+      "kraber": "Kraber",
+      "sentinel": "Sentinel",
+      "longbow": "Longbow",
+      "mozambique": "Mozambique",
+      "mastiff": "Mastiff",
+      "peacekeeper": "Peacekeeper",
+      "eva8": "EVA-8",
+      "wingman": "Wingman",
+      "re45": "RE-45",
+      "p2020": "P2020"
+    },
+    "legendNames": {
+      "alter": "Alter",
+      "ash": "Ash",
+      "ballistic": "Ballistic",
+      "bangalore": "Bangalore",
+      "bloodhound": "Bloodhound",
+      "catalyst": "Catalyst",
+      "caustic": "Caustic",
+      "conduit": "Conduit",
+      "crypto": "Crypto",
+      "fuse": "Fuse",
+      "gibraltar": "Gibraltar",
+      "horizon": "Horizon",
+      "loba": "Loba",
+      "madmaggie": "Mad Maggie",
+      "mirage": "Mirage",
+      "newcastle": "Newcastle",
+      "octane": "Octane",
+      "pathfinder": "Pathfinder",
+      "rampart": "Rampart",
+      "revenant": "Revenant",
+      "seer": "Seer",
+      "valkyrie": "Valkyrie",
+      "vantage": "Vantage",
+      "wattson": "Wattson",
+      "wraith": "Wraith",
+      "sparrow": "Sparrow",
+      "axle": "Axle"
+    }
+  }
+}

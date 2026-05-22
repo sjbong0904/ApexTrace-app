@@ -1,0 +1,644 @@
+{
+  "app": {
+    "title": "APEXTRACE"
+  },
+  "search": {
+    "placeholder": "プレイヤーを検索...",
+    "defaultName": "プレイヤーを検索してください...",
+    "notFoundExact": "ユーザーが見つかりません。正確な名前を入力してください。",
+    "serverTimeout": "サーバーがタイムアウトしました。もう一度お試しください。",
+    "error": "エラーが発生しました。",
+    "failedToLoad": "ユーザーデータの読み込みに失敗しました。",
+    "serverError": "サーバーエラー。データを取得できません。",
+    "notFoundApi": "ユーザーが見つかりません。"
+  },
+  "sync": {
+    "archiveComplete": "同期完了：{{count}}件のマッチをダウンロードしました。",
+    "syncingArchive": "同期中..."
+  },
+  "nav": {
+    "matchHistory": "戦績",
+    "favorites": "お気に入り",
+    "statistics": "統計",
+    "weapons": "武器データベース",
+    "settings": "設定"
+  },
+  "controls": {
+    "waitSec": "{{sec}}秒待機",
+    "refresh": "更新",
+    "collapseAll": "すべて折りたたむ",
+    "prev": "◀ 前へ",
+    "page": "ページ",
+    "of": "/",
+    "next": "次へ ▶",
+    "tutorial": "チュートリアル開始",
+    "pin": "ピン留め",
+    "unpin": "ピン解除",
+    "returnToPinned": "ピン留めプロフィールに戻る",
+    "minimize": "最小化",
+    "maximize": "最大化",
+    "restore": "元のサイズに戻す",
+    "close": "閉じる"
+  },
+  "favorites": {
+    "empty": "お気に入りのプレイヤーがいません。",
+    "unranked": "Unranked",
+    "predator": "Predator",
+    "level": "Lv."
+  },
+  "match": {
+    "emptyTitle": "記録された戦績がありません。",
+    "emptyDesc": "戦績を記録するには、プレイ中にこのウィンドウを開いたままにしてください。",
+    "rank": "RANK",
+    "gamemode": "GAMEMODE",
+    "map": "MAP",
+    "damage": "DAMAGE",
+    "kills": "KILLS",
+    "assists": "ASSISTS",
+    "knocks": "KNOCKS"
+  },
+  "premium": {
+    "betaUsers": "ベータユーザー:",
+    "allUnlocked": "記録された全戦績が解放されています。",
+    "archiveTitle": "戦績",
+    "archiveDesc1": "最近のマッチが表示されています。古いマッチは",
+    "archiveDescBold": "アーカイブ",
+    "subscribe": "サブスクリプションで解放",
+    "redirecting": "サブスクリプションページへ移動中..."
+  },
+  "tutorial": {
+    "dashboardTitle": "ダッシュボード",
+    "dashboardDesc": "戦績とパフォーマンスの概要を確認できます。",
+    "searchTitle": "プレイヤー検索",
+    "searchDesc": "プレイヤーを検索して統計と戦績を確認できます。",
+    "profileTitle": "マイプロフィール",
+    "profileDesc": "ゲーム内プロフィールが表示されます。マッチ終了後に自動更新されます。",
+    "statisticsTitle": "詳細統計",
+    "statisticsDesc": "マップ・レジェンド・武器などの詳細な分析を確認できます。",
+    "settingsTitle": "設定",
+    "settingsDesc": "設定からいつでもこのチュートリアルを再開できます。"
+  },
+  "weapons": {
+    "viewList": "リストを表示",
+    "weapons": "武器",
+    "weaponStatistics": "武器統計",
+    "bodyDamage": "ボディ",
+    "headshot": "ヘッド",
+    "legDamage": "レッグ",
+    "unlockHopUp": "ホップアップ解放",
+    "pts": "pts",
+    "magSize": "マガジンサイズ",
+    "base": "基本",
+    "white": "レベル1",
+    "blue": "レベル2",
+    "purple": "レベル3",
+    "gold": "レベル4",
+    "compatibility": "対応アタッチメント",
+    "noDescription": "説明がありません。",
+    "cp": "ケアパッケージ",
+    "elite": "エリート",
+    "standard": "標準",
+    "akimbo": "アキンボ",
+    "hopUpFallback": "ホップアップ",
+    "disruptor": "ディスラプター",
+    "hammerpoint": "ハンマーポイント",
+    "graffiti": "グラフィティMOD"
+  },
+  "weaponDb": {
+    "names": {
+      "r301": "R-301カービン",
+      "flatline": "VK-47フラットライン",
+      "hemlok": "ヘムロックバーストAR",
+      "hemlok_elite": "ヘムロックブリーチAR",
+      "havoc": "ハボックライフル",
+      "nemesis": "ネメシスバーストAR",
+      "alternator": "オルタネーターSMG",
+      "r99": "R-99 SMG",
+      "volt": "ボルトSMG",
+      "prowler": "プラウラーバーストPDW",
+      "car": "C.A.R. SMG",
+      "carCp": "C.A.R. SMG (シーズン28)",
+      "devotion": "ディヴォーションLMG",
+      "spitfire": "M600スピットファイア",
+      "rampage": "ランページLMG",
+      "lstar": "L-STAR EMG",
+      "tripletake": "トリプルテイク",
+      "bocek": "ボセックコンパウンドボウ",
+      "g7scout": "G7スカウト",
+      "g7scoutCp": "G7スカウト (シーズン28)",
+      "repeater3030": "30-30リピーター",
+      "chargerifle": "チャージライフル",
+      "kraber": "クレーバー.50口径スナイパー",
+      "sentinel": "センチネル",
+      "longbow": "ロングボウ",
+      "mozambique": "モザンビーク",
+      "mozambiqueAkimbo": "モザンビーク アキンボ",
+      "mastiff": "マスティフショットガン",
+      "peacekeeper": "ピースキーパー",
+      "eva8": "EVA-8オート",
+      "wingman": "ウィングマン",
+      "re45": "RE-45バースト",
+      "p2020": "P2020",
+      "p2020Akimbo": "P2020 アキンボ",
+      "p2020Cp": "P2020 アキンボ (シーズン27)"
+    },
+    "ammo": {
+      "light": "軽量弾薬",
+      "heavy": "重量弾薬",
+      "energy": "エネルギー弾薬",
+      "sniper": "スナイパー弾薬",
+      "shotgun": "ショットガン弾薬",
+      "arrows": "アロー",
+      "mythic": "ミシック"
+    },
+    "attachments": {
+      "barrel": "バレルスタビライザー",
+      "mag": "拡張マガジン",
+      "lightMag": "拡張軽量マガジン",
+      "heavyMag": "拡張重量マガジン",
+      "energyMag": "拡張エネルギーマガジン",
+      "sniperMag": "拡張スナイパーマガジン",
+      "shotgunBolt": "ショットガンボルト",
+      "optic": "スコープ",
+      "stock": "ストック",
+      "sniperStock": "スナイパーストック",
+      "laserSight": "レーザーサイト",
+      "razerSight": "レーザーサイト"
+    },
+    "hopups": {
+      "turbocharger": "ターボチャージャー",
+      "hammerpointRounds": "ハンマーポイント弾",
+      "disruptorRounds": "ディスラプター弾",
+      "kineticFeeder": "キネティックフィーダー",
+      "gunShieldGenerator": "ガンシールドジェネレーター",
+      "doubleTapTrigger": "ダブルタップトリガー",
+      "selectfireReceiver": "セレクトファイアレシーバー",
+      "graffitiMod": "グラフィティMOD",
+      "elite": "エリート",
+      "boostedLoader": "ブーステッドローダー",
+      "shatterCaps": "シャッターキャップ",
+      "dualShell": "デュアルシェル"
+    },
+    "consumables": {
+      "thermite": "テルミット",
+      "amped": "増幅グレネード",
+      "frag": "フラグレネード"
+    },
+    "desc": {
+      "r301": "反動が少なく扱いやすい連射ライフル。",
+      "flatline": "強い反動を持つ重量系連射AR。",
+      "hemlok": "重量弾薬を使用する3点バーストAR。",
+      "hemlok_elite": "ブリーチモード搭載のフルオートエリートAR。",
+      "havoc": "高DPSのエネルギーAR。",
+      "nemesis": "撃つほど連射速度が上がる4点バーストAR。",
+      "alternator": "二連銃身のSMG。",
+      "r99": "圧倒的な連射速度のSMG。",
+      "volt": "エネルギー駆動のSMG。",
+      "prowler": "5点バーストSMG。",
+      "car": "軽量・重量弾薬両対応の汎用SMG。",
+      "carCp": "ディスラプター&ハンマーポイントモード搭載のミシックC.A.R. SMG。",
+      "devotion": "強力なエネルギーLMG。",
+      "spitfire": "大容量の軽量LMG。",
+      "rampage": "一発一発が強力な重量LMG。",
+      "lstar": "プラズマ駆動のLMG。",
+      "tripletake": "エネルギーマークスマンライフル。",
+      "bocek": "精密なコンパウンドボウ。",
+      "g7scout": "半自動マークスマンライフル。",
+      "g7scoutCp": "ミシック仕様のG7スカウト。",
+      "repeater3030": "チャージ量に応じて威力が上がる重量マークスマン。",
+      "chargerifle": "距離が長いほど威力が増すスナイパーライフル。",
+      "kraber": "非常に強力な.50口径スナイパーライフル。",
+      "sentinel": "チャージ可能なボルトアクション狙撃銃。",
+      "longbow": "長距離DMR。",
+      "mozambique": "拳銃型ショットガン。",
+      "mozambiqueAkimbo": "2倍の火力を誇るアキンボモザンビーク。",
+      "mastiff": "半自動ショットガン。",
+      "peacekeeper": "レバーアクションショットガン。",
+      "eva8": "フルオートショットガン。",
+      "wingman": "高威力リボルバー。",
+      "re45": "強力な3点バーストエネルギーピストル。",
+      "re45Elite": "RE-45の3点バーストバージョン。",
+      "p2020": "標準的な半自動ピストル。",
+      "p2020Akimbo": "連射可能なP2020アキンボ。",
+      "p2020Cp": "キネティックフィーダー搭載のミシックアキンボ。"
+    }
+  },
+  "sidebarStats": {
+    "noMatches": "記録されたマッチがありません",
+    "recentGames": "直近{{count}}ゲーム",
+    "winRate": "勝率",
+    "top5Rate": "TOP5率",
+    "avgKills": "平均キル",
+    "avgDamage": "平均ダメージ",
+    "avgAssists": "平均アシスト",
+    "mostPlayed": "最多ピック"
+  },
+  "combatLog": {
+    "noEvents": "記録された戦闘がありません。",
+    "title": "戦闘ログ",
+    "eventsCount": "{{count}}件のイベント",
+    "me": "自分",
+    "unknown": "不明"
+  },
+  "gameStatus": {
+    "good": "ステータス：正常\nすべてのゲームイベントが正常に動作しています。",
+    "partial": "ステータス：一部障害\nゲームパッチにより、一部のイベント（キル・ダメージ・順位など）が取得できない場合があります。",
+    "unavailable": "ステータス：利用不可\nApex Legends APIが現在ダウン中です。トラッキングは無効化されています。",
+    "unknown": "ステータス：不明"
+  },
+  "loadout": {
+    "title": "ロードアウト",
+    "noWeapon": "武器なし",
+    "slot1": "SLOT #1",
+    "slot2": "SLOT #2"
+  },
+  "settings": {
+    "alerts": {
+      "fsMissing": "❌「FileSystem」権限がありません！\n\nmanifest.jsonを確認し、アプリを再起動してください。",
+      "openFolderFailed": "フォルダを自動で開けませんでした。\nパスをコピーしてください："
+    },
+    "sections": {
+      "community": "コミュニティ＆サポート",
+      "tools": "ツール＆ユーティリティ",
+      "appInfo": "アプリ情報"
+    },
+    "discord": {
+      "title": "Discordに参加",
+      "desc1": "バグ報告・機能要望・お問い合わせ。",
+      "desc2": "コミュニティに参加しましょう！",
+      "button": "サーバーに参加"
+    },
+    "items": {
+      "tutorialTitle": "アプリチュートリアル",
+      "tutorialDesc": "チュートリアルを実行して使い方を確認しましょう。",
+      "hotkeyTitle": "アプリのホットキー",
+      "hotkeyDesc": "ホットキーの変更 — Overwolf設定に移動します。",
+      "logsTitle": "ログフォルダを開く",
+      "logsDesc": "アプリのログが保存されているローカルフォルダを開きます。",
+      "versionTitle": "アプリバージョン",
+      "versionDesc": "現在インストール済みのバージョン"
+    },
+    "footer": {
+      "copyright": "© 2026 ApexTrace. All rights reserved.",
+      "poweredBy": "Powered by Overwolf"
+    }
+  },
+  "playstyles": {
+    "deathbox": {
+      "name": "デスボックス",
+      "sub": "ロビーへ直行"
+    },
+    "aimbot": {
+      "name": "エイムボット",
+      "sub": "人間エイムボット"
+    },
+    "dominator": {
+      "name": "支配者",
+      "sub": "ロビー全体を恐怖に陥れる者"
+    },
+    "warlord": {
+      "name": "ウォーロード",
+      "sub": "実質レイドボス"
+    },
+    "atlas": {
+      "name": "アトラス",
+      "sub": "チームを支える大黒柱"
+    },
+    "protagonist": {
+      "name": "主人公",
+      "sub": "主人公症候群"
+    },
+    "observer": {
+      "name": "観戦者",
+      "sub": "チームの戦いを傍観中"
+    },
+    "pacifist": {
+      "name": "平和主義者",
+      "sub": "平和を愛する者"
+    },
+    "backpack": {
+      "name": "バックパック",
+      "sub": "チームメイトにキャリーされ中"
+    },
+    "champion": {
+      "name": "チャンピオン",
+      "sub": "GG WP（勝者）"
+    },
+    "unluckyAce": {
+      "name": "不運なエース",
+      "sub": "戦闘には勝ったが試合に負けた"
+    },
+    "assassin": {
+      "name": "アサシン",
+      "sub": "効率的なハンター"
+    },
+    "sniper": {
+      "name": "スナイパー",
+      "sub": "エボシールド育成中"
+    },
+    "sidekick": {
+      "name": "サイドキック",
+      "sub": "自分のキルはどこ？"
+    },
+    "berserker": {
+      "name": "バーサーカー",
+      "sub": "ホットドロップ専門家"
+    },
+    "janitor": {
+      "name": "ジャニター",
+      "sub": "最後の一撃の達人"
+    },
+    "sweeper": {
+      "name": "スイーパー",
+      "sub": "敵を根こそぎ掃討"
+    },
+    "soldier": {
+      "name": "ソルジャー",
+      "sub": "やるべきことはやった"
+    },
+    "chihuahua": {
+      "name": "チワワ",
+      "sub": "吠えるだけで噛まない"
+    },
+    "runner": {
+      "name": "ランナー",
+      "sub": "マラソンシミュレーター2026"
+    },
+    "ghost": {
+      "name": "ゴースト",
+      "sub": "プロの漁夫師"
+    },
+    "rat": {
+      "name": "存버",
+      "sub": "ひたすら耐える者"
+    },
+    "heartbreaker": {
+      "name": "惜しかった",
+      "sub": "あと一歩だったのに"
+    },
+    "delivery": {
+      "name": "配達員",
+      "sub": "装備ありがとうございます"
+    },
+    "tourist": {
+      "name": "観光客",
+      "sub": "ただ景色を楽しんでいるだけ"
+    },
+    "npc": {
+      "name": "NPC",
+      "sub": "ただ存在しているだけ"
+    }
+  },
+  "matchStats": {
+    "playedLike": "プレイスタイル",
+    "matchPlaystyle": "このマッチのスタイル",
+    "survivalTime": "生存時間",
+    "killParticipant": "キル関与率",
+    "knockToKill": "ノック→キル変換率",
+    "knockToKillTooltip1": "ノックダウンさせた敵のうち、",
+    "knockToKillTooltip2": "実際にキルへ転換した割合。",
+    "damagePerKill": "キルあたりのダメージ",
+    "dmgKillSuffix": " dmg/kill",
+    "damagePerMin": "1分あたりのダメージ",
+    "dmgMinSuffix": " dmg/min",
+    "travelDistance": "移動距離",
+    "mSuffix": " m",
+    "avgMoveSpeed": "平均移動速度",
+    "msSuffix": " m/s",
+    "clickToViewProfile": "クリックでプロフィールを表示",
+    "profileNotAvailable": "プロフィールを取得できません",
+    "killsSuffix": " キル",
+    "totalKnocks": "合計ノックダウン",
+    "knocksSuffix": " ノックダウン",
+    "totalAssists": "合計アシスト",
+    "assistsSuffix": " アシスト"
+  },
+  "statistics": {
+    "tabs": {
+      "overview": "概要",
+      "maps": "マップ",
+      "legends": "レジェンド",
+      "weapons": "武器"
+    },
+    "modes": {
+      "all": "全て",
+      "ranked": "ランク",
+      "trio": "トリオ",
+      "duo": "デュオ"
+    },
+    "showingStatsFor": "統計対象：",
+    "allBrModes": "全BRモード",
+    "betaNotice": "ベータユーザー:",
+    "fullAnalyticsUnlocked": "全分析が解放されています",
+    "overview": {
+      "analytics": "アナリティクス",
+      "tier": "TIER",
+      "kdRatio": "K/D比",
+      "totalKills": "合計{{count}}キル",
+      "avgDamage": "平均ダメージ",
+      "totalDamage": "合計{{count}}ダメージ",
+      "avgSurvival": "平均生存時間",
+      "avgSurvivedTime": "平均{{m}}分{{s}}秒生存",
+      "performance": "パフォーマンス",
+      "peakKills": "最大{{count}}キル",
+      "killContribute": "平均{{rate}}%キル関与",
+      "performanceChartTitle": "パフォーマンス（直近20ゲーム）",
+      "performanceChartLegend": "● ダメージ＆キル ━ 順位"
+    },
+    "maps": {
+      "statistics": "統計",
+      "totalMatches": "総マッチ数",
+      "winRate": "勝率",
+      "kdRatio": "K/D比",
+      "avgDamage": "平均ダメージ",
+      "avgSurvival": "平均生存時間",
+      "totalKills": "総キル数",
+      "playstyle": "プレイスタイル",
+      "mostPlayedLegend": "最多使用レジェンド",
+      "favoriteWeapon": "メイン武器",
+      "noMatchesFound": "{{map}}での記録がありません"
+    },
+    "legends": {
+      "top5PickRates": "ピック率トップ5",
+      "matches": "マッチ数",
+      "winRate": "勝率",
+      "kd": "K/D",
+      "avgDamage": "平均ダメージ",
+      "avgSurvival": "平均生存時間",
+      "totalKills": "総キル数",
+      "avgKillsMatch": "平均キル/マッチ",
+      "mostUsedWeapon": "最多使用武器",
+      "wins": "勝利数",
+      "noMatchesFound": "{{legend}}での記録がありません",
+      "noData": "データなし"
+    },
+    "weapons": {
+      "kadTooltip": "この武器を装備中の（キル＋アシスト）÷デス比率。",
+      "mostUsed": "🏆 最多使用",
+      "pick": "#{{rank}}",
+      "matches": "マッチ数",
+      "kd": "K/D",
+      "kad": "KA/D",
+      "winPercent": "勝率",
+      "noWeaponData": "まだ武器データがありません。",
+      "detailedStatsTitle": "武器詳細統計",
+      "rank4Plus": "4位以内",
+      "rank": "順位",
+      "weapon": "武器",
+      "winRate": "勝率",
+      "noMoreWeapons": "これ以上の使用武器はありません。"
+    },
+    "premiumLock": {
+      "unlockAnalytics": "{{title}}分析を解放",
+      "goBeyond": "基本の先へ進みましょう。",
+      "getDetailedInsights": "詳細なインサイトを確認",
+      "performance": "パフォーマンス。",
+      "upgradeToPremium": "プレミアムにアップグレード"
+    },
+    "emptyState": {
+      "title": "∅ データが見つかりません"
+    }
+  },
+  "networkStatus": {
+    "disconnected": "ネットワーク接続が切れました",
+    "reconnecting": "再接続中..."
+  },
+  "performanceTrend": {
+    "title": "最近の順位",
+    "subtitle": "（古い → 最新）",
+    "noData": "記録されたマッチデータがありません。"
+  },
+  "playerModal": {
+    "title": "プレイヤーを選択",
+    "found": "{{count}}件のプロフィールが見つかりました。",
+    "neverSearched": "検索履歴なし",
+    "searched": "{{time}}前に検索"
+  },
+  "sidebar": {
+    "emptyNotice": "アカウントを検索する前に、登録のためマッチを1回プレイしてください。",
+    "tags": {
+      "playstyle": {
+        "grimReaper": {
+          "label": "死神",
+          "desc": "圧倒的なキル/ダメージの怪物（平均6キル以上 or 2000ダメ以上）"
+        },
+        "champion": {
+          "label": "チャンピオン候補",
+          "desc": "高い勝率を持つプレイヤー（勝率20%以上）"
+        },
+        "killMove": {
+          "label": "キルムーブ",
+          "desc": "攻撃的な戦闘スタイル（平均4キル以上）"
+        },
+        "fighter": {
+          "label": "ファイター",
+          "desc": "安定した戦闘実力（平均2キル以上）"
+        },
+        "mainDps": {
+          "label": "メインDPS",
+          "desc": "強力な火力供給（平均1200ダメ以上）"
+        },
+        "bruiser": {
+          "label": "ブルーザー",
+          "desc": "継続的なダメージ貢献（平均700ダメ以上）"
+        },
+        "teamPlayer": {
+          "label": "チームプレイヤー",
+          "desc": "高いアシスト数、優れたチームサポート"
+        },
+        "top5Machine": {
+          "label": "TOP5常連",
+          "desc": "生存の達人（TOP5率50%以上）"
+        },
+        "consistent": {
+          "label": "安定型",
+          "desc": "毎試合終盤まで安定して生き残る"
+        },
+        "hotDropper": {
+          "label": "ホットドロッパー",
+          "desc": "ダメージは高いが生存率は低い（序盤戦闘特化）"
+        },
+        "survivor": {
+          "label": "サバイバー",
+          "desc": "ダメージは低いが生存率が非常に高い（存버特化）"
+        }
+      },
+      "suffix": {
+        "god": "の神",
+        "master": "マスター",
+        "user": "ユーザー",
+        "oneTrick": "一本槍",
+        "main": "メイン"
+      },
+      "desc": {
+        "weaponGod": "この武器に対して卓越した熟練度を持つ",
+        "weaponMaster": "この武器を非常に巧みに扱う",
+        "weaponUser": "この武器を頻繁に使用する",
+        "legendOneTrick": "このレジェンドのみを使い続けるプレイヤー",
+        "legendMaster": "このレジェンドで優れたパフォーマンスを発揮",
+        "legendMain": "主にこのレジェンドでプレイする"
+      }
+    },
+    "weaponNames": {
+      "r301": "R-301",
+      "flatline": "フラットライン",
+      "hemlok": "ヘムロック",
+      "hemlok_elite": "ヘムロック",
+      "havoc": "ハボック",
+      "nemesis": "ネメシス",
+      "alternator": "オルタネーター",
+      "r99": "R-99",
+      "volt": "ボルト",
+      "prowler": "プラウラー",
+      "car": "C.A.R.",
+      "devotion": "ディヴォーション",
+      "spitfire": "スピットファイア",
+      "rampage": "ランページ",
+      "lstar": "L-STAR",
+      "tripletake": "トリプルテイク",
+      "bocek": "ボセック",
+      "g7scout": "G7スカウト",
+      "repeater3030": "30-30",
+      "chargerifle": "チャージライフル",
+      "kraber": "クレーバー",
+      "sentinel": "センチネル",
+      "longbow": "ロングボウ",
+      "mozambique": "モザンビーク",
+      "mastiff": "マスティフ",
+      "peacekeeper": "ピースキーパー",
+      "eva8": "EVA-8",
+      "wingman": "ウィングマン",
+      "re45": "RE-45",
+      "p2020": "P2020"
+    },
+    "legendNames": {
+      "alter": "オルター",
+      "ash": "アッシュ",
+      "ballistic": "バリスティック",
+      "bangalore": "バンガロール",
+      "bloodhound": "ブラッドハウンド",
+      "catalyst": "カタリスト",
+      "caustic": "コースティック",
+      "conduit": "コンジット",
+      "crypto": "クリプト",
+      "fuse": "ヒューズ",
+      "gibraltar": "ジブラルタル",
+      "horizon": "ホライゾン",
+      "loba": "ローバ",
+      "madmaggie": "マッドマギー",
+      "mirage": "ミラージュ",
+      "newcastle": "ニューキャッスル",
+      "octane": "オクタン",
+      "pathfinder": "パスファインダー",
+      "rampart": "ランパート",
+      "revenant": "レヴナント",
+      "seer": "シア",
+      "valkyrie": "ヴァルキリー",
+      "vantage": "ヴァンテージ",
+      "wattson": "ワットソン",
+      "wraith": "レイス",
+      "sparrow": "スパロー",
+      "axle": "アクセル"
+    }
+  }
+}

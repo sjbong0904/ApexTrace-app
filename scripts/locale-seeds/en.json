@@ -1,0 +1,644 @@
+{
+  "app": {
+    "title": "APEXTRACE"
+  },
+  "search": {
+    "placeholder": "Search player...",
+    "defaultName": "Search for a player...",
+    "notFoundExact": "User not found. Please enter the exact name.",
+    "serverTimeout": "Server timed out. Please try again.",
+    "error": "An error occurred.",
+    "failedToLoad": "Failed to load user data.",
+    "serverError": "Server error. Unable to retrieve data.",
+    "notFoundApi": "User not found."
+  },
+  "sync": {
+    "archiveComplete": "Sync complete: {{count}} matches downloaded.",
+    "syncingArchive": "Syncing..."
+  },
+  "nav": {
+    "matchHistory": "Match History",
+    "favorites": "Favorites",
+    "statistics": "Statistics",
+    "weapons": "Weapon Database",
+    "settings": "Settings"
+  },
+  "controls": {
+    "waitSec": "Wait {{sec}}s",
+    "refresh": "Refresh",
+    "collapseAll": "Collapse All",
+    "prev": "◀ Prev",
+    "page": "Page",
+    "of": "/",
+    "next": "Next ▶",
+    "tutorial": "Start Tutorial",
+    "pin": "Pin",
+    "unpin": "Unpin",
+    "returnToPinned": "Return to Pinned Profile",
+    "minimize": "Minimize",
+    "maximize": "Maximize",
+    "restore": "Restore",
+    "close": "Close"
+  },
+  "favorites": {
+    "empty": "No favorite players yet.",
+    "unranked": "Unranked",
+    "predator": "Predator",
+    "level": "Lv."
+  },
+  "match": {
+    "emptyTitle": "No match history recorded yet.",
+    "emptyDesc": "Keep this window open while playing to record your matches.",
+    "rank": "RANK",
+    "gamemode": "GAMEMODE",
+    "map": "MAP",
+    "damage": "DAMAGE",
+    "kills": "KILLS",
+    "assists": "ASSISTS",
+    "knocks": "KNOCKS"
+  },
+  "premium": {
+    "betaUsers": "Beta Users:",
+    "allUnlocked": "All recorded matches unlocked.",
+    "archiveTitle": "Match History",
+    "archiveDesc1": "Recent matches are shown. Older matches are stored in",
+    "archiveDescBold": "Archive",
+    "subscribe": "Subscribe to Unlock",
+    "redirecting": "Redirecting to subscription page..."
+  },
+  "tutorial": {
+    "dashboardTitle": "Dashboard",
+    "dashboardDesc": "View your match history and performance summary.",
+    "searchTitle": "Search Player",
+    "searchDesc": "Search for a player to view their stats and history.",
+    "profileTitle": "My Profile",
+    "profileDesc": "Displays your in-game profile. Updates automatically after each match.",
+    "statisticsTitle": "Detailed Stats",
+    "statisticsDesc": "Explore in-depth analytics for maps, legends, and weapons.",
+    "settingsTitle": "Settings",
+    "settingsDesc": "You can restart this tutorial anytime from Settings."
+  },
+  "weapons": {
+    "viewList": "View List",
+    "weapons": "Weapons",
+    "weaponStatistics": "Weapon Stats",
+    "bodyDamage": "Body",
+    "headshot": "Head",
+    "legDamage": "Leg",
+    "unlockHopUp": "Unlock Hop-Up",
+    "pts": "pts",
+    "magSize": "Mag Size",
+    "base": "Base",
+    "white": "Level 1",
+    "blue": "Level 2",
+    "purple": "Level 3",
+    "gold": "Level 4",
+    "compatibility": "Compatible Attachments",
+    "noDescription": "No description available.",
+    "cp": "Care Package",
+    "elite": "Elite",
+    "standard": "Standard",
+    "akimbo": "Akimbo",
+    "hopUpFallback": "Hop-Up",
+    "disruptor": "Disruptor",
+    "hammerpoint": "Hammerpoint",
+    "graffiti": "Graffiti Mod"
+  },
+  "weaponDb": {
+    "names": {
+      "r301": "R-301 Carbine",
+      "flatline": "VK-47 Flatline",
+      "hemlok": "Hemlok Burst AR",
+      "hemlok_elite": "Hemlok Breach AR",
+      "havoc": "HAVOC Rifle",
+      "nemesis": "Nemesis Burst AR",
+      "alternator": "Alternator SMG",
+      "r99": "R-99 SMG",
+      "volt": "Volt SMG",
+      "prowler": "Prowler Burst PDW",
+      "car": "C.A.R. SMG",
+      "carCp": "C.A.R. SMG (Season 28)",
+      "devotion": "Devotion LMG",
+      "spitfire": "M600 Spitfire",
+      "rampage": "Rampage LMG",
+      "lstar": "L-STAR EMG",
+      "tripletake": "Triple Take",
+      "bocek": "Bocek Compound Bow",
+      "g7scout": "G7 Scout",
+      "g7scoutCp": "G7 Scout (Season 28)",
+      "repeater3030": "30-30 Repeater",
+      "chargerifle": "Charge Rifle",
+      "kraber": "Kraber .50-Cal Sniper",
+      "sentinel": "Sentinel",
+      "longbow": "Longbow",
+      "mozambique": "Mozambique",
+      "mozambiqueAkimbo": "Mozambique Akimbo",
+      "mastiff": "Mastiff Shotgun",
+      "peacekeeper": "Peacekeeper",
+      "eva8": "EVA-8 Auto",
+      "wingman": "Wingman",
+      "re45": "RE-45 Burst",
+      "p2020": "P2020",
+      "p2020Akimbo": "P2020 Akimbo",
+      "p2020Cp": "P2020 Akimbo (Season 27)"
+    },
+    "ammo": {
+      "light": "Light Ammo",
+      "heavy": "Heavy Ammo",
+      "energy": "Energy Ammo",
+      "sniper": "Sniper Ammo",
+      "shotgun": "Shotgun Ammo",
+      "arrows": "Arrows",
+      "mythic": "Mythic"
+    },
+    "attachments": {
+      "barrel": "Barrel Stabilizer",
+      "mag": "Extended Mag",
+      "lightMag": "Extended Light Mag",
+      "heavyMag": "Extended Heavy Mag",
+      "energyMag": "Extended Energy Mag",
+      "sniperMag": "Extended Sniper Mag",
+      "shotgunBolt": "Shotgun Bolt",
+      "optic": "Optic",
+      "stock": "Standard Stock",
+      "sniperStock": "Sniper Stock",
+      "laserSight": "Laser Sight",
+      "razerSight": "Laser Sight"
+    },
+    "hopups": {
+      "turbocharger": "Turbocharger",
+      "hammerpointRounds": "Hammerpoint Rounds",
+      "disruptorRounds": "Disruptor Rounds",
+      "kineticFeeder": "Kinetic Feeder",
+      "gunShieldGenerator": "Gun Shield Generator",
+      "doubleTapTrigger": "Double Tap Trigger",
+      "selectfireReceiver": "Selectfire Receiver",
+      "graffitiMod": "Graffiti Mod",
+      "elite": "Elite",
+      "boostedLoader": "Boosted Loader",
+      "shatterCaps": "Shatter Caps",
+      "dualShell": "Dual Shell"
+    },
+    "consumables": {
+      "thermite": "Thermite",
+      "amped": "Amped",
+      "frag": "Frag Grenade"
+    },
+    "desc": {
+      "r301": "Low recoil, reliable full-auto rifle.",
+      "flatline": "Hard-hitting full-auto AR with heavy recoil.",
+      "hemlok": "3-round burst AR using heavy ammo.",
+      "hemlok_elite": "Full-auto elite AR with Breach mode.",
+      "havoc": "High DPS energy AR.",
+      "nemesis": "4-round burst AR that ramps up fire rate.",
+      "alternator": "Twin-barrel SMG.",
+      "r99": "Blazing fast fire rate SMG.",
+      "volt": "Energy-powered SMG.",
+      "prowler": "5-round burst SMG.",
+      "car": "Versatile SMG compatible with light and heavy ammo.",
+      "carCp": "Mythic C.A.R. SMG with Disruptor & Hammerpoint modes.",
+      "devotion": "Powerful energy LMG.",
+      "spitfire": "High-capacity light LMG.",
+      "rampage": "Hard-hitting heavy LMG, powerful per shot.",
+      "lstar": "Plasma-fueled LMG.",
+      "tripletake": "Energy marksman rifle.",
+      "bocek": "Precision compound bow.",
+      "g7scout": "Semi-auto marksman rifle.",
+      "g7scoutCp": "Mythic G7 Scout.",
+      "repeater3030": "Heavy marksman rifle that gets stronger the more you charge it.",
+      "chargerifle": "Sniper rifle that deals more damage at longer ranges.",
+      "kraber": "Extremely powerful .50-cal sniper rifle.",
+      "sentinel": "Chargeable bolt-action sniper.",
+      "longbow": "Long-range DMR.",
+      "mozambique": "Pistol-shotgun hybrid.",
+      "mozambiqueAkimbo": "Double the firepower with akimbo Mozambiques.",
+      "mastiff": "Semi-auto shotgun.",
+      "peacekeeper": "Lever-action shotgun.",
+      "eva8": "Full-auto shotgun.",
+      "wingman": "High-power revolver.",
+      "re45": "Hard-hitting 3-round burst energy pistol.",
+      "re45Elite": "3-round burst version of the RE-45.",
+      "p2020": "Standard semi-auto pistol.",
+      "p2020Akimbo": "Rapid-fire akimbo P2020.",
+      "p2020Cp": "Mythic akimbo with Kinetic Feeder."
+    }
+  },
+  "sidebarStats": {
+    "noMatches": "No matches recorded",
+    "recentGames": "LAST {{count}} GAMES",
+    "winRate": "Win Rate",
+    "top5Rate": "Top 5 Rate",
+    "avgKills": "Avg Kills",
+    "avgDamage": "Avg Damage",
+    "avgAssists": "Avg Assists",
+    "mostPlayed": "Most Played"
+  },
+  "combatLog": {
+    "noEvents": "No combat events recorded.",
+    "title": "Combat Log",
+    "eventsCount": "{{count}} Events",
+    "me": "Me",
+    "unknown": "Unknown"
+  },
+  "gameStatus": {
+    "good": "Status: Normal\nAll game events are running properly.",
+    "partial": "Status: Partial Outage\nSome events (kills, damage, placement, etc.) may be missing due to a game patch.",
+    "unavailable": "Status: Unavailable\nApex Legends API is currently down. Tracking is disabled.",
+    "unknown": "Status: Unknown"
+  },
+  "loadout": {
+    "title": "Loadout",
+    "noWeapon": "No Weapon",
+    "slot1": "SLOT #1",
+    "slot2": "SLOT #2"
+  },
+  "settings": {
+    "alerts": {
+      "fsMissing": "❌ 'FileSystem' permission is missing!\n\nPlease check manifest.json and restart the app.",
+      "openFolderFailed": "Failed to open folder automatically.\nPlease copy the path:"
+    },
+    "sections": {
+      "community": "Community & Support",
+      "tools": "Tools & Utilities",
+      "appInfo": "App Info"
+    },
+    "discord": {
+      "title": "Join Discord",
+      "desc1": "Bug reports, feature requests, and inquiries.",
+      "desc2": "Join our community!",
+      "button": "Join Server"
+    },
+    "items": {
+      "tutorialTitle": "App Tutorial",
+      "tutorialDesc": "Run the tutorial to learn how to use the app.",
+      "hotkeyTitle": "App Hotkey",
+      "hotkeyDesc": "Change hotkey — redirects to Overwolf settings.",
+      "logsTitle": "Open Log Folder",
+      "logsDesc": "Opens the local folder containing app logs.",
+      "versionTitle": "App Version",
+      "versionDesc": "Currently installed version"
+    },
+    "footer": {
+      "copyright": "© 2026 ApexTrace. All rights reserved.",
+      "poweredBy": "Powered by Overwolf"
+    }
+  },
+  "playstyles": {
+    "deathbox": {
+      "name": "Deathbox",
+      "sub": "Fast Travel to Lobby"
+    },
+    "aimbot": {
+      "name": "Aimbot",
+      "sub": "A Human Aimbot"
+    },
+    "dominator": {
+      "name": "Dominator",
+      "sub": "Terrorizing the Whole Lobby"
+    },
+    "warlord": {
+      "name": "Warlord",
+      "sub": "Basically a Raid Boss"
+    },
+    "atlas": {
+      "name": "Atlas",
+      "sub": "The Backbone of the Squad"
+    },
+    "protagonist": {
+      "name": "Protagonist",
+      "sub": "Main Character Syndrome"
+    },
+    "observer": {
+      "name": "Observer",
+      "sub": "Watching Teammates Fight"
+    },
+    "pacifist": {
+      "name": "Pacifist",
+      "sub": "Lover of Peace"
+    },
+    "backpack": {
+      "name": "Backpack",
+      "sub": "Getting Carried by Teammates"
+    },
+    "champion": {
+      "name": "Champion",
+      "sub": "GG WP (Winner)"
+    },
+    "unluckyAce": {
+      "name": "Unlucky Ace",
+      "sub": "Won the Fight, Lost the Game"
+    },
+    "assassin": {
+      "name": "Assassin",
+      "sub": "Efficient Hunter"
+    },
+    "sniper": {
+      "name": "Sniper",
+      "sub": "Evo Farming Mode"
+    },
+    "sidekick": {
+      "name": "Sidekick",
+      "sub": "Where Are My Kills?"
+    },
+    "berserker": {
+      "name": "Berserker",
+      "sub": "Hot Drop Specialist"
+    },
+    "janitor": {
+      "name": "Janitor",
+      "sub": "Master of the Last Hit"
+    },
+    "sweeper": {
+      "name": "Sweeper",
+      "sub": "Sweeping Enemies Away"
+    },
+    "soldier": {
+      "name": "Soldier",
+      "sub": "Did What Had to Be Done"
+    },
+    "chihuahua": {
+      "name": "Chihuahua",
+      "sub": "All Bark, No Bite"
+    },
+    "runner": {
+      "name": "Runner",
+      "sub": "Marathon Simulator 2026"
+    },
+    "ghost": {
+      "name": "Ghost",
+      "sub": "Professional Looter"
+    },
+    "rat": {
+      "name": "Rat",
+      "sub": "Holding On for Dear Life"
+    },
+    "heartbreaker": {
+      "name": "Heartbreaker",
+      "sub": "So Close, Yet So Far"
+    },
+    "delivery": {
+      "name": "Delivery",
+      "sub": "Thanks for the Gear"
+    },
+    "tourist": {
+      "name": "Tourist",
+      "sub": "Just Here for the Sights"
+    },
+    "npc": {
+      "name": "NPC",
+      "sub": "Just Existing"
+    }
+  },
+  "matchStats": {
+    "playedLike": "Playstyle",
+    "matchPlaystyle": "Match Playstyle",
+    "survivalTime": "Survival Time",
+    "killParticipant": "KP%",
+    "knockToKill": "Knock-to-Kill%",
+    "knockToKillTooltip1": "Of all enemies knocked down,",
+    "knockToKillTooltip2": "percentage actually converted to kills.",
+    "damagePerKill": "Damage per Kill",
+    "dmgKillSuffix": " dmg/kill",
+    "damagePerMin": "Damage per Min",
+    "dmgMinSuffix": " dmg/min",
+    "travelDistance": "Distance Traveled",
+    "mSuffix": " m",
+    "avgMoveSpeed": "Avg Move Speed",
+    "msSuffix": " m/s",
+    "clickToViewProfile": "Click to view profile",
+    "profileNotAvailable": "Profile unavailable",
+    "killsSuffix": " kills",
+    "totalKnocks": "Total Knocks",
+    "knocksSuffix": " knocks",
+    "totalAssists": "Total Assists",
+    "assistsSuffix": " assists"
+  },
+  "statistics": {
+    "tabs": {
+      "overview": "Overview",
+      "maps": "Maps",
+      "legends": "Legends",
+      "weapons": "Weapons"
+    },
+    "modes": {
+      "all": "All",
+      "ranked": "Ranked",
+      "trio": "Trio",
+      "duo": "Duo"
+    },
+    "showingStatsFor": "Stats for:",
+    "allBrModes": "All BR Modes",
+    "betaNotice": "Beta Users:",
+    "fullAnalyticsUnlocked": "Full Analytics Unlocked",
+    "overview": {
+      "analytics": "Analytics",
+      "tier": "TIER",
+      "kdRatio": "K/D Ratio",
+      "totalKills": "{{count}} Total Kills",
+      "avgDamage": "Avg Damage",
+      "totalDamage": "{{count}} Total Damage",
+      "avgSurvival": "Avg Survival",
+      "avgSurvivedTime": "Avg {{m}}m {{s}}s Survived",
+      "performance": "Performance",
+      "peakKills": "Peak {{count}} Kills",
+      "killContribute": "Avg {{rate}}% Kill Contribute",
+      "performanceChartTitle": "Performance (Last 20 Games)",
+      "performanceChartLegend": "● Damage & Kills ━ Placement"
+    },
+    "maps": {
+      "statistics": "Statistics",
+      "totalMatches": "Total Matches",
+      "winRate": "Win Rate",
+      "kdRatio": "K/D Ratio",
+      "avgDamage": "Avg Damage",
+      "avgSurvival": "Avg Survival",
+      "totalKills": "Total Kills",
+      "playstyle": "Playstyle",
+      "mostPlayedLegend": "Most Played Legend",
+      "favoriteWeapon": "Favorite Weapon",
+      "noMatchesFound": "No matches recorded on {{map}}"
+    },
+    "legends": {
+      "top5PickRates": "Top 5 Pick Rates",
+      "matches": "Matches",
+      "winRate": "Win Rate",
+      "kd": "K/D",
+      "avgDamage": "Avg Damage",
+      "avgSurvival": "Avg Survival",
+      "totalKills": "Total Kills",
+      "avgKillsMatch": "Avg Kills / Match",
+      "mostUsedWeapon": "Most Used Weapon",
+      "wins": "Wins",
+      "noMatchesFound": "No matches recorded with {{legend}}",
+      "noData": "No Data"
+    },
+    "weapons": {
+      "kadTooltip": "(Kills + Assists) / Deaths ratio with this weapon equipped.",
+      "mostUsed": "🏆 Most Used",
+      "pick": "#{{rank}}",
+      "matches": "Matches",
+      "kd": "K/D",
+      "kad": "KA/D",
+      "winPercent": "Win%",
+      "noWeaponData": "No weapon data yet.",
+      "detailedStatsTitle": "Detailed Weapon Stats",
+      "rank4Plus": "Top 4+",
+      "rank": "Rank",
+      "weapon": "Weapon",
+      "winRate": "Win Rate",
+      "noMoreWeapons": "No more weapons used."
+    },
+    "premiumLock": {
+      "unlockAnalytics": "Unlock {{title}} Analytics",
+      "goBeyond": "Go beyond the basics.",
+      "getDetailedInsights": "Get detailed insights on",
+      "performance": "performance.",
+      "upgradeToPremium": "Upgrade to Premium"
+    },
+    "emptyState": {
+      "title": "∅ No Data Found"
+    }
+  },
+  "networkStatus": {
+    "disconnected": "Network Disconnected",
+    "reconnecting": "Reconnecting..."
+  },
+  "performanceTrend": {
+    "title": "Recent Placements",
+    "subtitle": "(Oldest → Latest)",
+    "noData": "No match data recorded yet."
+  },
+  "playerModal": {
+    "title": "Select Player",
+    "found": "Found {{count}} profiles.",
+    "neverSearched": "Never searched",
+    "searched": "Searched {{time}} ago"
+  },
+  "sidebar": {
+    "emptyNotice": "Play one match first to register your account before searching.",
+    "tags": {
+      "playstyle": {
+        "grimReaper": {
+          "label": "Grim Reaper",
+          "desc": "Overwhelming kill/damage monster (Avg 6+ kills or 2000+ damage)"
+        },
+        "champion": {
+          "label": "Champion",
+          "desc": "High win rate player (20%+ win rate)"
+        },
+        "killMove": {
+          "label": "Kill Move",
+          "desc": "Aggressive combat style (Avg 4+ kills)"
+        },
+        "fighter": {
+          "label": "Fighter",
+          "desc": "Solid combat performance (Avg 2+ kills)"
+        },
+        "mainDps": {
+          "label": "Main DPS",
+          "desc": "High damage output (Avg 1200+ damage)"
+        },
+        "bruiser": {
+          "label": "Bruiser",
+          "desc": "Consistent damage contribution (Avg 700+ damage)"
+        },
+        "teamPlayer": {
+          "label": "Team Player",
+          "desc": "High assists, excellent team support"
+        },
+        "top5Machine": {
+          "label": "Top 5 Machine",
+          "desc": "Survival master (50%+ Top 5 rate)"
+        },
+        "consistent": {
+          "label": "Consistent",
+          "desc": "Regularly survives to late game"
+        },
+        "hotDropper": {
+          "label": "Hot Dropper",
+          "desc": "High damage but low survival (early fight specialist)"
+        },
+        "survivor": {
+          "label": "Survivor",
+          "desc": "Low damage but very high survival (ratting specialist)"
+        }
+      },
+      "suffix": {
+        "god": " God",
+        "master": " Master",
+        "user": " User",
+        "oneTrick": " One-Trick",
+        "main": " Main"
+      },
+      "desc": {
+        "weaponGod": "Exceptional mastery with this weapon",
+        "weaponMaster": "Very high proficiency with this weapon",
+        "weaponUser": "Frequently uses this weapon",
+        "legendOneTrick": "Only plays this legend exclusively",
+        "legendMaster": "Excellent performance with this legend",
+        "legendMain": "Mainly plays this legend"
+      }
+    },
+    "weaponNames": {
+      "r301": "R-301",
+      "flatline": "Flatline",
+      "hemlok": "Hemlok",
+      "hemlok_elite": "Hemlok",
+      "havoc": "HAVOC",
+      "nemesis": "Nemesis",
+      "alternator": "Alternator",
+      "r99": "R-99",
+      "volt": "Volt",
+      "prowler": "Prowler",
+      "car": "C.A.R.",
+      "devotion": "Devotion",
+      "spitfire": "Spitfire",
+      "rampage": "Rampage",
+      "lstar": "L-STAR",
+      "tripletake": "Triple Take",
+      "bocek": "Bocek",
+      "g7scout": "G7 Scout",
+      "repeater3030": "30-30",
+      "chargerifle": "Charge Rifle",
+      "kraber": "Kraber",
+      "sentinel": "Sentinel",
+      "longbow": "Longbow",
+      "mozambique": "Mozambique",
+      "mastiff": "Mastiff",
+      "peacekeeper": "Peacekeeper",
+      "eva8": "EVA-8",
+      "wingman": "Wingman",
+      "re45": "RE-45",
+      "p2020": "P2020"
+    },
+    "legendNames": {
+      "alter": "Alter",
+      "ash": "Ash",
+      "ballistic": "Ballistic",
+      "bangalore": "Bangalore",
+      "bloodhound": "Bloodhound",
+      "catalyst": "Catalyst",
+      "caustic": "Caustic",
+      "conduit": "Conduit",
+      "crypto": "Crypto",
+      "fuse": "Fuse",
+      "gibraltar": "Gibraltar",
+      "horizon": "Horizon",
+      "loba": "Loba",
+      "madmaggie": "Mad Maggie",
+      "mirage": "Mirage",
+      "newcastle": "Newcastle",
+      "octane": "Octane",
+      "pathfinder": "Pathfinder",
+      "rampart": "Rampart",
+      "revenant": "Revenant",
+      "seer": "Seer",
+      "valkyrie": "Valkyrie",
+      "vantage": "Vantage",
+      "wattson": "Wattson",
+      "wraith": "Wraith",
+      "sparrow": "Sparrow",
+      "axle": "Axle"
+    }
+  }
+}

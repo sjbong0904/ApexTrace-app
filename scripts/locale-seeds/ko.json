@@ -1,0 +1,644 @@
+{
+  "app": {
+    "title": "APEXTRACE"
+  },
+  "search": {
+    "placeholder": "플레이어 검색...",
+    "defaultName": "플레이어를 검색하세요...",
+    "notFoundExact": "유저를 찾을 수 없습니다. 정확한 이름을 입력해 주세요",
+    "serverTimeout": "서버 응답 시간 초과. 다시 시도해 주세요",
+    "error": "오류가 발생했습니다",
+    "failedToLoad": "유저 데이터를 불러오지 못했습니다",
+    "serverError": "서버 오류. 데이터를 가져올 수 없습니다",
+    "notFoundApi": "유저를 찾을 수 없습니다"
+  },
+  "sync": {
+    "archiveComplete": "동기화 완료: {{count}}개 매치 다운로드",
+    "syncingArchive": "동기화 중"
+  },
+  "nav": {
+    "matchHistory": "전적",
+    "favorites": "즐겨찾기",
+    "statistics": "통계",
+    "weapons": "무기 데이터베이스",
+    "settings": "설정"
+  },
+  "controls": {
+    "waitSec": "{{sec}}초 대기",
+    "refresh": "새로고침",
+    "collapseAll": "모두 접기",
+    "prev": "◀ 이전",
+    "page": "페이지",
+    "of": "/",
+    "next": "다음 ▶",
+    "tutorial": "튜토리얼 시작",
+    "pin": "고정",
+    "unpin": "고정 해제",
+    "returnToPinned": "고정된 프로필로 돌아가기",
+    "minimize": "최소화",
+    "maximize": "최대화",
+    "restore": "이전 크기로",
+    "close": "닫기"
+  },
+  "favorites": {
+    "empty": "즐겨찾기한 플레이어가 없습니다",
+    "unranked": "Unranked",
+    "predator": "Predator",
+    "level": "Lv."
+  },
+  "match": {
+    "emptyTitle": "기록된 전적이 없습니다.",
+    "emptyDesc": "전적 기록을 위해 게임 중 이 창을 켜두세요",
+    "rank": "RANK",
+    "gamemode": "GAMEMODE",
+    "map": "MAP",
+    "damage": "DAMAGE",
+    "kills": "KILLS",
+    "assists": "ASSISTS",
+    "knocks": "KNOCKS"
+  },
+  "premium": {
+    "betaUsers": "베타 유저:",
+    "allUnlocked": "기록된 모든 전적 해제됨",
+    "archiveTitle": "전적",
+    "archiveDesc1": "최근 매치가 표시됩니다. 오래된 매치는",
+    "archiveDescBold": "아카이브",
+    "subscribe": "구독하여 잠금 해제",
+    "redirecting": "구독 페이지로 이동 중..."
+  },
+  "tutorial": {
+    "dashboardTitle": "대시보드",
+    "dashboardDesc": "전적 기록과 퍼포먼스 요약을 확인할 수 있습니다.",
+    "searchTitle": "플레이어 검색",
+    "searchDesc": "플레이어를 검색하여 통계와 전적을 확인하세요.",
+    "profileTitle": "내 프로필",
+    "profileDesc": "인게임 프로필이 표시됩니다. 매치 종료 후 자동으로 업데이트됩니다.",
+    "statisticsTitle": "상세 통계",
+    "statisticsDesc": "맵, 레전드, 무기 등의 심층 분석을 확인하세요.",
+    "settingsTitle": "설정",
+    "settingsDesc": "설정에서 이 튜토리얼을 다시 시작할 수 있습니다."
+  },
+  "weapons": {
+    "viewList": "목록 보기",
+    "weapons": "무기",
+    "weaponStatistics": "무기 통계",
+    "bodyDamage": "기본",
+    "headshot": "머리",
+    "legDamage": "다리",
+    "unlockHopUp": "홉업 잠금 해제",
+    "pts": "pts",
+    "magSize": "탄창 크기",
+    "base": "기본",
+    "white": "레벨 1",
+    "blue": "레벨 2",
+    "purple": "레벨 3",
+    "gold": "레벨 4",
+    "compatibility": "호환 부착물",
+    "noDescription": "설명이 없습니다.",
+    "cp": "케어패키지",
+    "elite": "엘리트",
+    "standard": "기본",
+    "akimbo": "아킴보",
+    "hopUpFallback": "홉업",
+    "disruptor": "분쇄탄",
+    "hammerpoint": "추공탄",
+    "graffiti": "그래피티 모드"
+  },
+  "weaponDb": {
+    "names": {
+      "r301": "R-301 카빈",
+      "flatline": "VK-47 플랫라인",
+      "hemlok": "헴록 버스트 AR",
+      "hemlok_elite": "헴록 브리치 AR",
+      "havoc": "하복 라이플",
+      "nemesis": "네메시스 버스트 AR",
+      "alternator": "얼터네이터 SMG",
+      "r99": "R-99 SMG",
+      "volt": "볼트 SMG",
+      "prowler": "프라울러 버스트 PDW",
+      "car": "C.A.R. SMG",
+      "carCp": "C.A.R. SMG (시즌 28)",
+      "devotion": "디보션 LMG",
+      "spitfire": "M600 스핏파이어",
+      "rampage": "램페이지 LMG",
+      "lstar": "엘스타 EMG",
+      "tripletake": "트리플 테이크",
+      "bocek": "보섹 컴파운드 보우",
+      "g7scout": "G7 스카우트",
+      "g7scoutCp": "G7 스카우트 (시즌 28)",
+      "repeater3030": "30-30 리피터",
+      "chargerifle": "차지 라이플",
+      "kraber": "크레이버 .50구경 스나이퍼",
+      "sentinel": "센티넬",
+      "longbow": "롱보우",
+      "mozambique": "모잠비크",
+      "mozambiqueAkimbo": "모잠비크 아킴보",
+      "mastiff": "마스티프 샷건",
+      "peacekeeper": "피스키퍼",
+      "eva8": "EVA-8 오토",
+      "wingman": "윙맨",
+      "re45": "RE-45 버스트",
+      "p2020": "P2020",
+      "p2020Akimbo": "P2020 아킴보",
+      "p2020Cp": "P2020 아킴보 (시즌 27)"
+    },
+    "ammo": {
+      "light": "경량 탄약",
+      "heavy": "중량 탄약",
+      "energy": "에너지 탄약",
+      "sniper": "스나이퍼 탄약",
+      "shotgun": "샷건 탄약",
+      "arrows": "화살",
+      "mythic": "신화"
+    },
+    "attachments": {
+      "barrel": "총신 안정기",
+      "mag": "탄창",
+      "lightMag": "경량 탄창",
+      "heavyMag": "중량 탄창",
+      "energyMag": "에너지 탄창",
+      "sniperMag": "스나이퍼 탄창",
+      "shotgunBolt": "샷건 볼트",
+      "optic": "조준경",
+      "stock": "개머리판",
+      "sniperStock": "저격용 개머리판",
+      "laserSight": "레이저 사이트",
+      "razerSight": "레이저 사이트"
+    },
+    "hopups": {
+      "turbocharger": "터보차저",
+      "hammerpointRounds": "추공탄",
+      "disruptorRounds": "분쇄탄",
+      "kineticFeeder": "키네틱 피더",
+      "gunShieldGenerator": "건 실드 생성기",
+      "doubleTapTrigger": "더블 탭 트리거",
+      "selectfireReceiver": "사격 방식 선택기",
+      "graffitiMod": "그래피티 모드",
+      "elite": "엘리트",
+      "boostedLoader": "부스티드 로더",
+      "shatterCaps": "산탄형 촉",
+      "dualShell": "듀얼 쉘"
+    },
+    "consumables": {
+      "thermite": "테르밋",
+      "amped": "충전시",
+      "frag": "세열 수류탄"
+    },
+    "desc": {
+      "r301": "반동이 적은 무난한 연사 소총.",
+      "flatline": "강한 반동의 연사 AR.",
+      "hemlok": "중량 탄약을 사용하는 3점사 AR.",
+      "hemlok_elite": "브리치 모드를 탑재한 완전 자동 엘리트 AR.",
+      "havoc": "높은 DPS의 에너지 AR.",
+      "nemesis": "사격할수록 빨라지는 강력한 4점사 AR.",
+      "alternator": "이중 총열 SMG.",
+      "r99": "빠른 연사속도의 SMG.",
+      "volt": "에너지 기반 SMG.",
+      "prowler": "5점사 SMG.",
+      "car": "경량/중량 모두 사용 가능한 SMG.",
+      "carCp": "분쇄 & 추공 모드의 신화버전 C.A.R. SMG.",
+      "devotion": "강력한 에너지 LMG.",
+      "spitfire": "대용량 탄창의 경량 LMG.",
+      "rampage": "한발 한발이 강력한 중량 LMG.",
+      "lstar": "플라즈마 기반 LMG.",
+      "tripletake": "에너지 마크스맨 소총.",
+      "bocek": "정밀 조준 활.",
+      "g7scout": "반자동 단발 소총.",
+      "g7scoutCp": "신화 등급 G7 스카우트.",
+      "repeater3030": " 차징 정도에 따라 강력해지는 중량 마크스맨.",
+      "chargerifle": "거리가 멀어질수록 강력해지는 저격총.",
+      "kraber": "매우 강력한 .50구경 저격소총.",
+      "sentinel": "충전 가능한 볼트액션 저격소총.",
+      "longbow": "장거리 DMR.",
+      "mozambique": "권총형 산탄총.",
+      "mozambiqueAkimbo": "두 배 화력의 아킴보 버전 모잠비크.",
+      "mastiff": "반자동 산탄총.",
+      "peacekeeper": "레버액션 산탄총.",
+      "eva8": "전자동 산탄총.",
+      "wingman": "고위력 리볼버.",
+      "re45": "강력한 3점사 에너지 권총.",
+      "re45Elite": "RE-45의 3점사 버전.",
+      "p2020": "일반적인 권총.",
+      "p2020Akimbo": " 연사 가능한 P2020 아킴보 버전.",
+      "p2020Cp": "키네틱 피더 장착 신화 아킴보."
+    }
+  },
+  "sidebarStats": {
+    "noMatches": "기록된 매치 없음",
+    "recentGames": "최근 {{count}}게임",
+    "winRate": "승률",
+    "top5Rate": "TOP 5 비율",
+    "avgKills": "평균 킬",
+    "avgDamage": "평균 데미지",
+    "avgAssists": "평균 어시스트",
+    "mostPlayed": "최다 픽"
+  },
+  "combatLog": {
+    "noEvents": "기록된 전투가 없습니다",
+    "title": "전투 로그",
+    "eventsCount": "이벤트 {{count}}개",
+    "me": "나",
+    "unknown": "알 수 없음"
+  },
+  "gameStatus": {
+    "good": "상태: 정상\n모든 게임 이벤트가 정상 작동 중입니다.",
+    "partial": "상태: 부분 장애\n게임 패치로 인해 일부 이벤트(킬, 데미지, 순위 등)가 누락될 수 있습니다.",
+    "unavailable": "상태: 사용 불가\nApex Legends API가 현재 다운되었습니다. 추적이 비활성화됩니다.",
+    "unknown": "상태: 알 수 없음"
+  },
+  "loadout": {
+    "title": "로드아웃",
+    "noWeapon": "무기 없음",
+    "slot1": "SLOT #1",
+    "slot2": "SLOT #2"
+  },
+  "settings": {
+    "alerts": {
+      "fsMissing": "❌ 'FileSystem' 권한이 없습니다!\n\nmanifest.json을 확인하고 앱을 재시작하세요.",
+      "openFolderFailed": "폴더를 자동으로 열지 못했습니다.\n경로를 복사하세요:"
+    },
+    "sections": {
+      "community": "커뮤니티 & 지원",
+      "tools": "도구 & 유틸리티",
+      "appInfo": "앱 정보"
+    },
+    "discord": {
+      "title": "디스코드 참여",
+      "desc1": "버그 제보, 기능 제안, 문의 사항.",
+      "desc2": "커뮤니티에 참여하세요!",
+      "button": "서버 참여"
+    },
+    "items": {
+      "tutorialTitle": "앱 튜토리얼",
+      "tutorialDesc": "튜토리얼을 실행하여 기능을 익혀보세요.",
+      "hotkeyTitle": "앱 단축키",
+      "hotkeyDesc": "단축키 변경 * Overwolf 설정으로 이동합니다.",
+      "logsTitle": "로그 폴더 열기",
+      "logsDesc": "앱 로그가 저장된 로컬 폴더를 엽니다.",
+      "versionTitle": "앱 버전",
+      "versionDesc": "현재 설치 버전"
+    },
+    "footer": {
+      "copyright": "© 2026 ApexTrace. All rights reserved.",
+      "poweredBy": "Powered by Overwolf"
+    }
+  },
+  "playstyles": {
+    "deathbox": {
+      "name": "데스박스",
+      "sub": "로비로 빠른 귀환"
+    },
+    "aimbot": {
+      "name": "에임봇",
+      "sub": "인간 에임봇"
+    },
+    "dominator": {
+      "name": "지배자",
+      "sub": "로비 전체를 공포로 물들이는 자"
+    },
+    "warlord": {
+      "name": "전쟁군주",
+      "sub": "사실상 레이드 보스"
+    },
+    "atlas": {
+      "name": "아틀라스",
+      "sub": "팀을 이끄는 버팀목"
+    },
+    "protagonist": {
+      "name": "주인공",
+      "sub": "주인공 증후군"
+    },
+    "observer": {
+      "name": "관전자",
+      "sub": "팀원 싸움 구경 중"
+    },
+    "pacifist": {
+      "name": "평화주의자",
+      "sub": "평화를 사랑하는 자"
+    },
+    "backpack": {
+      "name": "5렙 가방",
+      "sub": "팀원에게 캐리당하는 중"
+    },
+    "champion": {
+      "name": "챔피언",
+      "sub": "GG WP (승리자)"
+    },
+    "unluckyAce": {
+      "name": "불운한 에이스",
+      "sub": "전투는 이겼지만 전쟁에서 짐"
+    },
+    "assassin": {
+      "name": "암살자",
+      "sub": "효율적인 사냥꾼"
+    },
+    "sniper": {
+      "name": "스나이퍼",
+      "sub": "이보 파밍 중"
+    },
+    "sidekick": {
+      "name": "사이드킥",
+      "sub": "내 킬은 어디에?"
+    },
+    "berserker": {
+      "name": "버서커",
+      "sub": "핫드롭 전문가"
+    },
+    "janitor": {
+      "name": "청소부",
+      "sub": "마지막 한 방의 달인"
+    },
+    "sweeper": {
+      "name": "스위퍼",
+      "sub": "적을 쓸어버리는 자"
+    },
+    "soldier": {
+      "name": "군인",
+      "sub": "할 일은 다 했다"
+    },
+    "chihuahua": {
+      "name": "치와와",
+      "sub": "짖기만 하고 물지는 않음"
+    },
+    "runner": {
+      "name": "러너",
+      "sub": "마라톤 시뮬레이터 2026"
+    },
+    "ghost": {
+      "name": "고스트",
+      "sub": "전문 루터"
+    },
+    "rat": {
+      "name": "존버",
+      "sub": "열심히 벼텨요"
+    },
+    "heartbreaker": {
+      "name": "하트브레이커",
+      "sub": "아쉽다, 정말 아쉬워"
+    },
+    "delivery": {
+      "name": "배달부",
+      "sub": "장비 감사히 받겠습니다"
+    },
+    "tourist": {
+      "name": "관광객",
+      "sub": "그냥 구경 중"
+    },
+    "npc": {
+      "name": "NPC",
+      "sub": "그냥 존재하는 중"
+    }
+  },
+  "matchStats": {
+    "playedLike": "플레이 스타일",
+    "matchPlaystyle": "매치 플레이 스타일",
+    "survivalTime": "생존 시간",
+    "killParticipant": "킬 관여율",
+    "knockToKill": "녹다운/킬 전환율",
+    "knockToKillTooltip1": "녹다운시킨 적 중에서",
+    "knockToKillTooltip2": "실제 킬로 전환된 비율",
+    "damagePerKill": "킬당 데미지",
+    "dmgKillSuffix": " dmg/kill",
+    "damagePerMin": "분당 데미지",
+    "dmgMinSuffix": " dmg/min",
+    "travelDistance": "이동 거리",
+    "mSuffix": " m",
+    "avgMoveSpeed": "평균 이동 속도",
+    "msSuffix": " m/s",
+    "clickToViewProfile": "클릭하여 프로필 보기",
+    "profileNotAvailable": "프로필을 불러올 수 없습니다",
+    "killsSuffix": " 킬",
+    "totalKnocks": "총 녹다운",
+    "knocksSuffix": " 녹다운",
+    "totalAssists": "총 어시스트",
+    "assistsSuffix": " 어시스트"
+  },
+  "statistics": {
+    "tabs": {
+      "overview": "개요",
+      "maps": "맵",
+      "legends": "레전드",
+      "weapons": "무기"
+    },
+    "modes": {
+      "all": "전체",
+      "ranked": "랭크",
+      "trio": "트리오",
+      "duo": "듀오"
+    },
+    "showingStatsFor": "통계 기준:",
+    "allBrModes": "전체 BR 모드",
+    "betaNotice": "베타 유저:",
+    "fullAnalyticsUnlocked": "전체 분석 잠금 해제됨",
+    "overview": {
+      "analytics": "분석",
+      "tier": "TIER",
+      "kdRatio": "K/D 비율",
+      "totalKills": "총 {{count}} 킬",
+      "avgDamage": "평균 데미지",
+      "totalDamage": "총 {{count}} 데미지",
+      "avgSurvival": "평균 생존 시간",
+      "avgSurvivedTime": "평균 {{m}}분 {{s}}초 생존",
+      "performance": "퍼포먼스",
+      "peakKills": "최대 킬 수: {{count}}",
+      "killContribute": "평균 {{rate}}% 킬 관여",
+      "performanceChartTitle": "퍼포먼스 (최근 20게임)",
+      "performanceChartLegend": "● 데미지 & 킬 ━ 순위"
+    },
+    "maps": {
+      "statistics": "통계",
+      "totalMatches": "총 매치 수",
+      "winRate": "승률",
+      "kdRatio": "K/D 비율",
+      "avgDamage": "평균 데미지",
+      "avgSurvival": "평균 생존 시간",
+      "totalKills": "총 킬",
+      "playstyle": "플레이 스타일",
+      "mostPlayedLegend": "가장 많이 사용한 레전드",
+      "favoriteWeapon": "주 사용 무기",
+      "noMatchesFound": "{{map}}에서 기록된 매치가 없습니다"
+    },
+    "legends": {
+      "top5PickRates": "픽률 상위 5",
+      "matches": "매치",
+      "winRate": "승률",
+      "kd": "K/D",
+      "avgDamage": "평균 데미지",
+      "avgSurvival": "평균 생존 시간",
+      "totalKills": "총 킬 수",
+      "avgKillsMatch": "매치당 평균 킬",
+      "mostUsedWeapon": "가장 많이 사용한 무기",
+      "wins": "승리",
+      "noMatchesFound": "{{legend}}로 기록된 매치가 없습니다",
+      "noData": "데이터 없음"
+    },
+    "weapons": {
+      "kadTooltip": "이 무기의 (킬 + 어시스트) / 데스 비율",
+      "mostUsed": "🏆 가장 많이 사용한 무기",
+      "pick": "#{{rank}}",
+      "matches": "매치 수",
+      "kd": "K/D",
+      "kad": "KA/D",
+      "winPercent": "승률",
+      "noWeaponData": "아직 무기 데이터가 없습니다",
+      "detailedStatsTitle": "무기 상세 통계",
+      "rank4Plus": "4위 이상",
+      "rank": "순위",
+      "weapon": "무기",
+      "winRate": "승률",
+      "noMoreWeapons": "더 이상 사용한 무기가 없습니다."
+    },
+    "premiumLock": {
+      "unlockAnalytics": "{{title}} 분석 잠금 해제",
+      "goBeyond": "기본을 넘어서세요.",
+      "getDetailedInsights": "상세 인사이트 확인하기",
+      "performance": "퍼포먼스.",
+      "upgradeToPremium": "프리미엄으로 업그레이드"
+    },
+    "emptyState": {
+      "title": "∅ 데이터를 찾을 수 없음"
+    }
+  },
+  "networkStatus": {
+    "disconnected": "네트워크 연결 끊김",
+    "reconnecting": "재연결 중..."
+  },
+  "performanceTrend": {
+    "title": "최근 순위",
+    "subtitle": "(과거 → 최근)",
+    "noData": "기록된 매치 데이터가 없습니다"
+  },
+  "playerModal": {
+    "title": "플레이어 선택",
+    "found": "{{count}}개의 프로필을 찾았습니다.",
+    "neverSearched": "검색 기록 없음",
+    "searched": "{{time}} 전 검색"
+  },
+  "sidebar": {
+    "emptyNotice": "계정 검색 전, 등록을 위해 매치를 한 번 플레이해 주세요.",
+    "tags": {
+      "playstyle": {
+        "grimReaper": {
+          "label": "사신",
+          "desc": "압도적인 킬/데미지 괴물 (평균 6킬 이상 또는 2000딜 이상)"
+        },
+        "champion": {
+          "label": "우승 후보",
+          "desc": "높은 승률 보유자 (승률 20% 이상)"
+        },
+        "killMove": {
+          "label": "킬 무브",
+          "desc": "공격적인 전투 스타일 (평균 4킬 이상)"
+        },
+        "fighter": {
+          "label": "파이터",
+          "desc": "준수한 전투 실력 (평균 2킬 이상)"
+        },
+        "mainDps": {
+          "label": "메인 딜러",
+          "desc": "강력한 화력 지원 (평균 1200딜 이상)"
+        },
+        "bruiser": {
+          "label": "브루저",
+          "desc": "꾸준한 데미지 기여 (평균 700딜 이상)"
+        },
+        "teamPlayer": {
+          "label": "팀 플레이어",
+          "desc": "높은 어시스트, 뛰어난 팀 서포트"
+        },
+        "top5Machine": {
+          "label": "순방 전문가",
+          "desc": "생존의 달인 (TOP 5 비율 50% 이상)"
+        },
+        "consistent": {
+          "label": "안정적",
+          "desc": "매번 후반 교전까지 생존함"
+        },
+        "hotDropper": {
+          "label": "핫 드롭",
+          "desc": "데미지는 높으나 생존력이 낮음 (초반 교전 특화)"
+        },
+        "survivor": {
+          "label": "생존 전문가",
+          "desc": "데미지는 낮으나 생존력이 매우 높음 (존버 장인)"
+        }
+      },
+      "suffix": {
+        "god": "의 신",
+        "master": " 마스터",
+        "user": " 유저",
+        "oneTrick": " 원챔",
+        "main": " 유저"
+      },
+      "desc": {
+        "weaponGod": "이 무기에 대해 엄청난 숙련도를 보유함",
+        "weaponMaster": "이 무기를 매우 능숙하게 다룸",
+        "weaponUser": "이 무기를 자주 사용함",
+        "legendOneTrick": "오직 이 레전드만 고집하는 플레이어",
+        "legendMaster": "이 레전드로 뛰어난 퍼포먼스를 보여줌",
+        "legendMain": "주로 이 레전드로 플레이함"
+      }
+    },
+    "weaponNames": {
+      "r301": "R-301",
+      "flatline": "플랫라인",
+      "hemlok": "헴록",
+      "hemlok_elite": "헴록",
+      "havoc": "하복",
+      "nemesis": "네메시스",
+      "alternator": "얼터네이터",
+      "r99": "R-99",
+      "volt": "볼트",
+      "prowler": "프라울러",
+      "car": "C.A.R.",
+      "devotion": "디보션",
+      "spitfire": "스핏파이어",
+      "rampage": "램페이지",
+      "lstar": "엘스타",
+      "tripletake": "트리플 테이크",
+      "bocek": "보섹",
+      "g7scout": "G7 스카우트",
+      "repeater3030": "30-30",
+      "chargerifle": "차지 라이플",
+      "kraber": "크레이버",
+      "sentinel": "센티넬",
+      "longbow": "롱보우",
+      "mozambique": "모잠비크",
+      "mastiff": "마스티프",
+      "peacekeeper": "피스키퍼",
+      "eva8": "EVA-8",
+      "wingman": "윙맨",
+      "re45": "RE-45",
+      "p2020": "P2020"
+    },
+    "legendNames": {
+      "alter": "알터",
+      "ash": "애쉬",
+      "ballistic": "발리스틱",
+      "bangalore": "방갈로르",
+      "bloodhound": "블러드하운드",
+      "catalyst": "카탈리스트",
+      "caustic": "코스틱",
+      "conduit": "콘딧",
+      "crypto": "크립토",
+      "fuse": "퓨즈",
+      "gibraltar": "지브롤터",
+      "horizon": "호라이즌",
+      "loba": "로바",
+      "madmaggie": "매드 매기",
+      "mirage": "미라지",
+      "newcastle": "뉴캐슬",
+      "octane": "옥테인",
+      "pathfinder": "패스파인더",
+      "rampart": "램파트",
+      "revenant": "레버넌트",
+      "seer": "시어",
+      "valkyrie": "발키리",
+      "vantage": "밴티지",
+      "wattson": "왓슨",
+      "wraith": "레이스",
+      "sparrow": "스패로우",
+      "axle": "액슬"
+    }
+  }
+}
