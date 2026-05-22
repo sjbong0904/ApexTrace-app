@@ -1,5 +1,7 @@
 # ApexTrace (Overwolf)
 
+**Repository:** https://github.com/sjbong0904/ApexTrace-app
+
 Apex Legends match tracking and stats overlay for [Overwolf](https://www.overwolf.com/).
 
 This repository contains the **Overwolf desktop app** (React + Vite). It does **not** include the Vercel-hosted API proxy; keep that in your separate Vercel-linked repo (`trace-proxy-server`).
