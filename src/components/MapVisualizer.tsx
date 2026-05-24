@@ -124,12 +124,14 @@ const MapVisualizer: React.FC<MapVisualizerProps> = ({ match }) => {
         const emptyResult = { segments: [] as string[], jumpMarkers: [] as any[], displayPath: [] as any[] };
         if (validPath.length === 0) return emptyResult;
 
-        let filtered = validPath.filter((pt: any) => pt.p === 'landed');
-        if (filtered.length === 0) filtered = validPath.filter((pt: any) => pt.p !== 'aircraft');
-        if (filtered.length === 0) filtered = validPath;
-        if (filtered.length === 0) return emptyResult;
+        const filterGroundPath = (points: any[]) => {
+            let filtered = points.filter((pt: any) => pt.p === 'landed');
+            if (filtered.length === 0) filtered = points.filter((pt: any) => pt.p !== 'aircraft');
+            if (filtered.length === 0) filtered = points;
+            return filtered;
+        };
 
-        const usesLifeSegments = filtered.some(
+        const usesLifeSegments = validPath.some(
             (pt: any) => pt.s !== undefined && pt.s !== null
         );
 
@@ -148,20 +150,19 @@ const MapVisualizer: React.FC<MapVisualizerProps> = ({ match }) => {
         };
 
         if (usesLifeSegments) {
-            const groups: { id: number; points: any[] }[] = [];
-            let currentId = filtered[0].s ?? 0;
-            let bucket: any[] = [filtered[0]];
-
-            for (let i = 1; i < filtered.length; i++) {
-                const segId = filtered[i].s ?? 0;
-                if (segId !== currentId) {
-                    groups.push({ id: currentId, points: bucket });
-                    currentId = segId;
-                    bucket = [];
-                }
-                bucket.push(filtered[i]);
+            const segmentMap = new Map<number, any[]>();
+            for (const pt of validPath) {
+                const segId = pt.s ?? 0;
+                if (!segmentMap.has(segId)) segmentMap.set(segId, []);
+                segmentMap.get(segId)!.push(pt);
             }
-            groups.push({ id: currentId, points: bucket });
+
+            const groups = Array.from(segmentMap.entries())
+                .sort(([a], [b]) => a - b)
+                .map(([id, points]) => ({ id, points: filterGroundPath(points) }))
+                .filter((group) => group.points.length > 0);
+
+            if (groups.length === 0) return emptyResult;
 
             groups.forEach((group, idx) => {
                 if (group.points.length === 0) return;
@@ -176,7 +177,18 @@ const MapVisualizer: React.FC<MapVisualizerProps> = ({ match }) => {
                 }
                 pushPathFromPoints(group.points);
             });
-        } else {
+
+            return {
+                segments: resultSegments,
+                jumpMarkers: resultMarkers,
+                displayPath: groups.flatMap((group) => group.points),
+            };
+        }
+
+        const filtered = filterGroundPath(validPath);
+        if (filtered.length === 0) return emptyResult;
+
+        {
             // 구 데이터: segment(s) 없으면 거리 기반 폴백
             const JUMP_THRESHOLD = 8.0;
             let prevRaw = filtered[0];

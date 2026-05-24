@@ -716,7 +716,7 @@ const GameProcessMonitor = {
         if (GameProcessMonitor._featuresRegistered || GameProcessMonitor._retryTimer) return; 
 
         const REQUIRED_FEATURES = window.GEP_FEATURES ?? [
-            'gep_internal', 'game_info', 'match_info', 'kill', 'death',
+            'gep_internal', 'game_info', 'match_info', 'kill', 'death', 'revive',
             'me', 'roster', 'rank', 'team', 'location', 'inventory', 'kill_feed', 'match_state'
         ];
         const RETRY_DELAY = 3000;
