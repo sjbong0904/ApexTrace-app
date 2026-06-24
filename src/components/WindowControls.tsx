@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { FaWindowMinimize, FaWindowMaximize, FaWindowRestore, FaTimes } from 'react-icons/fa';
 import { useTranslation } from 'react-i18next';
+import { c } from '../theme';
 
 // ✅ 공통 유틸로 분리 권장: utils/overwolf.ts
 const getCurrentWindow = (): Promise<any> =>
@@ -41,11 +42,15 @@ const WindowControls = () => {
 
     const handleClose = async () => {
         const win = await getCurrentWindow();
+        const bg = overwolf.windows.getMainWindow() as typeof window & {
+            WindowController?: { closeWorker?: () => void };
+        };
+        bg?.WindowController?.closeWorker?.();
         overwolf.windows.close(win.id);
     };
 
     const btnStyle: React.CSSProperties = {
-        background: 'transparent', border: 'none', color: '#888',
+        background: 'transparent', border: 'none', color: c.textMuted,
         width: '45px', height: '100%', cursor: 'pointer', fontSize: '14px',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         transition: 'all 0.2s', outline: 'none',
@@ -59,8 +64,8 @@ const WindowControls = () => {
                 style={btnStyle}
                 // ✅ 번역 키 적용
                 title={t('controls.minimize')}
-                onMouseEnter={(e) => { e.currentTarget.style.background = '#333'; e.currentTarget.style.color = '#fff'; }}
-                onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#888'; }}
+                onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--color-border)'; e.currentTarget.style.color = 'var(--color-text-primary)'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--color-text-muted)'; }}
             >
                 <FaWindowMinimize size={10} style={{ marginBottom: '5px' }} />
             </button>
@@ -68,10 +73,9 @@ const WindowControls = () => {
             <button
                 onClick={handleToggleMaximize}
                 style={btnStyle}
-                // ✅ 번역 키 적용
                 title={isMaximized ? t('controls.restore') : t('controls.maximize')}
-                onMouseEnter={(e) => { e.currentTarget.style.background = '#333'; e.currentTarget.style.color = '#fff'; }}
-                onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#888'; }}
+                onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--color-border)'; e.currentTarget.style.color = 'var(--color-text-primary)'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--color-text-muted)'; }}
             >
                 {isMaximized ? <FaWindowRestore size={11} /> : <FaWindowMaximize size={11} />}
             </button>
@@ -79,10 +83,9 @@ const WindowControls = () => {
             <button
                 onClick={handleClose}
                 style={btnStyle}
-                // ✅ 번역 키 적용
                 title={t('controls.close')}
-                onMouseEnter={(e) => { e.currentTarget.style.background = '#e74c3c'; e.currentTarget.style.color = '#fff'; }}
-                onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#888'; }}
+                onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--color-accent)'; e.currentTarget.style.color = 'var(--color-text-primary)'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--color-text-muted)'; }}
             >
                 <FaTimes size={15} />
             </button>

@@ -91,7 +91,9 @@ export const WEAPONS_DB: WeaponInfo[] = [
             dmg: { body: 20, head: 26, leg: 15 },
             magSize: { lv0: 19, lv1: 23, lv2: 27, lv3: 29, lv4: 29 }
         },
-        attachments: ['Heavy-Mag', 'Optic', 'Stock']
+        attachments: ['Heavy-Mag', 'Optic', 'Stock'],
+        hopup: ['Graffiti Mod'],
+        hopup_point: 400
     },
     {
         id: 'hemlok',
@@ -155,7 +157,9 @@ export const WEAPONS_DB: WeaponInfo[] = [
             dmg: { body: 17, head: 22, leg: 13 },
             magSize: { lv0: 20, lv1: 24, lv2: 28, lv3: 32, lv4: 32 }
         },
-        attachments: ['Barrel', 'Energy-Mag', 'Optic', 'Stock']
+        attachments: ['Barrel', 'Energy-Mag', 'Optic', 'Stock'],
+        hopup: ['Turbocharger'],
+        hopup_point: 600
     },
 
     // SMG
@@ -205,7 +209,9 @@ export const WEAPONS_DB: WeaponInfo[] = [
             dmg: { body: 15, head: 23, leg: 12 },
             magSize: { lv0: 20, lv1: 22, lv2: 24, lv3: 27, lv4: 27 },
         },
-        attachments: ['Laser-Sight', 'Energy-Mag', 'Optic', 'Stock']
+        attachments: ['Laser-Sight', 'Energy-Mag', 'Optic', 'Stock'],
+        hopup: ['Graffiti Mod'],
+        hopup_point: 400
     },
     {
         id: 'prowler',
@@ -477,11 +483,8 @@ export const WEAPONS_DB: WeaponInfo[] = [
         stats: {
             dmg: { body: 60, head: 108, leg: 48 },
             magSize: { lv0: 6, lv1: 8, lv2: 10, lv3: 12, lv4: 12 },
-            hopup_magSize: { lv0: 8, lv1: 10, lv2: 12, lv3: 14, lv4: 14 },
         },
-        attachments: ['Sniper-Mag', 'Optic', 'Sniper-Stock'],
-        hopup: ['Graffiti Mod'],
-        hopup_point: 400
+        attachments: ['Sniper-Mag', 'Optic', 'Sniper-Stock']
     },
 
     // SHOTGUN
@@ -497,11 +500,8 @@ export const WEAPONS_DB: WeaponInfo[] = [
         stats: {
             dmg: { body: 51, head: 63, leg: 51 },
             magSize: { lv0: 5 },
-            hopup_magSize: { lv0: 6 },
         },
-        attachments: ['Shotgun-Bolt', 'Optic'],
-        hopup: ['Graffiti Mod'],
-        hopup_point: 400
+        attachments: ['Shotgun-Bolt', 'Optic']
     },
     {
         id: 'mozambique_akimbo',
@@ -516,11 +516,8 @@ export const WEAPONS_DB: WeaponInfo[] = [
         stats: {
             dmg: { body: 51, head: 63, leg: 51 },
             magSize: { lv0: 10 },
-            hopup_magSize: { lv0: 12 },
         },
-        attachments: ['Shotgun-Bolt', 'Optic'],
-        hopup: ['Graffiti Mod'],
-        hopup_point: 400
+        attachments: ['Shotgun-Bolt', 'Optic']
     },
     {
         id: 'mastiff',
@@ -536,8 +533,8 @@ export const WEAPONS_DB: WeaponInfo[] = [
             magSize: { lv0: 5 },
         },
         attachments: ['Shotgun-Bolt', 'Optic', 'Stock'],
-        hopup: ['Dual Shell'],
-        hopup_point: 300
+        hopup: ['Executioner'],
+        hopup_point: 375
     },
     {
         id: 'peacekeeper',
@@ -552,11 +549,10 @@ export const WEAPONS_DB: WeaponInfo[] = [
             dmg: { body: 99, head: 99, leg: 99 },
             dps: 80,
             magSize: { lv0: 5 },
-            shield_dmg: { body: 108, head: 108, leg: 108 },
         },
         attachments: ['Shotgun-Bolt', 'Optic', 'Stock'],
-        hopup: ['Disruptor Rounds'],
-        hopup_point: 500
+        hopup: ['Executioner'],
+        hopup_point: 375
     },
     {
         id: 'eva-8',
@@ -589,11 +585,8 @@ export const WEAPONS_DB: WeaponInfo[] = [
         stats: {
             dmg: { body: 50, head: 75, leg: 45 },
             magSize: { lv0: 5, lv1: 6, lv2: 7, lv3: 8, lv4: 8 },
-            hopup_magSize: { lv0: 7, lv1: 8, lv2: 9, lv3: 10, lv4: 10 },
         },
-        attachments: [ 'Razer-Sight', 'Sniper-Mag', 'Optic'],
-        hopup: ['Graffiti Mod'],
-        hopup_point: 425
+        attachments: [ 'Razer-Sight', 'Sniper-Mag', 'Optic']
     },
     {
         id: 're-45',

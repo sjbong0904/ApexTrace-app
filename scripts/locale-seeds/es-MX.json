@@ -57,6 +57,21 @@
     "assists": "ASSISTS",
     "knocks": "KNOCKS"
   },
+  "matchDetails": {
+    "stats": "Estadísticas",
+    "loadoutTimeline": "Cronología de armamento",
+    "loadoutTimelineDesc": "Cambios de armas detectados durante esta partida.",
+    "noLoadoutTimeline": "No se registraron cambios de armas en esta partida.",
+    "time": "Tiempo",
+    "before": "Antes",
+    "after": "Después",
+    "actionLoadoutChange": "Cambio de armamento"
+  },
+  "hotkeyReminder": {
+    "label": "Atajo en juego",
+    "desktopLabel": "Atajo de segunda pantalla",
+    "inGameLabel": "Atajo en juego"
+  },
   "premium": {
     "betaUsers": "Usuarios beta:",
     "allUnlocked": "Todas las partidas registradas desbloqueadas.",
@@ -177,7 +192,8 @@
       "elite": "Elite",
       "boostedLoader": "Boosted Loader",
       "shatterCaps": "Shatter Caps",
-      "dualShell": "Dual Shell"
+      "dualShell": "Dual Shell",
+      "executioner": "Executioner"
     },
     "consumables": {
       "thermite": "Termita",
@@ -260,7 +276,14 @@
     "sections": {
       "community": "Comunidad y soporte",
       "tools": "Herramientas y utilidades",
-      "appInfo": "Información de la app"
+      "appInfo": "Información de la app",
+      "theme": "Tema"
+    },
+    "theme": {
+      "modeTitle": "Modo",
+      "modeDesc": "Cambia el color de fondo de toda la aplicación.",
+      "dark": "Oscuro",
+      "light": "Claro"
     },
     "discord": {
       "title": "Unirse a Discord",
@@ -272,7 +295,11 @@
       "tutorialTitle": "Tutorial de la app",
       "tutorialDesc": "Ejecuta el tutorial para aprender a usar la aplicación.",
       "hotkeyTitle": "Atajo de la app",
-      "hotkeyDesc": "Cambiar atajo — redirige a los ajustes de Overwolf.",
+      "hotkeyDesc": "Consulta y cambia los atajos de ApexTrace dentro de la app.",
+      "desktopHotkeyTitle": "Atajo de segunda pantalla",
+      "desktopHotkeyDesc": "Cambia el atajo que muestra u oculta la ventana de segunda pantalla.",
+      "inGameHotkeyTitle": "Atajo de ventana en juego",
+      "inGameHotkeyDesc": "Cambia el atajo que muestra u oculta la superposición en juego.",
       "logsTitle": "Abrir carpeta de registros",
       "logsDesc": "Abre la carpeta local con los registros de la aplicación.",
       "versionTitle": "Versión de la app",
@@ -508,11 +535,16 @@
     "subtitle": "(Más antigua → Más reciente)",
     "noData": "Aún no hay datos de partidas registrados."
   },
+  "relativeTime": {
+    "justNow": "Ahora mismo",
+    "ago": "Hace {{time}}"
+  },
   "playerModal": {
     "title": "Seleccionar jugador",
     "found": "Se encontraron {{count}} perfiles.",
     "neverSearched": "Nunca buscado",
-    "searched": "Buscado hace {{time}}"
+    "searched": "Buscado hace {{time}}",
+    "searchedJustNow": "Buscado ahora mismo"
   },
   "sidebar": {
     "emptyNotice": "Juega una partida primero para registrar tu cuenta antes de buscar.",

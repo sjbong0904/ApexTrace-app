@@ -33,10 +33,11 @@ const HOPUP_ICONS: Record<string, string> = {
     'Double Tap Trigger':    'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/attachments/Double_Tap_Trigger.svg',
     'Selectfire Receiver':   'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/attachments/Selectfire_Receiver.svg',
     'Graffiti Mod':          'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/attachments/Splatter_Rounds.svg',
-    'Elite':                 'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/attachments/elite.png',
+    'Elite':                 'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/attachments/elite.svg',
     'Boosted Loader':        'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/attachments/Boosted_Loader.svg',
     'Shatter Caps':          'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/attachments/Shatter_Caps.svg',
     'Dual Shell':            'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/attachments/Dual_Shell.svg',
+    'Executioner':           'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/attachments/executioner.png',
 };
 
 const CHARGED_ICONS: Record<string, string> = {
@@ -105,6 +106,7 @@ const getTranslatedHopup = (hopup: string, t: TFunction): string => {
         'Boosted Loader':       t('weaponDb.hopups.boostedLoader'),
         'Shatter Caps':         t('weaponDb.hopups.shatterCaps'),
         'Dual Shell':           t('weaponDb.hopups.dualShell'),
+        'Executioner':          t('weaponDb.hopups.executioner'),
     };
     return map[hopup] || hopup.replace(' Rounds', '').replace(' Generator', '').replace(' Receiver', '');
 };
@@ -145,8 +147,8 @@ const getThemeStyles = (ammoTypes: string[], variant: WeaponVariant) => {
         const c1 = AMMO_COLORS['Mythic'];
         return {
             borderColor: c1,
-            listCardBg: '#252525',
-            detailCardBg: `linear-gradient(135deg, #202020 0%, #2b1111 100%)`,
+        listCardBg: 'var(--color-bg-card)',
+        detailCardBg: `linear-gradient(135deg, var(--color-bg-table-header) 0%, #2b1111 100%)`,
             activeBtnBg: `linear-gradient(90deg, ${c1}44, ${c1}22)`
         };
     }
@@ -155,8 +157,8 @@ const getThemeStyles = (ammoTypes: string[], variant: WeaponVariant) => {
         const c2 = '#FFA500';
         return {
             borderColor: c1,
-            listCardBg: `linear-gradient(145deg, #252525 40%, ${c1}15 70%, ${c2}15 100%)`,
-            detailCardBg: `linear-gradient(135deg, #202020 0%, ${c1}22 50%, ${c2}11 100%)`,
+            listCardBg: `linear-gradient(145deg, var(--color-bg-card) 40%, ${c1}15 70%, ${c2}15 100%)`,
+            detailCardBg: `linear-gradient(135deg, var(--color-bg-table-header) 0%, ${c1}22 50%, ${c2}11 100%)`,
             activeBtnBg: `linear-gradient(90deg, ${c1}44, ${c2}44)`
         };
     }
@@ -165,23 +167,23 @@ const getThemeStyles = (ammoTypes: string[], variant: WeaponVariant) => {
         const c2 = AMMO_COLORS[ammoTypes[1]];
         return {
             borderColor: c1,
-            listCardBg: `linear-gradient(145deg, #252525 40%, ${c1}15 70%, ${c2}15 100%)`,
-            detailCardBg: `linear-gradient(135deg, #202020 0%, ${c1}11 50%, ${c2}11 100%)`,
+            listCardBg: `linear-gradient(145deg, var(--color-bg-card) 40%, ${c1}15 70%, ${c2}15 100%)`,
+            detailCardBg: `linear-gradient(135deg, var(--color-bg-table-header) 0%, ${c1}11 50%, ${c2}11 100%)`,
             activeBtnBg: `linear-gradient(90deg, ${c1}33, ${c2}33)`
         };
     }
-    const color = AMMO_COLORS[ammoTypes[0]] || '#ccc';
+    const color = AMMO_COLORS[ammoTypes[0]] || 'var(--color-text-dim)';
     return {
         borderColor: color,
-        listCardBg: `linear-gradient(145deg, #252525 50%, ${color}11 100%)`,
-        detailCardBg: `linear-gradient(135deg, #202020 0%, ${color}1a 100%)`,
+        listCardBg: `linear-gradient(145deg, var(--color-bg-card) 50%, ${color}11 100%)`,
+        detailCardBg: `linear-gradient(135deg, var(--color-bg-table-header) 0%, ${color}1a 100%)`,
         activeBtnBg: `linear-gradient(90deg, ${color}33, ${color}11)`
     };
 };
 
 const INJECTED_STYLES = `
-    .weapon-card { border: 1px solid #333; transition: all 0.2s ease-in-out; }
-    .weapon-card:hover { background: #2f2f2f !important; transform: translateY(-4px); box-shadow: 0 10px 20px rgba(0,0,0,0.4); border-color: var(--hover-color) !important; }
+    .weapon-card { border: 1px solid var(--color-border); transition: all 0.2s ease-in-out; }
+    .weapon-card:hover { background: var(--color-bg-card-hover) !important; transform: translateY(-4px); box-shadow: 0 10px 20px rgba(0,0,0,0.4); border-color: var(--hover-color) !important; }
     .weapon-card:hover .card-img { transform: scale(calc(var(--hover-scale) * 1.05)) rotate(-2deg) translateX(-5px); }
 
     .ammo-icon { width: 20px; height: 20px; object-fit: contain; filter: drop-shadow(0 1px 2px rgba(0,0,0,0.8)); margin-right: 4px; }
@@ -195,8 +197,8 @@ const INJECTED_STYLES = `
     .toggle-icon-img { width: 14px; height: 14px; object-fit: contain; margin-right: 4px; vertical-align: middle; filter: invert(1); }
 
     .attachment-box {
-        background: #444;
-        border: 1px solid #444;
+        background: var(--color-border-light);
+        border: 1px solid var(--color-border-light);
         border-radius: 6px;
         padding: 8px;
         display: flex;
@@ -208,14 +210,14 @@ const INJECTED_STYLES = `
         position: relative;
         transition: 0.2s;
     }
-    .attachment-box:hover { background: #333; border-color: #666; transform: translateY(-2px); }
+    .attachment-box:hover { background: var(--color-bg-card-hover); border-color: var(--color-text-faint); transform: translateY(-2px); }
     .attachment-img {
         width: 32px; height: 32px; object-fit: contain;
         filter: drop-shadow(0 2px 4px rgba(0,0,0,0.8));
         margin-bottom: 4px;
     }
     .attachment-label {
-        font-size: 9px; color: #888; text-transform: uppercase;
+        font-size: 9px; color: var(--color-text-muted); text-transform: uppercase;
         text-align: center; width: 100%;
         overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     }
@@ -223,18 +225,18 @@ const INJECTED_STYLES = `
     .variant-switch { position: absolute; top: 15px; right: 15px; z-index: 10; display: flex; gap: 5px; }
     .vs-btn {
         font-size: 11px; font-weight: bold; background: rgba(0,0,0,0.6);
-        border: 1px solid #444; border-radius: 4px; padding: 4px 8px;
+        border: 1px solid var(--color-border-light); border-radius: 4px; padding: 4px 8px;
         cursor: pointer; backdrop-filter: blur(4px); transition: 0.2s;
-        color: #888; display: flex; align-items: center;
+        color: var(--color-text-muted); display: flex; align-items: center;
     }
-    .vs-btn:hover { background: #444; color: #fff; }
-    .vs-btn.active { background: #ff4757; color: #fff; border-color: #ff4757; box-shadow: 0 0 10px rgba(255,71,87,0.4); }
+    .vs-btn:hover { background: var(--color-border-light); color: var(--color-text-primary); }
+    .vs-btn.active { background: var(--color-accent-hover); color: var(--color-text-primary); border-color: var(--color-accent-hover); box-shadow: 0 0 10px rgba(255,71,87,0.4); }
     .vs-btn.active-elite { background: #FFD700; color: #000; border-color: #FFD700; box-shadow: 0 0 10px rgba(255,215,0,0.4); }
 
     ::-webkit-scrollbar { width: 8px; }
-    ::-webkit-scrollbar-track { background: #1a1a1a; }
-    ::-webkit-scrollbar-thumb { background: #444; border-radius: 4px; }
-    ::-webkit-scrollbar-thumb:hover { background: #666; }
+    ::-webkit-scrollbar-track { background: var(--color-bg-sub-header); }
+    ::-webkit-scrollbar-thumb { background: var(--color-border-light); border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--color-text-faint); }
 `;
 
 type InternalMode = 'Base' | 'Charged' | 'HopUp' | 'Shield' | 'Health' | 'Graffiti Mod';
@@ -260,19 +262,19 @@ interface MagBoxProps {
     color: string;
 }
 
-const StatBox = ({ label, value, highlight = false, color = '#eee', span }: StatBoxProps) => (
-    <div style={{ background: '#1a1a1a', padding: '12px', borderRadius: '6px', border: '1px solid #333' }}>
-        <div style={{ fontSize: '11px', color: '#777', textTransform: 'uppercase', marginBottom: '4px' }}>{label}</div>
-        <div style={{ fontSize: '22px', fontWeight: '800', color: highlight ? color : '#ddd' }}>
-            {value} <span style={{ fontSize: '15px', fontWeight: 'normal', color: '#777' }}>{span ?? ''}</span>
+const StatBox = ({ label, value, highlight = false, color = 'var(--color-text-secondary)', span }: StatBoxProps) => (
+    <div style={{ background: 'var(--color-bg-sub-header)', padding: '12px', borderRadius: '6px', border: '1px solid var(--color-border)' }}>
+        <div style={{ fontSize: '11px', color: 'var(--color-text-subtle)', textTransform: 'uppercase', marginBottom: '4px' }}>{label}</div>
+        <div style={{ fontSize: '22px', fontWeight: '800', color: highlight ? color : 'var(--color-text-dim)' }}>
+            {value} <span style={{ fontSize: '15px', fontWeight: 'normal', color: 'var(--color-text-subtle)' }}>{span ?? ''}</span>
         </div>
     </div>
 );
 
 const MagBox = ({ label, value, color }: MagBoxProps) => (
-    <div style={{ flex: 1, background: '#1a1a1a', padding: '8px', borderRadius: '4px', borderTop: `4px solid ${color}`, textAlign: 'center' }}>
-        <div style={{ fontSize: '10px', color: '#888', marginBottom: '2px' }}>{label}</div>
-        <div style={{ fontSize: '16px', fontWeight: 'bold', color: '#eee' }}>{value}</div>
+    <div style={{ flex: 1, background: 'var(--color-bg-sub-header)', padding: '8px', borderRadius: '4px', borderTop: `4px solid ${color}`, textAlign: 'center' }}>
+        <div style={{ fontSize: '10px', color: 'var(--color-text-muted)', marginBottom: '2px' }}>{label}</div>
+        <div style={{ fontSize: '16px', fontWeight: 'bold', color: 'var(--color-text-secondary)' }}>{value}</div>
     </div>
 );
 
@@ -320,7 +322,7 @@ const WeaponsTab = () => {
         const bottomRow = CATEGORIES.slice(4, 7);
 
         const renderCategoryButton = (cat: WeaponCategory) => {
-            let hoverColor = '#eee';
+            let hoverColor = 'var(--color-text-secondary)';
             if (cat === 'SNIPER')   hoverColor = AMMO_COLORS['Mythic'];
             else if (cat === 'SHOTGUN')  hoverColor = AMMO_COLORS['Shotgun'];
             else if (cat === 'LMG')      hoverColor = AMMO_COLORS['Heavy'];
@@ -339,13 +341,13 @@ const WeaponsTab = () => {
                     style={{
                         '--hover-color': hoverColor,
                         '--hover-scale': baseScale,
-                        background: '#252525',
+                        background: 'var(--color-bg-card)',
                         width: '23.5%', height: '130px', borderRadius: '12px',
                         position: 'relative', overflow: 'hidden', cursor: 'pointer', flexShrink: 0
                     } as React.CSSProperties}
                 >
                     <div style={{ position: 'absolute', left: '25px', top: '50%', transform: 'translateY(-50%)', zIndex: 10, textShadow: '0 2px 10px rgba(0,0,0,0.8)' }}>
-                        <div style={{ fontSize: '24px', fontWeight: '700', color: '#eee', letterSpacing: '0.5px' }}>{cat}</div>
+                        <div style={{ fontSize: '24px', fontWeight: '700', color: 'var(--color-text-secondary)', letterSpacing: '0.5px' }}>{cat}</div>
                         <div style={{ fontSize: '11px', color: hoverColor, marginTop: '4px', fontWeight: '600' }}>{t('weapons.viewList')}</div>
                     </div>
                     <div style={{ position: 'absolute', right: '-10px', top: '50%', transform: 'translateY(-50%)', width: '65%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 5 }}>
@@ -359,7 +361,7 @@ const WeaponsTab = () => {
         return (
             <>
                 <style>{INJECTED_STYLES}</style>
-                <div style={{ width: '100%', height: '100%', background: '#181818', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
+                <div style={{ width: '100%', height: '100%', background: 'var(--color-bg-panel)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
                     <div style={{ width: '95%', maxWidth: '1200px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between' }}>{topRow.map(renderCategoryButton)}</div>
                         <div style={{ display: 'flex', justifyContent: 'center', gap: '2%' }}>{bottomRow.map(renderCategoryButton)}</div>
@@ -427,7 +429,7 @@ const WeaponsTab = () => {
                 <div key={partName} className="attachment-box" title={displayName}>
                     {iconSrc
                         ? <img src={iconSrc} alt={partName} className="attachment-img" />
-                        : <div style={{ width: '32px', height: '32px', background: '#444', borderRadius: '4px', marginBottom: '4px' }} />
+                        : <div style={{ width: '32px', height: '32px', background: 'var(--color-border-light)', borderRadius: '4px', marginBottom: '4px' }} />
                     }
                     <div className="attachment-label">{displayName}</div>
                 </div>
@@ -448,13 +450,13 @@ const WeaponsTab = () => {
         };
 
         return (
-            <div style={{ width: '100%', height: 'auto', background: '#181818' }}>
+            <div style={{ width: '100%', height: 'auto', background: 'var(--color-bg-panel)' }}>
                 <style>{INJECTED_STYLES}</style>
-                <div style={{ padding: '30px', height: '100%', overflowY: 'auto', color: '#eee' }}>
+                <div style={{ padding: '30px', height: '100%', overflowY: 'auto', color: 'var(--color-text-secondary)' }}>
                     <button
                         onClick={() => setSelectedBaseWeapon(null)}
                         className="apex-btn"
-                        style={{ marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '5px', background: 'transparent', border: '1px solid #444', padding: '8px 16px', cursor: 'pointer', color: '#bbb' }}
+                        style={{ marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '5px', background: 'transparent', border: '1px solid var(--color-border-light)', padding: '8px 16px', cursor: 'pointer', color: 'var(--color-text-dim)' }}
                     >
                         <FaArrowLeft />
                     </button>
@@ -507,13 +509,13 @@ const WeaponsTab = () => {
                                 <div style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
                                     <button
                                         onClick={() => switchVariant(standardVariant)}
-                                        style={{ flex: 1, padding: '10px', borderRadius: '6px', cursor: 'pointer', border: `1px solid ${currentVariant.variant === 'STANDARD' ? themeColor : '#444'}`, background: currentVariant.variant === 'STANDARD' ? theme.activeBtnBg : '#252525', color: '#fff', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                        style={{ flex: 1, padding: '10px', borderRadius: '6px', cursor: 'pointer', border: `1px solid ${currentVariant.variant === 'STANDARD' ? themeColor : 'var(--color-border-light)'}`, background: currentVariant.variant === 'STANDARD' ? theme.activeBtnBg : 'var(--color-bg-card)', color: 'var(--color-text-primary)', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                                     >
                                         {t('weapons.standard')}
                                     </button>
                                     <button
                                         onClick={() => switchVariant(akimboVariant)}
-                                        style={{ flex: 1, padding: '10px', borderRadius: '6px', cursor: 'pointer', border: `1px solid ${currentVariant.variant === 'AKIMBO' ? themeColor : '#444'}`, background: currentVariant.variant === 'AKIMBO' ? theme.activeBtnBg : '#252525', color: '#fff', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                        style={{ flex: 1, padding: '10px', borderRadius: '6px', cursor: 'pointer', border: `1px solid ${currentVariant.variant === 'AKIMBO' ? themeColor : 'var(--color-border-light)'}`, background: currentVariant.variant === 'AKIMBO' ? theme.activeBtnBg : 'var(--color-bg-card)', color: 'var(--color-text-primary)', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                                     >
                                         {renderModeIcon('Akimbo')} {t('weapons.akimbo')}
                                     </button>
@@ -525,16 +527,16 @@ const WeaponsTab = () => {
                                 <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', flexWrap: 'wrap' }}>
                                     {internalModes.map((m) => {
                                         const isActive = internalMode === m.mode;
-                                        let btnColor = isActive ? themeColor : '#444';
-                                        if (m.mode === 'Shield')      btnColor = isActive ? '#5b9af7' : '#444';
-                                        if (m.mode === 'Health')      btnColor = isActive ? '#ff4757' : '#444';
-                                        if (m.mode === 'Graffiti Mod') btnColor = isActive ? '#be42f8' : '#444';
+                                        let btnColor = isActive ? themeColor : 'var(--color-border-light)';
+                                        if (m.mode === 'Shield')      btnColor = isActive ? '#5b9af7' : 'var(--color-border-light)';
+                                        if (m.mode === 'Health')      btnColor = isActive ? 'var(--color-accent-hover)' : 'var(--color-border-light)';
+                                        if (m.mode === 'Graffiti Mod') btnColor = isActive ? '#be42f8' : 'var(--color-border-light)';
 
                                         return (
                                             <button
                                                 key={m.mode}
                                                 onClick={() => setInternalMode(m.mode)}
-                                                style={{ flex: 1, padding: '10px', borderRadius: '6px', border: '1px solid', cursor: 'pointer', borderColor: btnColor, background: isActive ? theme.activeBtnBg : '#252525', color: isActive ? '#fff' : '#888', fontWeight: 'bold', fontSize: '13px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', transition: 'all 0.2s' }}
+                                                style={{ flex: 1, padding: '10px', borderRadius: '6px', border: '1px solid', cursor: 'pointer', borderColor: btnColor, background: isActive ? theme.activeBtnBg : 'var(--color-bg-card)', color: isActive ? 'var(--color-text-primary)' : 'var(--color-text-muted)', fontWeight: 'bold', fontSize: '13px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', transition: 'all 0.2s' }}
                                             >
                                                 {renderModeIcon(m.id)}
                                                 {m.label}
@@ -545,14 +547,14 @@ const WeaponsTab = () => {
                             )}
 
                             {/* ✅ borderLeft → borderTop */}
-                            <p style={{ fontSize: '15px', color: '#bbb', fontStyle: 'italic', background: '#252525', padding: '15px', borderRadius: '8px', borderTop: `3px solid ${themeColor}` }}>
+                            <p style={{ fontSize: '15px', color: 'var(--color-text-dim)', fontStyle: 'italic', background: 'var(--color-bg-card)', padding: '15px', borderRadius: '8px', borderTop: `3px solid ${themeColor}` }}>
                                 "{currentVariant.description() || t('weapons.noDescription')}"
                             </p>
                         </div>
 
                         {/* 오른쪽 — 스탯 & 부착물 */}
                         <div style={{ flex: 1.5, minWidth: '300px' }}>
-                            <h3 style={{ borderBottom: `1px solid ${themeColor}66`, paddingBottom: '8px', marginBottom: '20px', color: themeColor, fontSize: '18px' }}>
+                                    <h3 style={{ borderBottom: `1px solid ${themeColor}66`, paddingBottom: '8px', marginBottom: '20px', color: themeColor, fontSize: '18px' }}>
                                 {t('weapons.weaponStatistics')}
                             </h3>
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '15px', marginBottom: '30px' }}>
@@ -564,9 +566,9 @@ const WeaponsTab = () => {
 
                             {mag && (
                                 <>
-                                    <h3 style={{ borderBottom: '1px solid #444', paddingBottom: '8px', marginBottom: '15px', fontSize: '16px' }}>{t('weapons.magSize')}</h3>
+                                    <h3 style={{ borderBottom: '1px solid var(--color-border-light)', paddingBottom: '8px', marginBottom: '15px', fontSize: '16px' }}>{t('weapons.magSize')}</h3>
                                     <div style={{ display: 'flex', gap: '10px', marginBottom: '30px' }}>
-                                        <MagBox label={t('weapons.base')}   value={mag.lv0} color="#777" />
+                                        <MagBox label={t('weapons.base')}   value={mag.lv0} color="var(--color-text-subtle)" />
                                         {mag.lv1 !== undefined && <MagBox label={t('weapons.white')}  value={mag.lv1} color="#a0a0a0" />}
                                         {mag.lv2 !== undefined && <MagBox label={t('weapons.blue')}   value={mag.lv2} color="#509df5" />}
                                         {mag.lv3 !== undefined && <MagBox label={t('weapons.purple')} value={mag.lv3} color="#a65bf6" />}
@@ -575,7 +577,7 @@ const WeaponsTab = () => {
                                 </>
                             )}
 
-                            <h3 style={{ borderBottom: '1px solid #444', paddingBottom: '8px', marginBottom: '15px', fontSize: '16px' }}>{t('weapons.compatibility')}</h3>
+                            <h3 style={{ borderBottom: '1px solid var(--color-border-light)', paddingBottom: '8px', marginBottom: '15px', fontSize: '16px' }}>{t('weapons.compatibility')}</h3>
                             <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                                 {currentVariant.attachments.map(part => renderAttachment(part))}
                                 {currentVariant.hopup?.map(h => renderHopUp(h, false))}
@@ -590,19 +592,19 @@ const WeaponsTab = () => {
 
     // ── 무기 목록 화면 ──────────────────────────────────────────
     return (
-        <div style={{ width: '100%', height: '100%', background: '#181818' }}>
+        <div style={{ width: '100%', height: '100%', background: 'var(--color-bg-panel)' }}>
             <style>{INJECTED_STYLES}</style>
             <div style={{ padding: '30px', height: '100%', overflowY: 'auto' }}>
                 <div style={{ display: 'flex', alignItems: 'center', marginBottom: '20px' }}>
                     <button
                         onClick={() => setSelectedCategory(null)}
                         className="apex-btn"
-                        style={{ marginRight: '15px', padding: '5px 12px', background: 'transparent', border: '1px solid #666', cursor: 'pointer' }}
+                        style={{ marginRight: '15px', padding: '5px 12px', background: 'transparent', border: '1px solid var(--color-text-faint)', cursor: 'pointer' }}
                     >
-                        <FaArrowLeft style={{ color: '#fff' }} />
+                        <FaArrowLeft style={{ color: 'var(--color-text-primary)' }} />
                     </button>
-                    <h2 style={{ margin: 0, color: '#eee', fontSize: '24px' }}>
-                        {selectedCategory} <span style={{ fontSize: '16px', color: '#666' }}>{t('weapons.weapons')}</span>
+                    <h2 style={{ margin: 0, color: 'var(--color-text-secondary)', fontSize: '24px' }}>
+                        {selectedCategory} <span style={{ fontSize: '16px', color: 'var(--color-text-faint)' }}>{t('weapons.weapons')}</span>
                     </h2>
                 </div>
 
@@ -634,7 +636,7 @@ const WeaponsTab = () => {
                                     alt={weapon.name()}
                                     style={{ maxHeight: '60px', maxWidth: '80%', objectFit: 'contain', marginBottom: '10px', transition: 'transform 0.3s' }}
                                 />
-                                <span style={{ fontSize: '16px', fontWeight: 'bold', color: isMythic ? '#ff4757' : '#eee' }}>
+                                <span style={{ fontSize: '16px', fontWeight: 'bold', color: isMythic ? 'var(--color-accent-hover)' : 'var(--color-text-secondary)' }}>
                                     {weapon.name()}
                                 </span>
                                 <div style={{ display: 'flex', marginTop: '5px', gap: '4px' }}>

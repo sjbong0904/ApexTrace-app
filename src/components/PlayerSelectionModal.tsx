@@ -1,6 +1,6 @@
 import React, { useState } from 'react'; // ✅ useState 추가
 import { useTranslation } from 'react-i18next'; // ✅ i18n 추가
-import { getPlatformInfo, getRelativeTime } from '../utils/helpers';
+import { formatRelativeTime, getPlatformInfo, getRelativeTime } from '../utils/helpers';
 import { FaWindows, FaXbox, FaPlaystation, FaGamepad } from 'react-icons/fa';
 import { BsNintendoSwitch } from 'react-icons/bs';
 
@@ -21,13 +21,13 @@ const getRankRoman = (div: number | null | undefined) => {
 };
 
 const PlatformIcon = ({ hw }: { hw?: number | null }) => {
-    if (hw === undefined || hw === null) return <FaGamepad color="#666" size={14} title="Unknown Platform" />;
+    if (hw === undefined || hw === null) return <FaGamepad color="var(--color-text-faint)" size={14} title="Unknown Platform" />;
     const h = Number(hw);
     if (h === 7 || h === 2) return <FaWindows color="#00a8fc" size={14} title="PC" />;
     if (h === 1) return <FaPlaystation color="#003791" size={16} title="PlayStation" />;
     if (h === 0) return <FaXbox color="#107C10" size={14} title="Xbox" />;
     if (h === 9) return <BsNintendoSwitch color="#e60012" size={14} title="Switch" />;
-    return <FaGamepad color="#666" size={14} title="Unknown" />;
+    return <FaGamepad color="var(--color-text-faint)" size={14} title="Unknown" />;
 };
 
 const PlayerSelectionModal: React.FC<PlayerSelectionModalProps> = ({ candidates, onSelect, onClose }) => {
@@ -44,24 +44,24 @@ const PlayerSelectionModal: React.FC<PlayerSelectionModalProps> = ({ candidates,
         if (tier.includes('diamond')) return '#74b9ff';
         if (tier.includes('master')) return '#a29bfe';
         if (tier.includes('apex') || tier.includes('predator')) return '#ff7675';
-        return '#888';
+        return 'var(--color-text-muted)';
     };
 
     return (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0, 0, 0, 0.8)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(3px)' }}>
-            <div style={{ background: '#1e1e1e', width: '500px', maxHeight: '80vh', borderRadius: '12px', border: '1px solid #444', display: 'flex', flexDirection: 'column', boxShadow: '0 10px 30px rgba(0,0,0,0.5)' }}>
+            <div style={{ background: 'var(--color-bg-sub-header)', width: '500px', maxHeight: '80vh', borderRadius: '12px', border: '1px solid var(--color-border-light)', display: 'flex', flexDirection: 'column', boxShadow: '0 10px 30px rgba(0,0,0,0.5)' }}>
                 {/* 헤더 */}
-                <div style={{ padding: '20px', borderBottom: '1px solid #333', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <div style={{ padding: '20px', borderBottom: '1px solid var(--color-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div>
                         {/* ✅ i18n 적용 */}
-                        <h3 style={{ margin: 0, color: '#fff', fontSize: '18px' }}>
+                        <h3 style={{ margin: 0, color: 'var(--color-text-primary)', fontSize: '18px' }}>
                             {t('playerModal.title', 'Select Player')}
                         </h3>
-                        <div style={{ color: '#888', fontSize: '13px', marginTop: '4px' }}>
+                        <div style={{ color: 'var(--color-text-muted)', fontSize: '13px', marginTop: '4px' }}>
                             {t('playerModal.found', 'Found {{count}} profiles.', { count: candidates.length })}
                         </div>
                     </div>
-                    <button onClick={onClose} style={{ background: 'none', border: 'none', color: '#888', fontSize: '24px', cursor: 'pointer' }}>×</button>
+                    <button onClick={onClose} style={{ background: 'none', border: 'none', color: 'var(--color-text-muted)', fontSize: '24px', cursor: 'pointer' }}>×</button>
                 </div>
 
                 {/* 리스트 영역 */}
@@ -80,7 +80,13 @@ const PlayerSelectionModal: React.FC<PlayerSelectionModalProps> = ({ candidates,
                             if (roman) displayRank = `${rawRankName} ${roman}`;
                         }
 
-                        const lastActive = getRelativeTime(user.updated_at || user.updatedAt) || t('playerModal.neverSearched', 'Never Searched');
+                        const timePart = getRelativeTime(user.updated_at || user.updatedAt);
+                        const lastActiveLabel = !timePart
+                            ? t('playerModal.neverSearched', 'Never searched')
+                            : formatRelativeTime(timePart, t, {
+                                agoKey: 'playerModal.searched',
+                                justNowKey: 'playerModal.searchedJustNow',
+                            });
                         const legendName = user.legend ? user.legend.toLowerCase() : 'unknown';
                         const portrait = `https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/${legendName}.png`;
 
@@ -95,11 +101,11 @@ const PlayerSelectionModal: React.FC<PlayerSelectionModalProps> = ({ candidates,
                                     display: 'flex',
                                     alignItems: 'center',
                                     padding: '12px 15px',
-                                    background: hoveredIdx === idx ? '#2a2a2a' : '#252525',
+                                    background: hoveredIdx === idx ? 'var(--color-bg-card-hover)' : 'var(--color-bg-card)',
                                     marginBottom: '10px',
                                     borderRadius: '10px',
                                     cursor: 'pointer',
-                                    border: `1px solid ${hoveredIdx === idx ? '#444' : '#333'}`,
+                                    border: `1px solid ${hoveredIdx === idx ? 'var(--color-border-light)' : 'var(--color-border)'}`,
                                     transition: 'all 0.2s ease'
                                 }}
                             >
@@ -116,24 +122,22 @@ const PlayerSelectionModal: React.FC<PlayerSelectionModalProps> = ({ candidates,
                                 {/* 정보 */}
                                 <div style={{ flex: 1, minWidth: 0 }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '2px' }}>
-                                        <span style={{ color: '#fff', fontWeight: 'bold', fontSize: '16px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user.name}</span>
-                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#000', borderRadius: '4px', width: '20px', height: '20px', flexShrink: 0 }} title={platformData.label}>
+                                        <span style={{ color: 'var(--color-text-primary)', fontWeight: 'bold', fontSize: '16px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user.name}</span>
+                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--color-bg-nav)', borderRadius: '4px', width: '20px', height: '20px', flexShrink: 0 }} title={platformData.label}>
                                             <PlatformIcon hw={user.hw} />
                                         </div>
                                     </div>
                                     <div style={{ fontSize: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                                         <span style={{ color: getTierColor(rawRankName), fontWeight: 'bold' }}>{displayRank}</span>
-                                        <span style={{ color: '#888' }}>Lv.{user.level || 0}</span>
-                                        <span style={{ color: (lastActive.includes('m') || lastActive.includes('h') || lastActive.includes('d')) ? '#4ade80' : '#555' }}>
-                                            {lastActive.includes('Searched') || lastActive.includes('Never')
-                                                ? lastActive
-                                                : t('playerModal.searched', 'Searched {{time}}', { time: lastActive })}
+                                        <span style={{ color: 'var(--color-text-muted)' }}>Lv.{user.level || 0}</span>
+                                        <span style={{ color: (timePart && timePart !== 'justNow') ? '#4ade80' : 'var(--color-text-subtle)' }}>
+                                            {lastActiveLabel}
                                         </span>
                                     </div>
                                 </div>
 
                                 {/* 화살표 */}
-                                <div style={{ color: '#555', fontSize: '14px', marginLeft: '10px' }}>❯</div>
+                                <div style={{ color: 'var(--color-text-subtle)', fontSize: '14px', marginLeft: '10px' }}>❯</div>
                             </div>
                         );
                     })}

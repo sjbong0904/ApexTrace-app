@@ -57,6 +57,21 @@
     "assists": "ASSISTS",
     "knocks": "KNOCKS"
   },
+  "matchDetails": {
+    "stats": "Stats",
+    "loadoutTimeline": "Loadout Timeline",
+    "loadoutTimelineDesc": "Weapon changes detected during this match.",
+    "noLoadoutTimeline": "No weapon changes recorded for this match.",
+    "time": "Time",
+    "before": "Before",
+    "after": "After",
+    "actionLoadoutChange": "Loadout Change"
+  },
+  "hotkeyReminder": {
+    "label": "In-Game Hotkey",
+    "desktopLabel": "Second Screen Hotkey",
+    "inGameLabel": "In-Game Hotkey"
+  },
   "premium": {
     "betaUsers": "Beta Users:",
     "allUnlocked": "All recorded matches unlocked.",
@@ -177,7 +192,8 @@
       "elite": "Elite",
       "boostedLoader": "Boosted Loader",
       "shatterCaps": "Shatter Caps",
-      "dualShell": "Dual Shell"
+      "dualShell": "Dual Shell",
+      "executioner": "Executioner"
     },
     "consumables": {
       "thermite": "Thermite",
@@ -260,7 +276,14 @@
     "sections": {
       "community": "Community & Support",
       "tools": "Tools & Utilities",
-      "appInfo": "App Info"
+      "appInfo": "App Info",
+      "theme": "Theme"
+    },
+    "theme": {
+      "modeTitle": "Mode",
+      "modeDesc": "Change the app's overall background color.",
+      "dark": "Dark",
+      "light": "Light"
     },
     "discord": {
       "title": "Join Discord",
@@ -272,11 +295,26 @@
       "tutorialTitle": "App Tutorial",
       "tutorialDesc": "Run the tutorial to learn how to use the app.",
       "hotkeyTitle": "App Hotkey",
-      "hotkeyDesc": "Change hotkey — redirects to Overwolf settings.",
+      "hotkeyDesc": "View and change ApexTrace hotkeys inside the app.",
+      "desktopHotkeyTitle": "Second Screen Hotkey",
+      "desktopHotkeyDesc": "Change the hotkey that toggles the second-screen window.",
+      "inGameHotkeyTitle": "In-Game Window Hotkey",
+      "inGameHotkeyDesc": "Change the hotkey that toggles the in-game overlay.",
       "logsTitle": "Open Log Folder",
       "logsDesc": "Opens the local folder containing app logs.",
       "versionTitle": "App Version",
       "versionDesc": "Currently installed version"
+    },
+    "hotkeys": {
+      "change": "Change",
+      "listening": "Press keys...",
+      "prompt": "Press the new key combination. Press Esc to cancel.",
+      "saving": "Saving hotkey...",
+      "saved": "Hotkey saved.",
+      "savedShort": "Saved",
+      "failedShort": "Failed",
+      "failed": "Could not assign this hotkey. It may be used by another app.",
+      "cancelled": "Hotkey change cancelled."
     },
     "footer": {
       "copyright": "© 2026 ApexTrace. All rights reserved.",
@@ -508,11 +546,16 @@
     "subtitle": "(Oldest → Latest)",
     "noData": "No match data recorded yet."
   },
+  "relativeTime": {
+    "justNow": "Just now",
+    "ago": "{{time}} ago"
+  },
   "playerModal": {
     "title": "Select Player",
     "found": "Found {{count}} profiles.",
     "neverSearched": "Never searched",
-    "searched": "Searched {{time}} ago"
+    "searched": "Searched {{time}} ago",
+    "searchedJustNow": "Searched just now"
   },
   "sidebar": {
     "emptyNotice": "Play one match first to register your account before searching.",

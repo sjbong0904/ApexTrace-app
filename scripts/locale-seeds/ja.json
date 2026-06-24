@@ -57,6 +57,21 @@
     "assists": "ASSISTS",
     "knocks": "KNOCKS"
   },
+  "matchDetails": {
+    "stats": "統計",
+    "loadoutTimeline": "ロードアウトタイムライン",
+    "loadoutTimelineDesc": "このマッチ中に検出された武器変更です。",
+    "noLoadoutTimeline": "このマッチの武器変更記録はありません。",
+    "time": "時間",
+    "before": "変更前",
+    "after": "変更後",
+    "actionLoadoutChange": "ロードアウト変更"
+  },
+  "hotkeyReminder": {
+    "label": "ゲーム内ホットキー",
+    "desktopLabel": "セカンドスクリーンホットキー",
+    "inGameLabel": "ゲーム内ホットキー"
+  },
   "premium": {
     "betaUsers": "ベータユーザー:",
     "allUnlocked": "記録された全戦績が解放されています。",
@@ -177,7 +192,8 @@
       "elite": "エリート",
       "boostedLoader": "ブーステッドローダー",
       "shatterCaps": "シャッターキャップ",
-      "dualShell": "デュアルシェル"
+      "dualShell": "デュアルシェル",
+      "executioner": "Executioner"
     },
     "consumables": {
       "thermite": "テルミット",
@@ -260,7 +276,14 @@
     "sections": {
       "community": "コミュニティ＆サポート",
       "tools": "ツール＆ユーティリティ",
-      "appInfo": "アプリ情報"
+      "appInfo": "アプリ情報",
+      "theme": "テーマ"
+    },
+    "theme": {
+      "modeTitle": "モード",
+      "modeDesc": "アプリ全体の背景色を変更します",
+      "dark": "ダーク",
+      "light": "ライト"
     },
     "discord": {
       "title": "Discordに参加",
@@ -272,7 +295,11 @@
       "tutorialTitle": "アプリチュートリアル",
       "tutorialDesc": "チュートリアルを実行して使い方を確認しましょう。",
       "hotkeyTitle": "アプリのホットキー",
-      "hotkeyDesc": "ホットキーの変更 — Overwolf設定に移動します。",
+      "hotkeyDesc": "ApexTraceのホットキーをアプリ内で確認・変更します。",
+      "desktopHotkeyTitle": "セカンドスクリーンホットキー",
+      "desktopHotkeyDesc": "セカンドスクリーンウィンドウを切り替えるホットキーを変更します。",
+      "inGameHotkeyTitle": "ゲーム内ウィンドウのホットキー",
+      "inGameHotkeyDesc": "ゲーム内オーバーレイを切り替えるホットキーを変更します。",
       "logsTitle": "ログフォルダを開く",
       "logsDesc": "アプリのログが保存されているローカルフォルダを開きます。",
       "versionTitle": "アプリバージョン",
@@ -508,11 +535,16 @@
     "subtitle": "（古い → 最新）",
     "noData": "記録されたマッチデータがありません。"
   },
+  "relativeTime": {
+    "justNow": "たった今",
+    "ago": "{{time}}前"
+  },
   "playerModal": {
     "title": "プレイヤーを選択",
     "found": "{{count}}件のプロフィールが見つかりました。",
     "neverSearched": "検索履歴なし",
-    "searched": "{{time}}前に検索"
+    "searched": "{{time}}前に検索",
+    "searchedJustNow": "たった今検索"
   },
   "sidebar": {
     "emptyNotice": "アカウントを検索する前に、登録のためマッチを1回プレイしてください。",

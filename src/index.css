@@ -1,70 +1,107 @@
+/* ── CSS Custom Properties (injected by ThemeProvider) ───────────────────
+   Fallback values mirror the default dark theme so the page is styled
+   even before JavaScript runs.                                           */
 :root {
   font-family: system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
   font-weight: 400;
 
-  color-scheme: light dark;
-  color: rgba(255, 255, 255, 0.87);
-  background-color: #242424;
+  color-scheme: dark;
+  color: var(--color-text-primary, #ffffff);
+  background-color: var(--color-bg-main, #1e1e1e);
 
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+
+  /* ── Default dark theme fallbacks ────────────────────────────────── */
+  --color-bg-deep:         #111111;
+  --color-bg-nav:          #000000;
+  --color-bg-top-bar:      #101010;
+  --color-bg-panel:        #181818;
+  --color-bg-sub-header:   #1a1a1a;
+  --color-bg-table-header: #202020;
+  --color-bg-main:         #1e1e1e;
+  --color-bg-card:         #252525;
+  --color-bg-card-hover:   #2a2a2a;
+  --color-bg-input:        #2a2a2a;
+
+  --color-border:       #333333;
+  --color-border-light: #444444;
+
+  --color-text-primary:   #ffffff;
+  --color-text-secondary: #eeeeee;
+  --color-text-dim:       #cccccc;
+  --color-text-muted:     #888888;
+  --color-text-subtle:    #555555;
+  --color-text-faint:     #666666;
+
+  --color-accent:       #e74c3c;
+  --color-accent-hover: #ff4757;
+  --color-accent-dark:  #c0392b;
+
+  --color-success:       #2ecc71;
+  --color-success-dark:  #27ae60;
+  --color-warning:       #e67e22;
+  --color-warning-hover: #d35400;
+  --color-danger:        #ff6b6b;
+
+  --color-mode-ranked: #d97aff;
+  --color-mode-trio:   #509df5;
+  --color-mode-duo:    #ffaf6d;
+  --color-mode-other:  #fd9daa;
+
+  --color-rank-first: #ff4757;
+  --color-rank-top5:  #00d2be;
+  --color-rank-other: #dfe6e9;
+
+  --color-playstyle-text:       #ffffff;
+  --color-playstyle-label:      rgba(255, 255, 255, 0.75);
+  --color-playstyle-icon:       rgba(255, 255, 255, 0.6);
+  --color-playstyle-text-shadow: 0 2px 4px rgba(0, 0, 0, 0.45);
 }
 
-a {
-  font-weight: 500;
-  color: #646cff;
-  text-decoration: inherit;
-}
-a:hover {
-  color: #535bf2;
+:root[data-theme="dark"]  { color-scheme: dark; }
+:root[data-theme="light"] { color-scheme: light; }
+
+/* ── Light theme polish (softer shadows, less harsh chrome) ─────────────── */
+:root[data-theme="light"] .apex-btn {
+  box-shadow: 0 1px 2px rgba(44, 40, 37, 0.06), 0 1px 3px rgba(44, 40, 37, 0.04);
 }
 
-body {
-  margin: 0;
-  display: flex;
-  place-items: center;
-  min-width: 320px;
-  min-height: 100vh;
+:root[data-theme="light"] .apex-btn:hover {
+  box-shadow: 0 3px 10px rgba(44, 40, 37, 0.08);
 }
 
-h1 {
-  font-size: 3.2em;
-  line-height: 1.1;
+:root[data-theme="light"] .apex-btn:active {
+  box-shadow: 0 1px 2px rgba(44, 40, 37, 0.06);
 }
 
-button {
-  border-radius: 8px;
-  border: 1px solid transparent;
-  padding: 0.6em 1.2em;
-  font-size: 1em;
-  font-weight: 500;
-  font-family: inherit;
-  background-color: #1a1a1a;
-  cursor: pointer;
-  transition: border-color 0.25s;
-}
-button:hover {
-  border-color: #646cff;
-}
-button:focus,
-button:focus-visible {
-  outline: 4px auto -webkit-focus-ring-color;
+:root[data-theme="light"] .apex-btn-primary:hover {
+  box-shadow: 0 4px 12px rgba(214, 69, 55, 0.25);
 }
 
-@media (prefers-color-scheme: light) {
-  :root {
-    color: #213547;
-    background-color: #ffffff;
-  }
-  a:hover {
-    color: #747bff;
-  }
-  button {
-    background-color: #f9f9f9;
-  }
+:root[data-theme="light"] .apex-glow-line {
+  filter: drop-shadow(0 0 1px rgba(60, 56, 53, 0.45))
+          drop-shadow(0 0 4px rgba(60, 56, 53, 0.18));
+}
+
+:root[data-theme="light"] ::-webkit-scrollbar-thumb {
+  background: #c4bfb6;
+  border-color: var(--color-bg-main);
+}
+
+:root[data-theme="light"] ::-webkit-scrollbar-thumb:hover {
+  background: #a8a29e;
+}
+
+.hotkey-reminder {
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+}
+
+:root[data-theme="light"] .hotkey-reminder {
+  box-shadow: 0 4px 14px rgba(44, 40, 37, 0.1);
 }
 
 body, #root {
@@ -75,37 +112,6 @@ body, #root {
   overflow-x: hidden;
 }
 
-::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
-}
-
-::-webkit-scrollbar-track {
-  background: #1e1e1e;
-}
-
-::-webkit-scrollbar-thumb {
-  background: #444;
-  border-radius: 5px;
-  border: 2px solid #1e1e1e;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: #666;
-}
-
-.match-detail-enter {
-  max-height: 0;
-  opacity: 0;
-  overflow: hidden;
-  transition: all 0.3s ease-in-out;
-}
-
-.match-detail-enter-active {
-  max-height: 500px;
-  opacity: 1;
-}
-
 body, html, #root {
   margin: 0;
   padding: 0;
@@ -113,12 +119,68 @@ body, html, #root {
   height: 100%;
   overflow: hidden;
   overscroll-behavior: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+input,
+textarea,
+select,
+[contenteditable="true"] {
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+img {
+  -webkit-user-drag: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* ── Scrollbars ─────────────────────────────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-bg-main);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-border-light);
+  border-radius: 5px;
+  border: 2px solid var(--color-bg-main);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-faint);
+}
+
+/* ── Buttons ────────────────────────────────────────────────────────────── */
+button {
+  border-radius: 8px;
+  border: 1px solid transparent;
+  padding: 0.6em 1.2em;
+  font-size: 1em;
+  font-weight: 500;
+  font-family: inherit;
+  background-color: var(--color-bg-sub-header);
+  cursor: pointer;
+  transition: border-color 0.25s;
+}
+button:hover {
+  border-color: var(--color-accent);
+}
+button:focus,
+button:focus-visible {
+  outline: 4px auto -webkit-focus-ring-color;
 }
 
 .apex-btn {
-  background: linear-gradient(135deg, #252525 0%, #1a1a1a 100%);
-  color: #fff;
-  border: 1px solid #444;
+  background: linear-gradient(135deg, var(--color-bg-card) 0%, var(--color-bg-sub-header) 100%);
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-border-light);
   border-radius: 4px;
   padding: 8px 16px;
   font-size: 14px;
@@ -133,17 +195,17 @@ body, html, #root {
 }
 
 .apex-btn:hover {
-  background: linear-gradient(135deg, #333 0%, #222 100%);
-  border-color: #da292a;
-  color: #fff;
+  background: linear-gradient(135deg, var(--color-bg-card-hover) 0%, var(--color-bg-card) 100%);
+  border-color: var(--color-accent-dark);
+  color: var(--color-text-primary);
   transform: translateY(-2px);
-  box-shadow: 0 5px 15px rgba(218, 41, 42, 0.3);
+  box-shadow: 0 5px 15px rgba(0,0,0,0.3);
 }
 
 .apex-btn:active {
   transform: translateY(1px) scale(0.98);
   box-shadow: 0 1px 2px rgba(0,0,0,0.5);
-  border-color: #ff4757;
+  border-color: var(--color-accent-hover);
 }
 
 .zoom-btn {
@@ -157,15 +219,16 @@ body, html, #root {
 }
 
 .apex-btn-primary {
-  background: #da292a;
-  border: 1px solid #ff4757;
+  background: var(--color-accent-dark);
+  border: 1px solid var(--color-accent-hover);
 }
 
 .apex-btn-primary:hover {
-  background: #ff4757;
-  box-shadow: 0 5px 15px rgba(255, 71, 87, 0.4);
+  background: var(--color-accent-hover);
+  box-shadow: 0 5px 15px rgba(0,0,0,0.4);
 }
 
+/* ── Animations ─────────────────────────────────────────────────────────── */
 .path-draw-animation {
   stroke-dasharray: 2000;
   stroke-dashoffset: 2000;
@@ -173,9 +236,7 @@ body, html, #root {
 }
 
 @keyframes drawLine {
-  to {
-    stroke-dashoffset: 0;
-  }
+  to { stroke-dashoffset: 0; }
 }
 
 .apex-glow-line {
@@ -183,6 +244,7 @@ body, html, #root {
           drop-shadow(0 0 5px rgba(255, 255, 255, 0.4));
 }
 
+/* ── Match accordion ────────────────────────────────────────────────────── */
 .match-accordion {
   display: grid;
   grid-template-rows: 0fr;
@@ -200,7 +262,19 @@ body, html, #root {
   min-height: 0;
 }
 
+.match-detail-enter {
+  max-height: 0;
+  opacity: 0;
+  overflow: hidden;
+  transition: all 0.3s ease-in-out;
+}
+
+.match-detail-enter-active {
+  max-height: 500px;
+  opacity: 1;
+}
+
 @keyframes slideDown {
-    from { top: -60px; opacity: 0; }
-    to { top: 20px; opacity: 1; }
+  from { top: -60px; opacity: 0; }
+  to   { top: 20px;  opacity: 1; }
 }

@@ -16,14 +16,18 @@ export const useWindowAutoResize = (
             const screenWidth  = window.screen.availWidth;
             const screenHeight = window.screen.availHeight;
 
-            let newWidth  = targetWidth  > screenWidth  ? Math.floor(screenWidth  * 0.9) : targetWidth;
-            let newHeight = targetHeight > screenHeight ? Math.floor(screenHeight * 0.9) : targetHeight;
+            const newWidth  = targetWidth  > screenWidth  ? Math.floor(screenWidth  * 0.9) : targetWidth;
+            const newHeight = targetHeight > screenHeight ? Math.floor(screenHeight * 0.9) : targetHeight;
 
             const widthDiff  = Math.abs(currentWindow.width  - newWidth);
             const heightDiff = Math.abs(currentWindow.height - newHeight);
 
             if (widthDiff > 2 || heightDiff > 2) {
-                overwolf.windows.changeSize(currentWindow.id, newWidth, newHeight, () => {});
+                overwolf.windows.changeSize({
+                    window_id: currentWindow.id,
+                    width: newWidth,
+                    height: newHeight,
+                }, () => {});
             }
         });
     }, [targetWidth, targetHeight]);

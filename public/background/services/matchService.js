@@ -30,7 +30,7 @@ const MatchFactory = {
             },
             startTime: Date.now(), endTime: 0,
             loadout: { primary: null, secondary: null },
-            path: [], events: [], teamStats: [],
+            path: [], events: [], teamStats: [], weaponTimeline: [],
             _lastLocationTime: 0, _lastKnownTeams: 20, _guessedRank: 20,
             _rosterCache: [], _isVictory: false,
             _squadNames: new Set(initialUser?.name ? [initialUser.name] : []),
@@ -98,10 +98,12 @@ class MatchService {
             case 'TEAMS_ALIVE':{
                 const teams = parseInt(data);
                 if (!isNaN(teams) && teams > 0 && teams <= 20) {
-                    if (teams < match._guessedRank) {
-                        match._guessedRank = teams;
-                        // 🌟 [수정됨] 우승 상태가 아닐 때만 순위 덮어쓰기 허용
-                        if (!match._isVictory && match.placement > teams) match.placement = teams;
+                    match._lastTeamsAlive = teams;
+                    if (teams < match._guessedRank) match._guessedRank = teams;
+                    if (match._isVictory) {
+                        match.placement = 1;
+                    } else if (match._squadEliminated && (match.placement === 20 || match.placement === 0)) {
+                        match.placement = Math.min(20, teams + 1);
                     }
                 }
                 break;
@@ -116,10 +118,29 @@ class MatchService {
                 break;
             }
 
-            case 'LOADOUT':
-                if (data.primary) match.loadout.primary = data.primary;
-                if (data.secondary) match.loadout.secondary = data.secondary;
+            case 'LOADOUT': {
+                const previousPrimary = match.loadout.primary || null;
+                const previousSecondary = match.loadout.secondary || null;
+                const nextPrimary = data.primary || previousPrimary;
+                const nextSecondary = data.secondary || previousSecondary;
+                const changed = previousPrimary !== nextPrimary || previousSecondary !== nextSecondary;
+
+                if (changed && (nextPrimary || nextSecondary)) {
+                    match.weaponTimeline = match.weaponTimeline || [];
+                    match.weaponTimeline.push({
+                        timestamp: Date.now(),
+                        action: 'loadout_change',
+                        previousPrimary,
+                        previousSecondary,
+                        primary: nextPrimary,
+                        secondary: nextSecondary
+                    });
+                }
+
+                match.loadout.primary = nextPrimary;
+                match.loadout.secondary = nextSecondary;
                 break;
+            }
                 
             case 'TEAMMATE':{
                 const existing = match.teamStats.find(t => isSamePlayer(t.name, data.name));
@@ -284,12 +305,40 @@ class MatchService {
         const teammatesKills = match.teamStats.reduce((sum, t) => sum + (t.kills || 0), 0);
         match.squadKills = Math.max(match.squadKills, myKills + teammatesKills);
     }
+
+    static resolveFinalPlacement(match) {
+        if (!match) return 20;
+        if (match._isVictory) return 1;
+        if (match._matchSummaryRank) return match._matchSummaryRank;
+        if (match.placement > 0 && match.placement < 20) return match.placement;
+        if (match._estimatedPlacement) return match._estimatedPlacement;
+        if (match._squadEliminated && match._lastTeamsAlive) {
+            return Math.min(20, match._lastTeamsAlive + 1);
+        }
+        return match.placement || 20;
+    }
+
+    static isGhostMatch(match, durationSeconds) {
+        const isEmptyStats = (match.kills || 0) === 0 && (match.damage || 0) === 0;
+        const isUnknownLegend = !match.legend || match.legend === 'Unknown' || match.legend === 'unknown';
+        const hasActivity =
+            (match.weaponTimeline?.length || 0) > 0
+            || (match.path?.length || 0) > 10
+            || (match.events?.length || 0) > 0
+            || !!(match.loadout?.primary || match.loadout?.secondary)
+            || durationSeconds >= 120;
+
+        if (hasActivity) return false;
+        if (durationSeconds < 30 && isEmptyStats) return true;
+        return isUnknownLegend && isEmptyStats;
+    }
     
     static stripRuntimeFields(match) {
         const runtimeKeys = [
             'isDead', '_ending', '_saved', '_isVictory', '_guessedRank', '_lastLocationTime',
             '_lastKnownTeams', '_lastUltValue', '_currentPhase', '_rosterCache', '_squadNames',
-            '_unknownKillers', 'startPos', 'endPos', '_pathSegment', '_pathRecording'
+            '_unknownKillers', 'startPos', 'endPos', '_pathSegment', '_pathRecording',
+            '_squadEliminated', '_lastTeamsAlive', '_matchSummaryRank', '_estimatedPlacement', '_teamStates'
         ];
         runtimeKeys.forEach((k) => { delete match[k]; });
         if (match.teamStats) {
@@ -333,25 +382,35 @@ class MatchService {
         match.endTime = Date.now();
 
         if (match._saved) return { saved: false, reason: "ALREADY_SAVED" };
-        match._saved = true;
 
         if (!match.platformId) return { saved: false, reason: "NO_UID" };
 
-        if (match._isVictory) {
-            match.placement = 1;
-        } else if ((match.placement === 0 || match.placement === 20) && match._guessedRank && match._guessedRank < 20) {
-            match.placement = match._guessedRank;
+        if (window.EventRouter?.refreshMatchFromGep) {
+            await window.EventRouter.refreshMatchFromGep(match, { maxAttempts: 5, delayMs: 1000 });
+        }
+
+        match.placement = MatchService.resolveFinalPlacement(match);
+        if (match.placement < 20) {
+            match._guessedRank = Math.min(match._guessedRank || 20, match.placement);
         }
 
         const durationSeconds = (match.endTime - match.startTime) / 1000;
         if (!match.squadKills || match.squadKills < match.kills) match.squadKills = match.kills;
 
-        const isEmptyStats = match.kills === 0 && match.damage === 0;
-        const isUnknownLegend = !match.legend || match.legend === 'Unknown' || match.legend === 'unknown';
-
-        if ((durationSeconds < 30 && isEmptyStats) || (isUnknownLegend && isEmptyStats)) {
+        if (MatchService.isGhostMatch(match, durationSeconds)) {
+            console.warn('[Match] Rejected ghost session', {
+                matchId: match.matchId,
+                durationSeconds,
+                damage: match.damage,
+                kills: match.kills,
+                legend: match.legend,
+                weaponTimeline: match.weaponTimeline?.length || 0,
+                pathPoints: match.path?.length || 0
+            });
             return { saved: false, reason: "GHOST" };
         }
+
+        match._saved = true;
 
         delete match._rosterCache; delete match._squadNames; delete match._unknownKillers;
         MatchService.stripRuntimeFields(match);

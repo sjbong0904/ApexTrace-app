@@ -2,5 +2,10 @@
 
 const SURVEY_URL = "https://forms.gle/q4qkfmYVZw28tYHNA";
 
-// 유저의 기본 브라우저로 설문조사 창 띄우기
-overwolf.utils.openUrlInDefaultBrowser(SURVEY_URL);
+window.addEventListener("DOMContentLoaded", () => {
+    if (window.overwolf?.utils?.openUrlInDefaultBrowser) {
+        overwolf.utils.openUrlInDefaultBrowser(SURVEY_URL);
+    } else {
+        window.location.href = SURVEY_URL;
+    }
+});

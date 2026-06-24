@@ -3,18 +3,43 @@
  * Run: npm run seed:languages
  * Requires SUPABASE_SERVICE_ROLE_KEY or temporary grant on upsert_language_pack.
  */
-import { readFileSync } from 'fs';
+import { existsSync, readFileSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import { createClient } from '@supabase/supabase-js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+const ROOT_DIR = join(__dirname, '..');
 const SEEDS_DIR = join(__dirname, 'locale-seeds');
+
+function loadEnvFiles(...paths: string[]) {
+    for (const path of paths) {
+        if (!existsSync(path)) continue;
+        for (const line of readFileSync(path, 'utf-8').split('\n')) {
+            const trimmed = line.trim();
+            if (!trimmed || trimmed.startsWith('#')) continue;
+            const eq = trimmed.indexOf('=');
+            if (eq === -1) continue;
+            const key = trimmed.slice(0, eq).trim();
+            const value = trimmed.slice(eq + 1).trim().replace(/^["']|["']$/g, '');
+            if (process.env[key] == null || process.env[key] === '') {
+                process.env[key] = value;
+            }
+        }
+    }
+}
+
+loadEnvFiles(
+    join(ROOT_DIR, '.env'),
+    join(ROOT_DIR, 'trace-proxy-server', '.env'),
+);
 
 const SUPABASE_URL =
     process.env.SUPABASE_URL ?? 'https://ureuzkxyyozzzluzawwr.supabase.co';
 const SUPABASE_KEY =
-    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
+    process.env.SUPABASE_SERVICE_ROLE_KEY ||
+    process.env.SUPABASE_SERVICE_KEY ||
+    process.env.SUPABASE_ANON_KEY;
 
 if (!SUPABASE_KEY) {
     console.error(

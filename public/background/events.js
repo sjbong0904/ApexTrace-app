@@ -44,6 +44,158 @@ const isRecentDuplicateCombat = (match, type, attacker, victim) => {
     });
 };
 
+const parseTabsPayload = (raw) => {
+    if (raw == null) return null;
+    if (typeof raw === 'object') return raw;
+    try { return JSON.parse(raw); } catch (e) { return null; }
+};
+
+const applyTabsToMatch = (match, tabsRaw) => {
+    const tabs = parseTabsPayload(tabsRaw);
+    if (!match || !tabs) return;
+    if (tabs.teams) {
+        const teams = parseInt(tabs.teams, 10);
+        if (!isNaN(teams) && teams > 0) {
+            match._lastTeamsAlive = teams;
+            if (teams < (match._guessedRank || 20)) match._guessedRank = teams;
+            if (match._squadEliminated && (match.placement === 20 || match.placement === 0)) {
+                match.placement = Math.min(20, teams + 1);
+                match._estimatedPlacement = match.placement;
+            }
+        }
+    }
+    if (tabs.kills !== undefined) match.kills = Math.max(match.kills || 0, parseInt(tabs.kills) || 0);
+    if (tabs.assists !== undefined) match.assists = Math.max(match.assists || 0, parseInt(tabs.assists) || 0);
+    if (tabs.damage !== undefined) match.damage = Math.max(match.damage || 0, parseInt(tabs.damage) || 0);
+    if (tabs.knockdowns !== undefined) match.knocks = Math.max(match.knocks || 0, parseInt(tabs.knockdowns) || 0);
+    const squadKills = parseInt(tabs.squad_kills || tabs.squadKills || 0);
+    if (squadKills > (match.squadKills || 0)) match.squadKills = squadKills;
+};
+
+const applyMatchSummaryToMatch = (match, raw) => {
+    const summary = parseTabsPayload(raw);
+    if (!match || !summary) return false;
+    const rank = parseInt(summary.rank, 10);
+    if (!isNaN(rank) && rank > 0 && rank <= 20) {
+        match.placement = rank;
+        match._guessedRank = rank;
+        match._matchSummaryRank = rank;
+    }
+    const squadKills = parseInt(summary.squadKills || summary.squad_kills, 10);
+    if (!isNaN(squadKills)) match.squadKills = Math.max(match.squadKills || 0, squadKills);
+    return !!match._matchSummaryRank;
+};
+
+const syncTeamRosterFromInfo = (matchInfo, match) => {
+    if (!matchInfo || !match) return;
+    if (!match._teamStates) match._teamStates = {};
+
+    Object.keys(matchInfo).forEach((key) => {
+        if (!key.startsWith('roster_')) return;
+        const raw = matchInfo[key];
+        if (!raw || raw === 'null') return;
+        try {
+            const player = typeof raw === 'string' ? JSON.parse(raw) : raw;
+            if (!player || player.team_id == null) return;
+            const teamId = String(player.team_id);
+            const isMine = player.isTeammate === true || player.isTeammate === '1'
+                || player.is_local === true || player.is_local === '1';
+            const state = String(player.state || 'alive').toLowerCase();
+            const isAlive = state !== 'death';
+            if (!match._teamStates[teamId]) match._teamStates[teamId] = { alive: false, isMine: false };
+            if (isMine) match._teamStates[teamId].isMine = true;
+            if (isAlive) match._teamStates[teamId].alive = true;
+        } catch (e) {}
+    });
+};
+
+const estimatePlacementFromTeamStates = (match) => {
+    if (!match?._teamStates) return null;
+    let aliveOtherTeams = 0;
+    Object.values(match._teamStates).forEach((team) => {
+        if (!team.isMine && team.alive) aliveOtherTeams++;
+    });
+    if (aliveOtherTeams <= 0) return null;
+    return Math.min(20, aliveOtherTeams + 1);
+};
+
+const applyPlacementEstimate = (match) => {
+    if (!match || match._isVictory || match._matchSummaryRank) return null;
+    if (match.placement > 0 && match.placement < 20) return match.placement;
+
+    const rosterEstimate = estimatePlacementFromTeamStates(match);
+    if (rosterEstimate) {
+        match._estimatedPlacement = rosterEstimate;
+        match.placement = rosterEstimate;
+        return rosterEstimate;
+    }
+
+    if (match._squadEliminated && match._lastTeamsAlive) {
+        const teamsEstimate = Math.min(20, match._lastTeamsAlive + 1);
+        match._estimatedPlacement = teamsEstimate;
+        match.placement = teamsEstimate;
+        return teamsEstimate;
+    }
+
+    return null;
+};
+
+const applyInfoToMatch = (infoRoot, match) => {
+    if (!infoRoot?.info || !match) return;
+
+    const info = infoRoot.info;
+    const data = {
+        ...info.game_info,
+        ...info.match_info,
+        ...info.inventory,
+        ...info.me,
+        ...info.damage
+    };
+
+    applyTabsToMatch(match, info.match_info?.tabs || data.tabs);
+    applyMatchSummaryToMatch(match, info.match_info?.match_summary || data.match_summary);
+    syncTeamRosterFromInfo(info.match_info, match);
+
+    if (data.victory === 'true' || data.victory === true) {
+        match._isVictory = true;
+        match.placement = 1;
+        match._guessedRank = 1;
+    }
+
+    if (match._squadEliminated) {
+        applyPlacementEstimate(match);
+    }
+
+    if (data.totalDamageDealt !== undefined) {
+        const totalDmg = parseFloat(data.totalDamageDealt);
+        if (!isNaN(totalDmg)) match.damage = Math.max(match.damage || 0, totalDmg);
+    }
+
+    if (data.team_damage_dealt && match.playerName && match.playerName !== 'Unknown') {
+        try {
+            const rows = typeof data.team_damage_dealt === 'string'
+                ? JSON.parse(data.team_damage_dealt)
+                : data.team_damage_dealt;
+            if (Array.isArray(rows)) {
+                const mine = rows.find((row) => isSamePlayer(row.player_name, match.playerName));
+                const dealt = parseInt(mine?.damage_dealt, 10);
+                if (!isNaN(dealt)) match.damage = Math.max(match.damage || 0, dealt);
+            }
+        } catch (e) {}
+    }
+
+    if (match._rosterCache?.length && window.MatchService?.processRoster) {
+        window.MatchService.processRoster(match);
+    }
+
+    if (!match.legend || match.legend === 'Unknown' || match.legend === 'unknown') {
+        const userLegend = window.Store?.user?.legend;
+        if (userLegend) {
+            match.legend = window.Utils?.normalizeLegend?.(userLegend) || userLegend;
+        }
+    }
+};
+
 const recordCombatLog = (match, eventPayload, statAction) => {
     const { type, attacker, victim } = eventPayload;
     if (isRecentDuplicateCombat(match, type, attacker, victim)) {
@@ -135,6 +287,11 @@ const EventRouter = {
             console.log('[LOADOUT DEBUG] full info.info:', raw);
         }
 
+        const matchInfoRaw = info.info?.match_info || info.match_info;
+        if (matchInfoRaw && typeof matchInfoRaw === 'object' && Object.keys(matchInfoRaw).length > 0) {
+            console.log('[MatchInfo DEBUG] full match_info:', JSON.stringify(matchInfoRaw));
+        }
+
         const matchInfoTop = info.info?.match_info || info.match_info;
         if (matchInfoTop?.map_name && window.Store?.game) {
             const earlyMap = window.MapService
@@ -149,7 +306,8 @@ const EventRouter = {
             ...info.info?.game_info,
             ...info.info?.match_info,
             ...info.info?.inventory,
-            ...info.info?.me
+            ...info.info?.me,
+            ...info.info?.damage
         };
 
         const activeMatch = window.Store.activeMatch;
@@ -223,8 +381,8 @@ const EventRouter = {
         }
 
         if (data.tabs) {
-            try {
-                const tabs = JSON.parse(data.tabs);
+            const tabs = parseTabsPayload(data.tabs);
+            if (tabs) {
                 if (tabs.teams) window.CoreController.updateMatch('TEAMS_ALIVE', tabs.teams);
                 window.CoreController.updateMatch('SYNC_STATS', {
                     kills: tabs.kills,
@@ -233,11 +391,19 @@ const EventRouter = {
                     knockdowns: tabs.knockdowns,
                     squadKills: tabs.squad_kills || tabs.squadKills
                 });
-            } catch (e) {}
+            }
         }
 
-        if (data.totalDamageDealt !== undefined && !activeMatch.isDead) {
+        if (data.totalDamageDealt !== undefined) {
             window.CoreController.updateMatch('DAMAGE_TOTAL', data.totalDamageDealt);
+        }
+
+        if (activeMatch) {
+            syncTeamRosterFromInfo(info.info?.match_info, activeMatch);
+            if (data.match_summary) applyMatchSummaryToMatch(activeMatch, data.match_summary);
+            if (data.victory === 'true' || data.victory === true) {
+                window.CoreController.updateMatch('VICTORY', true);
+            }
         }
 
         if (data.ultimate_cooldown) {
@@ -338,15 +504,29 @@ const EventRouter = {
                 if (activeMatch && (Date.now() - activeMatch.startTime < 120000)) {
                     const isTeamAlive = activeMatch.teamStats?.some(t => t.state !== 'death');
                     const isReallyOver = activeMatch._isVictory || isEliminated(activeMatch) || !isTeamAlive;
-                    if (!isReallyOver) return;
+                    if (!isReallyOver) {
+                        console.warn('[Match] Ignored early match_end — squad still active');
+                        return;
+                    }
                 }
 
                 lastMatchEndTime = Date.now();
                 const matchToEnd = window.Store.activeMatch;
+                if (!matchToEnd) {
+                    console.warn('[Match] match_end received with no active session');
+                    return;
+                }
+
+                console.log('[Match] match_end received — scheduling finalize');
                 setTimeout(() => {
+                    if (matchToEnd._ending) return;
                     if (window.Store.activeMatch === matchToEnd) {
                         window.CoreController.endMatch();
+                        return;
                     }
+
+                    console.warn('[Match] Active session changed before match_end finalize — saving captured session');
+                    window.CoreController.finalizeMatchSession(matchToEnd);
                 }, 2000);
                 return;
             }
@@ -359,8 +539,32 @@ const EventRouter = {
                 window.CoreController.updateMatch('PLACEMENT', 1);
             }
 
-            if (name === 'kill_feed') {
+            if (name === 'kill') {
+                const totalKills = parseInt(data, 10);
+                if (!isNaN(totalKills)) {
+                    window.CoreController.updateMatch('SYNC_STATS', { kills: totalKills });
+                }
+            } else if (name === 'assist') {
+                const totalAssists = parseInt(data, 10);
+                if (!isNaN(totalAssists)) {
+                    window.CoreController.updateMatch('SYNC_STATS', { assists: totalAssists });
+                }
+            } else if (name === 'damage') {
+                const amount = parseFloat(parsed.damageAmount || parsed.amount);
+                if (!isNaN(amount)) {
+                    window.CoreController.updateMatch('DAMAGE', { amount });
+                }
+            } else if (name === 'kill_feed') {
                 handleCombatEvent(parsed, activeMatch);
+            } else if (name === 'death') {
+                window.CoreController.updateMatch('SET_DEAD', true);
+            } else if (name === 'your_squad_is_eliminated') {
+                window.CoreController.updateMatch('SET_DEAD', true);
+                activeMatch._squadEliminated = true;
+                activeMatch.teamStats?.forEach((teammate) => {
+                    if (teammate.state !== 'death') teammate.state = 'death';
+                });
+                window.EventRouter.estimatePlacementFromGep(activeMatch);
             } else if (name === 'healed_from_ko') {
                 window.CoreController.updateMatch('SET_DEAD', false);
                 window.CoreController.addEvent({ type: 'revive', desc: 'Revived', victim: 'Me', timestamp: Date.now() });
@@ -370,8 +574,50 @@ const EventRouter = {
                 window.CoreController.addEvent({ type: 'respawn', desc: 'Respawned from Dropship', victim: 'Me', timestamp: Date.now() });
             } else if (name === 'match_summary') {
                 if (parsed.rank) window.CoreController.updateMatch('PLACEMENT', parsed.rank);
+                else applyMatchSummaryToMatch(activeMatch, data);
             }
         });
+    },
+
+    applyInfoToMatch,
+
+    estimatePlacementFromGep: (match) => {
+        if (!match) return Promise.resolve(null);
+        return window.EventRouter.refreshMatchFromGep(match, { maxAttempts: 1 }).then(() => {
+            const est = applyPlacementEstimate(match);
+            if (est) console.log(`[Match] Estimated placement ${est} at squad elimination`);
+            return est;
+        });
+    },
+
+    refreshMatchFromGep: (match, options = {}) => {
+        const maxAttempts = options.maxAttempts ?? 1;
+        const delayMs = options.delayMs ?? 0;
+
+        const pollOnce = () => new Promise((resolve) => {
+            if (!match || !overwolf?.games?.events?.getInfo) return resolve(false);
+            overwolf.games.events.getInfo((infoRes) => {
+                if (infoRes?.status === 'success' && infoRes.res) {
+                    applyInfoToMatch(infoRes, match);
+                }
+                resolve(!!match._matchSummaryRank);
+            });
+        });
+
+        return (async () => {
+            for (let attempt = 0; attempt < maxAttempts; attempt++) {
+                if (attempt > 0 && delayMs > 0) {
+                    await new Promise((resolve) => setTimeout(resolve, delayMs));
+                }
+                const hasSummary = await pollOnce();
+                if (hasSummary || (match.placement > 0 && match.placement < 20 && !match._estimatedPlacement)) {
+                    break;
+                }
+            }
+            if (!match._matchSummaryRank && (match.placement === 20 || match.placement === 0)) {
+                applyPlacementEstimate(match);
+            }
+        })();
     }
 };
 

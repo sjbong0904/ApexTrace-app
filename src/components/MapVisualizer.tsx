@@ -2,6 +2,7 @@ import React, { useState, useRef, useMemo, useEffect } from 'react';
 import { getCssPos, getMapConfig } from '../utils/helpers';
 import type { Match } from '../types'
 import { FaExpand, FaCompress } from 'react-icons/fa';
+import { useTheme } from '../theme';
 
 const PATH_COLORS = [
     "#4cd137", "#e67e22", "#f1c40f", "#00d2be", "#9b59b6", 
@@ -13,6 +14,7 @@ interface MapVisualizerProps {
 }
 
 const MapVisualizer: React.FC<MapVisualizerProps> = ({ match }) => {
+    const { isDark } = useTheme();
     const [scale, setScale] = useState(1);
     const [pos, setPos] = useState({ x: 0, y: 0 });
     const [isFullscreen, setIsFullscreen] = useState(false);
@@ -226,7 +228,7 @@ const MapVisualizer: React.FC<MapVisualizerProps> = ({ match }) => {
                 height: '100%', 
                 width: '100%', 
                 position: 'relative', 
-                borderRight: isFullscreen ? 'none' : '1px solid #333', // 전체화면 시 테두리 제거
+                borderRight: isFullscreen ? 'none' : '1px solid #333',
                 background: '#000', 
                 overflow: 'hidden', 
                 cursor: scale > 1 ? (isDragging.current ? 'grabbing' : 'grab') : 'default', 
@@ -256,7 +258,15 @@ const MapVisualizer: React.FC<MapVisualizerProps> = ({ match }) => {
                     <img 
                         src={`https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/${mapConfig.img}`} 
                         alt="map" 
-                        style={{ width: '100%', height: '100%', objectFit: 'contain', opacity: 0.6, pointerEvents: 'none', userSelect: 'none' }} 
+                        style={{
+                            width: '100%',
+                            height: '100%',
+                            objectFit: 'contain',
+                            opacity: isDark ? 0.6 : 0.92,
+                            filter: isDark ? undefined : 'brightness(1.12) contrast(1.04)',
+                            pointerEvents: 'none',
+                            userSelect: 'none',
+                        }} 
                         onDragStart={(e) => e.preventDefault()} 
                     /> 
                     : <div style={{ color: '#666', textAlign: 'center', paddingTop: '45%', fontSize: '12px' }}>Map image not available</div>

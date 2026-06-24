@@ -1,6 +1,7 @@
-import React, { useState } from 'react'; // ✅ React import 추가
+import React, { useState } from 'react';
 import { FaChartBar, FaList, FaStar, FaCrosshairs, FaCog } from 'react-icons/fa';
 import { useTranslation } from 'react-i18next';
+import { c, useTheme } from '../theme';
 
 interface NavProps {
     activeTab: string;
@@ -9,6 +10,7 @@ interface NavProps {
 
 const Navigation = ({ activeTab, onTabChange }: NavProps) => {
     const { t } = useTranslation();
+    const { isDark } = useTheme();
     const [hoveredTab, setHoveredTab] = useState<string | null>(null); // ✅ hover state
 
     const navItemStyle = (isActive: boolean, tabId: string): React.CSSProperties => ({
@@ -20,12 +22,14 @@ const Navigation = ({ activeTab, onTabChange }: NavProps) => {
         justifyContent: 'center',
         cursor: 'pointer',
         marginBottom: '10px',
-        color: isActive ? '#fff' : hoveredTab === tabId ? '#aaa' : '#666',
+        color: isActive ? c.textPrimary : hoveredTab === tabId ? c.textMuted : c.textFaint,
         background: isActive
-            ? 'linear-gradient(135deg, #e74c3c 0%, #c0392b 100%)'
-            : hoveredTab === tabId ? '#2a2a2a' : 'transparent',
+            ? `linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-dark) 100%)`
+            : hoveredTab === tabId ? c.bgCardHover : 'transparent',
         transition: 'all 0.2s ease',
-        boxShadow: isActive ? '0 4px 10px rgba(231, 76, 60, 0.3)' : 'none'
+        boxShadow: isActive
+            ? (isDark ? '0 4px 10px rgba(0,0,0,0.4)' : '0 4px 12px rgba(214, 69, 55, 0.28)')
+            : 'none',
     });
 
     return (
@@ -53,7 +57,7 @@ const Navigation = ({ activeTab, onTabChange }: NavProps) => {
                 <FaChartBar size={20} />
             </div>
 
-            <div style={{ width: '60%', height: '1px', background: '#333', margin: '15px 0' }} />
+            <div style={{ width: '60%', height: '1px', background: c.border, margin: '15px 0' }} />
 
             <div
                 title={t('nav.favorites')}

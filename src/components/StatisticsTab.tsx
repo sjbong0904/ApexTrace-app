@@ -95,30 +95,30 @@ interface EmptyStateProps {
 // ✅ borderLeft 안티패턴 → borderTop으로 변경
 const BigStatBox = ({ title, value, sub, icon, color }: BigStatBoxProps) => (
     <div style={{
-        background: '#252525', padding: '15px', borderRadius: '10px',
+        background: 'var(--color-bg-card)', padding: '15px', borderRadius: '10px',
         borderTop: `3px solid ${color}`,
         display: 'flex', flexDirection: 'column', justifyContent: 'center'
     }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
-            <div style={{ fontSize: '11px', color: '#888', fontWeight: 'bold' }}>{title}</div>
+            <div style={{ fontSize: '11px', color: 'var(--color-text-muted)', fontWeight: 'bold' }}>{title}</div>
             <div style={{ fontSize: '14px' }}>{icon}</div>
         </div>
-        <div style={{ fontSize: '22px', fontWeight: 'bold', color: '#fff' }}>{value}</div>
-        <div style={{ fontSize: '10px', color: '#666' }}>{sub}</div>
+        <div style={{ fontSize: '22px', fontWeight: 'bold', color: 'var(--color-text-primary)' }}>{value}</div>
+        <div style={{ fontSize: '10px', color: 'var(--color-text-faint)' }}>{sub}</div>
     </div>
 );
 
 const InfoRow = ({ label, value, highlight = false }: InfoRowProps) => (
-    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid #333' }}>
-        <span style={{ color: '#888', fontSize: '13px' }}>{label}</span>
-        <span style={{ color: highlight ? '#fff' : '#ccc', fontWeight: highlight ? 'bold' : 'normal', fontSize: highlight ? '15px' : '13px' }}>{value}</span>
+    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px solid var(--color-border)' }}>
+        <span style={{ color: 'var(--color-text-muted)', fontSize: '13px' }}>{label}</span>
+        <span style={{ color: highlight ? 'var(--color-text-primary)' : 'var(--color-text-dim)', fontWeight: highlight ? 'bold' : 'normal', fontSize: highlight ? '15px' : '13px' }}>{value}</span>
     </div>
 );
 
 const EmptyState = ({ msg }: EmptyStateProps) => {
     const { t } = useTranslation();
     return (
-        <div style={{ padding: '60px', textAlign: 'center', color: '#666', border: '2px dashed #333', borderRadius: '10px' }}>
+        <div style={{ padding: '60px', textAlign: 'center', color: 'var(--color-text-faint)', border: '2px dashed var(--color-border)', borderRadius: '10px' }}>
             <h3>{t('statistics.emptyState.title')}</h3>
             {/* ✅ 하드코딩 제거 */}
             <p>{msg || t('statistics.emptyState.noData')}</p>
@@ -133,36 +133,36 @@ const PremiumLockView = ({ title }: { title: string }) => {
             <div
                 onClick={() => { alert(t('premium.redirecting')); }}
                 style={{
-                    background: `repeating-linear-gradient(45deg, #1a1a1a, #1a1a1a 10px, #202020 10px, #202020 20px)`,
-                    border: '2px dashed #444', borderRadius: '12px', padding: '60px 20px',
+                    background: `repeating-linear-gradient(45deg, var(--color-bg-sub-header), var(--color-bg-sub-header) 10px, var(--color-bg-table-header) 10px, var(--color-bg-table-header) 20px)`,
+                    border: '2px dashed var(--color-border-light)', borderRadius: '12px', padding: '60px 20px',
                     textAlign: 'center', cursor: 'pointer', display: 'flex', flexDirection: 'column',
                     alignItems: 'center', gap: '15px', transition: 'all 0.2s',
                     maxWidth: '600px', margin: '0 auto'
                 }}
-                onMouseEnter={e => { e.currentTarget.style.borderColor = '#e67e22'; }}
-                onMouseLeave={e => { e.currentTarget.style.borderColor = '#444'; }}
+                onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--color-warning)'; }}
+                onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--color-border-light)'; }}
             >
                 <div style={{
-                    background: '#333', width: '60px', height: '60px', borderRadius: '50%',
+                    background: 'var(--color-bg-card-hover)', width: '60px', height: '60px', borderRadius: '50%',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
                     boxShadow: '0 4px 15px rgba(0,0,0,0.5)'
                 }}>
-                    <FaLock size={24} color="#ccc" />
+                    <FaLock size={24} color="var(--color-text-dim)" />
                 </div>
                 <div>
-                    <div style={{ fontSize: '20px', fontWeight: 'bold', color: '#fff', marginBottom: '5px' }}>
+                    <div style={{ fontSize: '20px', fontWeight: 'bold', color: 'var(--color-text-primary)', marginBottom: '5px' }}>
                         {t('statistics.premiumLock.unlockAnalytics', { title })}
                     </div>
                     {/* ✅ 하드코딩 제거 */}
-                    <div style={{ fontSize: '14px', color: '#aaa', lineHeight: '1.5' }}>
+                    <div style={{ fontSize: '14px', color: 'var(--color-text-muted)', lineHeight: '1.5' }}>
                         {t('statistics.premiumLock.goBeyond')}<br />
                         {t('statistics.premiumLock.getDetailedInsights')}
                     </div>
                 </div>
                 <button style={{
                     marginTop: '10px', padding: '12px 30px',
-                    background: 'linear-gradient(90deg, #e67e22 0%, #d35400 100%)',
-                    border: 'none', borderRadius: '6px', color: '#fff',
+                    background: 'linear-gradient(90deg, var(--color-warning) 0%, var(--color-warning-hover) 100%)',
+                    border: 'none', borderRadius: '6px', color: 'var(--color-text-primary)',
                     fontWeight: 'bold', fontSize: '14px', cursor: 'pointer',
                     display: 'flex', alignItems: 'center', gap: '8px',
                     boxShadow: '0 4px 6px rgba(230, 126, 34, 0.3)'
@@ -250,51 +250,51 @@ const OverviewView = ({ data }: { data: MatchHistory[] }) => {
     return (
         <div style={{ animation: 'fadeIn 0.5s' }}>
             <div style={{ display: 'flex', gap: '20px', marginBottom: '30px', height: '320px' }}>
-                <div style={{ flex: 1, background: '#1a1a1a', borderRadius: '12px', border: '1px solid #333', position: 'relative', overflow: 'hidden' }}>
-                    <div style={{ position: 'absolute', top: '15px', left: '20px', fontSize: '16px', fontWeight: 'bold', color: '#fff' }}>
+                <div style={{ flex: 1, background: 'var(--color-bg-sub-header)', borderRadius: '12px', border: '1px solid var(--color-border)', position: 'relative', overflow: 'hidden' }}>
+                    <div style={{ position: 'absolute', top: '15px', left: '20px', fontSize: '16px', fontWeight: 'bold', color: 'var(--color-text-primary)' }}>
                         <span style={{ color: COLORS.NEON_RED }}>◆</span> {t('statistics.overview.analytics')}
                     </div>
-                    <ResponsiveContainer width="100%" height="100%">
+                    <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
                         <RadarChart cx="50%" cy="55%" outerRadius="70%" data={radarData}>
-                            <PolarGrid stroke="#444" />
-                            <PolarAngleAxis dataKey="subject" tick={{ fill: '#ccc', fontSize: 10, fontWeight: 'bold' }} />
+                            <PolarGrid stroke="var(--color-border-light)" />
+                            <PolarAngleAxis dataKey="subject" tick={{ fill: 'var(--color-text-dim)', fontSize: 10, fontWeight: 'bold' }} />
                             <PolarRadiusAxis angle={30} domain={[0, 100]} tick={false} axisLine={false} />
                             <Radar name="Stats" dataKey="A" stroke={COLORS.NEON_ORANGE} strokeWidth={3} fill={COLORS.NEON_ORANGE} fillOpacity={0.4} />
                         </RadarChart>
                     </ResponsiveContainer>
                     <div style={{ position: 'absolute', bottom: '15px', right: '20px', textAlign: 'right' }}>
-                        <div style={{ fontSize: '42px', fontWeight: '900', color: totalScore >= 80 ? '#fff' : (totalScore >= 50 ? '#ccc' : '#666'), letterSpacing: '-2px', lineHeight: '1' }}>
+                        <div style={{ fontSize: '42px', fontWeight: '900', color: totalScore >= 80 ? 'var(--color-text-primary)' : (totalScore >= 50 ? 'var(--color-text-dim)' : 'var(--color-text-faint)'), letterSpacing: '-2px', lineHeight: '1' }}>
                             <span style={{ fontSize: '16px', color: COLORS.NEON_RED, marginLeft: '5px' }}>{t('statistics.overview.tier')} </span>{totalTier}
                         </div>
                     </div>
                 </div>
 
                 <div style={{ flex: 1.2, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
-                    <BigStatBox title={t('statistics.overview.kdRatio')} value={stats.kd} sub={t('statistics.overview.totalKills', { count: stats.kills })} color="#ff6b6b" />
+                    <BigStatBox title={t('statistics.overview.kdRatio')} value={stats.kd} sub={t('statistics.overview.totalKills', { count: stats.kills })} color="var(--color-danger)" />
                     <BigStatBox title={t('statistics.overview.avgDamage')} value={stats.avgDamage} sub={t('statistics.overview.totalDamage', { count: stats.totalDamage })} color="#ffa502" />
                     <BigStatBox title={t('statistics.overview.avgSurvival')} value={`#${stats.avgPlacement}`} sub={t('statistics.overview.avgSurvivedTime', { m: stats.avgmin, s: stats.avgsec })} color="#54a0ff" />
                     <BigStatBox title={t('statistics.overview.performance')} value={t('statistics.overview.peakKills', { count: stats.maxKills })} sub={t('statistics.overview.killContribute', { rate: stats.lograte })} color="#ff9ff3" />
                 </div>
             </div>
 
-            <div style={{ background: '#1a1a1a', borderRadius: '12px', padding: '20px', border: '1px solid #333', position: 'relative' }}>
+            <div style={{ background: 'var(--color-bg-sub-header)', borderRadius: '12px', padding: '20px', border: '1px solid var(--color-border)', position: 'relative' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
-                    <h4 style={{ margin: 0, color: '#fff' }}>{t('statistics.overview.performanceChartTitle')}</h4>
-                    <div style={{ fontSize: '12px', color: '#888' }}>{t('statistics.overview.performanceChartLegend')}</div>
+                    <h4 style={{ margin: 0, color: 'var(--color-text-primary)' }}>{t('statistics.overview.performanceChartTitle')}</h4>
+                    <div style={{ fontSize: '12px', color: 'var(--color-text-muted)' }}>{t('statistics.overview.performanceChartLegend')}</div>
                 </div>
                 <div style={{ width: '100%', height: '220px' }}>
-                    <ResponsiveContainer width="100%" height="100%">
+                    <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
                         <ComposedChart data={trendData} margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
-                            <CartesianGrid strokeDasharray="3 3" stroke="#333" vertical={false} />
-                            <XAxis dataKey="name" tick={{ fill: '#666', fontSize: 10 }} tickLine={false} axisLine={false} />
+                            <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" vertical={false} />
+                            <XAxis dataKey="name" tick={{ fill: 'var(--color-text-faint)', fontSize: 10 }} tickLine={false} axisLine={false} />
                             <YAxis yAxisId="dmg" orientation="left" stroke="#ffa502" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
-                            <YAxis yAxisId="kills" orientation="right" stroke="#ff6b6b" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
+                            <YAxis yAxisId="kills" orientation="right" stroke="var(--color-danger)" tick={{ fontSize: 10 }} axisLine={false} tickLine={false} />
                             <YAxis yAxisId="place" orientation="right" reversed={true} domain={[1, 20]} hide={true} />
-                            <Tooltip contentStyle={{ backgroundColor: 'rgba(0,0,0,0.9)', border: '1px solid #444', borderRadius: '4px' }} itemStyle={{ fontSize: '12px', color: '#fff', fontWeight: 'bold' }} />
+                            <Tooltip contentStyle={{ backgroundColor: 'var(--color-bg-card)', border: '1px solid var(--color-border-light)', borderRadius: '4px' }} itemStyle={{ fontSize: '12px', color: 'var(--color-text-primary)', fontWeight: 'bold' }} />
                             <RechartsLegend wrapperStyle={{ fontSize: '11px', paddingTop: '10px' }} />
                             <Bar yAxisId="dmg" name="Damage" dataKey="damage" fill="#ffa502" radius={[2, 2, 0, 0]} maxBarSize={15} />
-                            <Bar yAxisId="kills" name="Kills" dataKey="kills" fill="#ff6b6b" radius={[2, 2, 0, 0]} maxBarSize={15} />
-                            <Line yAxisId="place" name="Placement" type="monotone" dataKey="placement" stroke="#54a0ff" strokeWidth={3} dot={{ r: 4, fill: '#54a0ff', strokeWidth: 2, stroke: '#1a1a1a' }} />
+                            <Bar yAxisId="kills" name="Kills" dataKey="kills" fill="var(--color-danger)" radius={[2, 2, 0, 0]} maxBarSize={15} />
+                            <Line yAxisId="place" name="Placement" type="monotone" dataKey="placement" stroke="#54a0ff" strokeWidth={3} dot={{ r: 4, fill: '#54a0ff', strokeWidth: 2, stroke: 'var(--color-bg-sub-header)' }} />
                         </ComposedChart>
                     </ResponsiveContainer>
                 </div>
@@ -323,7 +323,7 @@ const MapsView = ({ data }: { data: MatchHistory[] }) => {
                             onClick={() => setSelectedMap(mapName)}
                             style={{
                                 minWidth: '140px', height: '80px', borderRadius: '8px',
-                                border: isSelected ? '2px solid #fff' : '2px solid #444',
+                                border: isSelected ? '2px solid var(--color-text-primary)' : '2px solid var(--color-border-light)',
                                 backgroundImage: `linear-gradient(rgba(0,0,0,0.3), rgba(0,0,0,0.8)), url(https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/${bgImage})`,
                                 backgroundSize: 'cover', backgroundPosition: 'center',
                                 display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -331,10 +331,10 @@ const MapsView = ({ data }: { data: MatchHistory[] }) => {
                                 boxShadow: isSelected ? '0 0 10px rgba(255,255,255,0.2)' : 'none'
                             }}
                         >
-                            <span style={{ color: '#fff', fontWeight: 'bold', fontSize: '14px', textAlign: 'center', padding: '0 5px', textShadow: '0 2px 4px rgba(0,0,0,0.8)' }}>
+                            <span style={{ color: 'var(--color-text-primary)', fontWeight: 'bold', fontSize: '14px', textAlign: 'center', padding: '0 5px', textShadow: '0 2px 4px rgba(0,0,0,0.8)' }}>
                                 {mapName}
                             </span>
-                            {isSelected && <div style={{ position: 'absolute', bottom: '-8px', width: 0, height: 0, borderLeft: '8px solid transparent', borderRight: '8px solid transparent', borderTop: '8px solid #fff' }} />}
+                            {isSelected && <div style={{ position: 'absolute', bottom: '-8px', width: 0, height: 0, borderLeft: '8px solid transparent', borderRight: '8px solid transparent', borderTop: '8px solid var(--color-text-primary)' }} />}
                         </div>
                     );
                 })}
@@ -342,8 +342,8 @@ const MapsView = ({ data }: { data: MatchHistory[] }) => {
 
             {stats ? (
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
-                    <div style={{ background: '#252525', padding: '20px', borderRadius: '10px', border: '1px solid #333' }}>
-                        <h3 style={{ margin: '0 0 20px 0', borderBottom: '1px solid #444', paddingBottom: '10px' }}>{selectedMap} {t('statistics.maps.statistics')}</h3>
+                    <div style={{ background: 'var(--color-bg-card)', padding: '20px', borderRadius: '10px', border: '1px solid var(--color-border)' }}>
+                        <h3 style={{ margin: '0 0 20px 0', borderBottom: '1px solid var(--color-border-light)', paddingBottom: '10px' }}>{selectedMap} {t('statistics.maps.statistics')}</h3>
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
                             <InfoRow label={t('statistics.maps.totalMatches')} value={stats.matches} />
                             <InfoRow label={t('statistics.maps.winRate')} value={`${stats.winRate}%`} highlight />
@@ -353,17 +353,17 @@ const MapsView = ({ data }: { data: MatchHistory[] }) => {
                             <InfoRow label={t('statistics.maps.totalKills')} value={stats.kills} />
                         </div>
                     </div>
-                    <div style={{ background: '#252525', padding: '20px', borderRadius: '10px', border: '1px solid #333' }}>
-                        <h3 style={{ margin: '0 0 20px 0', borderBottom: '1px solid #444', paddingBottom: '10px' }}>{t('statistics.maps.playstyle')}</h3>
+                    <div style={{ background: 'var(--color-bg-card)', padding: '20px', borderRadius: '10px', border: '1px solid var(--color-border)' }}>
+                        <h3 style={{ margin: '0 0 20px 0', borderBottom: '1px solid var(--color-border-light)', paddingBottom: '10px' }}>{t('statistics.maps.playstyle')}</h3>
                         <div style={{ marginBottom: '20px' }}>
-                            <div style={{ fontSize: '12px', color: '#888' }}>{t('statistics.maps.mostPlayedLegend')}</div>
-                            <div style={{ fontSize: '20px', fontWeight: 'bold', color: '#fff', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                                <img src={`https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/${stats.mostLegend}.png`} alt="" style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover', border: '1px solid #666' }} />
+                            <div style={{ fontSize: '12px', color: 'var(--color-text-muted)' }}>{t('statistics.maps.mostPlayedLegend')}</div>
+                            <div style={{ fontSize: '20px', fontWeight: 'bold', color: 'var(--color-text-primary)', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                <img src={`https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/${stats.mostLegend}.png`} alt="" style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover', border: '1px solid var(--color-text-faint)' }} />
                                 {stats.mostLegend}
                             </div>
                         </div>
                         <div>
-                            <div style={{ fontSize: '12px', color: '#888' }}>{t('statistics.maps.favoriteWeapon')}</div>
+                            <div style={{ fontSize: '12px', color: 'var(--color-text-muted)' }}>{t('statistics.maps.favoriteWeapon')}</div>
                             <div style={{ fontSize: '20px', fontWeight: 'bold', color: '#e17055' }}>{stats.mostWeapon}</div>
                         </div>
                     </div>
@@ -396,7 +396,7 @@ const LegendsView = ({ data }: { data: MatchHistory[] }) => {
     return (
         <div style={{ animation: 'fadeIn 0.3s' }}>
             <div style={{ display: 'flex', gap: '20px', marginBottom: '20px' }}>
-                <div style={{ flex: 2, display: 'flex', flexWrap: 'wrap', gap: '8px', padding: '15px', background: '#111', borderRadius: '10px', border: '1px solid #333', maxHeight: '300px', overflowY: 'auto' }}>
+                <div style={{ flex: 2, display: 'flex', flexWrap: 'wrap', gap: '8px', padding: '15px', background: 'var(--color-bg-deep)', borderRadius: '10px', border: '1px solid var(--color-border)', maxHeight: '300px', overflowY: 'auto' }}>
                     {LEGENDS_LIST.map(legend => {
                         const isSelected = selectedLegend === legend;
                         return (
@@ -405,7 +405,7 @@ const LegendsView = ({ data }: { data: MatchHistory[] }) => {
                                 onClick={() => setSelectedLegend(legend)}
                                 style={{
                                     width: '45px', height: '45px', borderRadius: '6px',
-                                    boxShadow: isSelected ? 'inset 0 0 0 2px #e17055' : 'inset 0 0 0 1px #333',
+                                    boxShadow: isSelected ? 'inset 0 0 0 2px #e17055' : 'inset 0 0 0 1px var(--color-border)',
                                     overflow: 'hidden', cursor: 'pointer',
                                     filter: isSelected ? 'grayscale(0%)' : 'grayscale(80%)',
                                     opacity: isSelected ? 1 : 0.6, transition: '0.2s',
@@ -419,38 +419,38 @@ const LegendsView = ({ data }: { data: MatchHistory[] }) => {
                         );
                     })}
                 </div>
-                <div style={{ flex: 1, background: '#252525', borderRadius: '10px', border: '1px solid #333', padding: '10px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                    <h5 style={{ margin: '0 0 10px 0', color: '#ccc' }}>{t('statistics.legends.top5PickRates')}</h5>
+                <div style={{ flex: 1, background: 'var(--color-bg-card)', borderRadius: '10px', border: '1px solid var(--color-border)', padding: '10px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                    <h5 style={{ margin: '0 0 10px 0', color: 'var(--color-text-dim)' }}>{t('statistics.legends.top5PickRates')}</h5>
                     {pieData.length > 0 ? (
                         <div style={{ width: '100%', height: '200px' }}>
-                            <ResponsiveContainer minWidth={0} minHeight={0}>
+                            <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
                                 <PieChart>
                                     <Pie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={40} outerRadius={60} paddingAngle={2}>
                                         {pieData.map((_, index) => <Cell key={`cell-${index}`} fill={COLORS.CHART[index % COLORS.CHART.length]} />)}
                                     </Pie>
-                                    <Tooltip contentStyle={{ backgroundColor: '#111', border: '1px solid #444', fontSize: '12px' }} itemStyle={{ color: '#fff' }} />
+                                    <Tooltip contentStyle={{ backgroundColor: 'var(--color-bg-deep)', border: '1px solid var(--color-border-light)', fontSize: '12px' }} itemStyle={{ color: 'var(--color-text-primary)' }} />
                                     <RechartsLegend layout="vertical" verticalAlign="middle" align="right" wrapperStyle={{ fontSize: '10px' }} />
                                 </PieChart>
                             </ResponsiveContainer>
                         </div>
                     ) : (
-                        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#666', fontSize: '12px' }}>{t('statistics.legends.noData')}</div>
+                        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--color-text-faint)', fontSize: '12px' }}>{t('statistics.legends.noData')}</div>
                     )}
                 </div>
             </div>
 
             {stats ? (
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '20px' }}>
-                    <div style={{ background: `linear-gradient(135deg, #252525 0%, #1e1e1e 100%)`, padding: '20px', borderRadius: '10px', border: '1px solid #333', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
+                    <div style={{ background: `linear-gradient(135deg, var(--color-bg-card) 0%, var(--color-bg-main) 100%)`, padding: '20px', borderRadius: '10px', border: '1px solid var(--color-border)', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
                         <img src={`https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/${selectedLegend}.png`} alt={selectedLegend} style={{ width: '100px', height: '100px', borderRadius: '50%', border: '4px solid #e17055', marginBottom: '15px', objectFit: 'cover' }} />
                         <h2 style={{ margin: 0, textTransform: 'uppercase', fontSize: '24px' }}>{selectedLegend}</h2>
-                        <div style={{ color: '#888', fontSize: '14px', marginBottom: '20px' }}>{stats.matches} {t('statistics.legends.matches')}</div>
-                        <div style={{ width: '100%', background: '#111', borderRadius: '8px', padding: '10px', display: 'flex', justifyContent: 'space-around' }}>
-                            <div><div style={{ fontSize: '10px', color: '#888' }}>{t('statistics.legends.winRate')}</div><div style={{ fontSize: '16px', color: '#fdcb6e', fontWeight: 'bold' }}>{stats.winRate}%</div></div>
-                            <div><div style={{ fontSize: '10px', color: '#888' }}>{t('statistics.legends.kd')}</div><div style={{ fontSize: '16px', color: '#d63031', fontWeight: 'bold' }}>{stats.kd}</div></div>
+                        <div style={{ color: 'var(--color-text-muted)', fontSize: '14px', marginBottom: '20px' }}>{stats.matches} {t('statistics.legends.matches')}</div>
+                        <div style={{ width: '100%', background: 'var(--color-bg-deep)', borderRadius: '8px', padding: '10px', display: 'flex', justifyContent: 'space-around' }}>
+                            <div><div style={{ fontSize: '10px', color: 'var(--color-text-muted)' }}>{t('statistics.legends.winRate')}</div><div style={{ fontSize: '16px', color: '#fdcb6e', fontWeight: 'bold' }}>{stats.winRate}%</div></div>
+                            <div><div style={{ fontSize: '10px', color: 'var(--color-text-muted)' }}>{t('statistics.legends.kd')}</div><div style={{ fontSize: '16px', color: '#d63031', fontWeight: 'bold' }}>{stats.kd}</div></div>
                         </div>
                     </div>
-                    <div style={{ background: '#252525', padding: '20px', borderRadius: '10px', border: '1px solid #333', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', alignContent: 'start' }}>
+                    <div style={{ background: 'var(--color-bg-card)', padding: '20px', borderRadius: '10px', border: '1px solid var(--color-border)', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', alignContent: 'start' }}>
                         <InfoRow label={t('statistics.legends.avgDamage')} value={stats.avgDamage} highlight />
                         <InfoRow label={t('statistics.legends.avgSurvival')} value={stats.avgTime} />
                         <InfoRow label={t('statistics.legends.totalKills')} value={stats.kills} />
@@ -510,15 +510,15 @@ const WeaponsView = ({ data }: { data: MatchHistory[] }) => {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '20px', marginBottom: '30px' }}>
                 {top3.map((w, i) => (
                     <div key={w.id} style={{
-                        background: i === 0 ? `linear-gradient(135deg, #d35400 0%, #252525 100%)` : '#252525',
-                        borderRadius: '12px', border: `1px solid ${i === 0 ? '#e67e22' : '#333'}`,
+                        background: i === 0 ? `linear-gradient(135deg, var(--color-warning-hover) 0%, var(--color-bg-card) 100%)` : 'var(--color-bg-card)',
+                        borderRadius: '12px', border: `1px solid ${i === 0 ? 'var(--color-warning)' : 'var(--color-border)'}`,
                         padding: '20px', position: 'relative', overflow: 'hidden',
                         boxShadow: i === 0 ? '0 0 15px rgba(230, 126, 34, 0.3)' : 'none'
                     }}>
-                        <div style={{ fontSize: '12px', color: '#ccc', marginBottom: '5px' }}>
+                        <div style={{ fontSize: '12px', color: 'var(--color-text-dim)', marginBottom: '5px' }}>
                             {i === 0 ? t('statistics.weapons.mostUsed') : t('statistics.weapons.pick', { rank: i + 1 })}
                         </div>
-                        <div style={{ fontSize: '18px', fontWeight: '900', color: '#fff', marginBottom: '15px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={w.name}>
+                        <div style={{ fontSize: '18px', fontWeight: '900', color: 'var(--color-text-primary)', marginBottom: '15px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={w.name}>
                             {w.name}
                         </div>
                         <div style={{ height: '80px', background: 'rgba(0,0,0,0.3)', borderRadius: '8px', marginBottom: '15px', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
@@ -533,25 +533,25 @@ const WeaponsView = ({ data }: { data: MatchHistory[] }) => {
                             />
                         </div>
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '5px', fontSize: '13px' }}>
-                            <div style={{ textAlign: 'center' }}><div style={{ color: '#888', fontSize: '10px' }}>{t('statistics.weapons.matches')}</div><div style={{ fontWeight: 'bold' }}>{w.games}</div></div>
-                            <div style={{ textAlign: 'center' }}><div style={{ color: '#888', fontSize: '10px' }}>{t('statistics.weapons.kd')}</div><div style={{ fontWeight: 'bold', color: '#e67e22' }}>{w.kd}</div></div>
-                            <div style={{ textAlign: 'center' }}><div style={{ color: '#888', fontSize: '10px' }}>{t('statistics.weapons.kad')}</div><div style={{ fontWeight: 'bold', color: '#54a0ff' }}>{w.kda}</div></div>
-                            <div style={{ textAlign: 'center' }}><div style={{ color: '#888', fontSize: '10px' }}>{t('statistics.weapons.winPercent')}</div><div style={{ fontWeight: 'bold', color: '#fff' }}>{w.winRate}</div></div>
+                            <div style={{ textAlign: 'center' }}><div style={{ color: 'var(--color-text-muted)', fontSize: '10px' }}>{t('statistics.weapons.matches')}</div><div style={{ fontWeight: 'bold' }}>{w.games}</div></div>
+                            <div style={{ textAlign: 'center' }}><div style={{ color: 'var(--color-text-muted)', fontSize: '10px' }}>{t('statistics.weapons.kd')}</div>                            <div style={{ fontWeight: 'bold', color: 'var(--color-warning)' }}>{w.kd}</div></div>
+                            <div style={{ textAlign: 'center' }}><div style={{ color: 'var(--color-text-muted)', fontSize: '10px' }}>{t('statistics.weapons.kad')}</div><div style={{ fontWeight: 'bold', color: '#54a0ff' }}>{w.kda}</div></div>
+                            <div style={{ textAlign: 'center' }}><div style={{ color: 'var(--color-text-muted)', fontSize: '10px' }}>{t('statistics.weapons.winPercent')}</div><div style={{ fontWeight: 'bold', color: 'var(--color-text-primary)' }}>{w.winRate}</div></div>
                         </div>
                     </div>
                 ))}
                 {top3.length === 0 && <div style={{ gridColumn: 'span 3' }}><EmptyState msg={t('statistics.weapons.noWeaponData')} /></div>}
             </div>
 
-            <div style={{ background: '#1a1a1a', borderRadius: '12px', overflow: 'hidden', border: '1px solid #333' }}>
-                <div style={{ padding: '15px 20px', borderBottom: '1px solid #333', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#202020' }}>
-                    <h4 style={{ margin: 0, color: '#eee', fontSize: '14px' }}>{t('statistics.weapons.detailedStatsTitle')}</h4>
-                    <span style={{ fontSize: '12px', color: '#666' }}>{t('statistics.weapons.rank4Plus')}</span>
+            <div style={{ background: 'var(--color-bg-sub-header)', borderRadius: '12px', overflow: 'hidden', border: '1px solid var(--color-border)' }}>
+                <div style={{ padding: '15px 20px', borderBottom: '1px solid var(--color-border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--color-bg-table-header)' }}>
+                    <h4 style={{ margin: 0, color: 'var(--color-text-secondary)', fontSize: '14px' }}>{t('statistics.weapons.detailedStatsTitle')}</h4>
+                    <span style={{ fontSize: '12px', color: 'var(--color-text-faint)' }}>{t('statistics.weapons.rank4Plus')}</span>
                 </div>
                 <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
                     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }}>
-                        <thead style={{ position: 'sticky', top: 0, background: '#202020', zIndex: 1 }}>
-                            <tr style={{ color: '#888', fontSize: '11px', borderBottom: '1px solid #333' }}>
+                        <thead style={{ position: 'sticky', top: 0, background: 'var(--color-bg-table-header)', zIndex: 1 }}>
+                            <tr style={{ color: 'var(--color-text-muted)', fontSize: '11px', borderBottom: '1px solid var(--color-border)' }}>
                                 <th style={{ padding: '12px 20px', width: '50px' }}>{t('statistics.weapons.rank')}</th>
                                 <th style={{ padding: '12px 20px' }}>{t('statistics.weapons.weapon')}</th>
                                 <th style={{ padding: '12px 20px', textAlign: 'center' }}>{t('statistics.weapons.matches')}</th>
@@ -560,16 +560,16 @@ const WeaponsView = ({ data }: { data: MatchHistory[] }) => {
                                 <th style={{ padding: '12px 20px', textAlign: 'center' }}>
                                     {t('statistics.weapons.kad')}
                                     <span title={t('statistics.weapons.kadTooltip')} style={{ cursor: 'help', marginLeft: '4px', display: 'inline-block', verticalAlign: 'middle' }}>
-                                        <FaInfoCircle size={12} color="#888" />
+                                        <FaInfoCircle size={12} color="var(--color-text-muted)" />
                                     </span>
                                 </th>
                             </tr>
                         </thead>
                         <tbody>
                             {others.map((w, i) => (
-                                <tr key={w.id} style={{ borderBottom: '1px solid #2a2a2a' }} onMouseEnter={e => e.currentTarget.style.background = '#2a2a2a'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-                                    <td style={{ padding: '12px 20px', color: '#666', fontWeight: 'bold' }}>#{i + 4}</td>
-                                    <td style={{ padding: '12px 20px', display: 'flex', alignItems: 'center', color: '#ddd', fontWeight: 'bold' }}>
+                                <tr key={w.id} style={{ borderBottom: '1px solid var(--color-bg-card-hover)' }} onMouseEnter={e => e.currentTarget.style.background = 'var(--color-bg-card-hover)'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
+                                    <td style={{ padding: '12px 20px', color: 'var(--color-text-faint)', fontWeight: 'bold' }}>#{i + 4}</td>
+                                    <td style={{ padding: '12px 20px', display: 'flex', alignItems: 'center', color: 'var(--color-text-dim)', fontWeight: 'bold' }}>
                                         <div style={{ width: '50px', height: '25px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,255,255,0.05)', borderRadius: '4px', marginRight: '12px' }}>
                                             <img
                                                 src={`https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/${w.id}.png`}
@@ -580,15 +580,15 @@ const WeaponsView = ({ data }: { data: MatchHistory[] }) => {
                                         </div>
                                         {w.name}
                                     </td>
-                                    <td style={{ padding: '12px 20px', textAlign: 'center', color: '#ccc' }}>{w.games}</td>
-                                    <td style={{ padding: '12px 20px', textAlign: 'center', fontWeight: 'bold', color: parseFloat(w.winRate) >= 10 ? '#4ade80' : '#888' }}>{w.winRate}%</td>
-                                    <td style={{ padding: '12px 20px', textAlign: 'center', fontWeight: 'bold', color: '#e67e22' }}>{w.kd}</td>
+                                    <td style={{ padding: '12px 20px', textAlign: 'center', color: 'var(--color-text-dim)' }}>{w.games}</td>
+                                    <td style={{ padding: '12px 20px', textAlign: 'center', fontWeight: 'bold', color: parseFloat(w.winRate) >= 10 ? '#4ade80' : 'var(--color-text-muted)' }}>{w.winRate}%</td>
+                                    <td style={{ padding: '12px 20px', textAlign: 'center', fontWeight: 'bold', color: 'var(--color-warning)' }}>{w.kd}</td>
                                     <td style={{ padding: '12px 20px', textAlign: 'center', fontWeight: 'bold', color: '#54a0ff' }}>{w.kda}</td>
                                 </tr>
                             ))}
                         </tbody>
                     </table>
-                    {others.length === 0 && <div style={{ padding: '40px', textAlign: 'center', color: '#666', fontSize: '12px' }}>{t('statistics.weapons.noMoreWeapons')}</div>}
+                    {others.length === 0 && <div style={{ padding: '40px', textAlign: 'center', color: 'var(--color-text-faint)', fontSize: '12px' }}>{t('statistics.weapons.noMoreWeapons')}</div>}
                 </div>
             </div>
         </div>
@@ -649,9 +649,9 @@ const StatisticsTab: React.FC<StatisticsTabProps> = ({ history, isPremium, selec
     }, [history, selectedMode, selectedSeasonId]);
 
     const renderContent = () => {
-        if (!isPremium && activeSubTab !== 'OVERVIEW') {
-            // ✅ 번역 키 사용
+        if (!isPremium && (activeSubTab !== 'OVERVIEW' || selectedMode !== 'ALL')) {
             const titles: Record<string, string> = {
+                OVERVIEW: `${t('statistics.tabs.overview')} (${MODE_LABELS[selectedMode]})`,
                 MAPS: t('statistics.tabs.maps'),
                 LEGENDS: t('statistics.tabs.legends'),
                 WEAPONS: t('statistics.tabs.weapons'),
@@ -668,8 +668,8 @@ const StatisticsTab: React.FC<StatisticsTabProps> = ({ history, isPremium, selec
     };
 
     return (
-        <div style={{ paddingBottom: '40px', color: '#fff' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '25px', borderBottom: '2px solid #333', paddingBottom: '15px' }}>
+        <div style={{ paddingBottom: '40px', color: 'var(--color-text-primary)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '25px', borderBottom: '2px solid var(--color-border)', paddingBottom: '15px' }}>
                 <div style={{ display: 'flex', gap: '5px' }}>
                     {(['OVERVIEW', 'MAPS', 'LEGENDS', 'WEAPONS'] as const).map(tab => {
                         const isActive = activeSubTab === tab;
@@ -680,46 +680,53 @@ const StatisticsTab: React.FC<StatisticsTabProps> = ({ history, isPremium, selec
                                 onClick={() => setActiveSubTab(tab)}
                                 style={{
                                     padding: '8px 16px',
-                                    background: isActive ? '#fff' : 'transparent',
-                                    color: isActive ? '#000' : (isLocked ? '#555' : '#888'),
+                                    background: isActive ? 'var(--color-accent)' : 'transparent',
+                                    color: isActive ? 'var(--color-text-primary)' : (isLocked ? 'var(--color-text-subtle)' : 'var(--color-text-muted)'),
                                     border: 'none', borderRadius: '4px',
                                     fontWeight: 'bold', cursor: 'pointer', transition: '0.2s',
                                     display: 'flex', alignItems: 'center', gap: '6px'
                                 }}
                             >
                                 {TAB_LABELS[tab]}
-                                {isLocked && <FaLock size={10} color="#555" />}
+                                {isLocked && <FaLock size={10} color="var(--color-text-subtle)" />}
                             </button>
                         );
                     })}
                 </div>
 
                 <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                    <div style={{ display: 'flex', gap: '5px', background: '#111', padding: '4px', borderRadius: '6px' }}>
-                        {(['ALL', 'RANKED', 'TRIO', 'DUO'] as const).map(mode => (
-                            <button
-                                key={mode}
-                                onClick={() => setSelectedMode(mode)}
-                                style={{
-                                    padding: '6px 12px', fontSize: '11px', fontWeight: 'bold',
-                                    border: 'none', borderRadius: '4px', cursor: 'pointer',
-                                    background: selectedMode === mode ? '#333' : 'transparent',
-                                    color: selectedMode === mode ? '#fff' : '#666'
-                                }}
-                            >
-                                {MODE_LABELS[mode]}
-                            </button>
-                        ))}
+                    <div style={{ display: 'flex', gap: '5px', background: 'var(--color-bg-deep)', padding: '4px', borderRadius: '6px' }}>
+                        {(['ALL', 'RANKED', 'TRIO', 'DUO'] as const).map(mode => {
+                            const isLocked = !isPremium && mode !== 'ALL';
+                            return (
+                                <button
+                                    key={mode}
+                                    onClick={() => setSelectedMode(mode)}
+                                    style={{
+                                        padding: '6px 12px', fontSize: '11px', fontWeight: 'bold',
+                                        border: 'none', borderRadius: '4px', cursor: 'pointer',
+                                        background: selectedMode === mode ? 'var(--color-bg-card-hover)' : 'transparent',
+                                        color: selectedMode === mode ? 'var(--color-text-primary)' : (isLocked ? 'var(--color-text-subtle)' : 'var(--color-text-faint)'),
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '5px'
+                                    }}
+                                >
+                                    {MODE_LABELS[mode]}
+                                    {isLocked && <FaLock size={9} color="var(--color-text-subtle)" />}
+                                </button>
+                            );
+                        })}
                     </div>
                 </div>
             </div>
 
-            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '15px', color: '#666', fontSize: '11px', fontStyle: 'italic', gap: '5px', alignItems: 'center' }}>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '15px', color: 'var(--color-text-faint)', fontSize: '11px', fontStyle: 'italic', gap: '5px', alignItems: 'center' }}>
                 <FaHistory /> {t('statistics.showingStatsFor')} <span style={{ color: COLORS.NEON_ORANGE, fontWeight: 'bold' }}>{seasons.find(s => s.id === selectedSeasonId)?.name}</span> ({selectedMode === 'ALL' ? t('statistics.allBrModes') : selectedMode})
             </div>
 
             {isPremium && (
-                <div style={{ background: 'linear-gradient(90deg, #2ecc71 0%, #27ae60 100%)', color: '#fff', fontSize: '12px', fontWeight: 'bold', textAlign: 'center', padding: '8px', borderRadius: '6px', marginBottom: '20px', boxShadow: '0 4px 10px rgba(46, 204, 113, 0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', animation: 'fadeIn 0.5s' }}>
+                <div style={{ background: 'linear-gradient(90deg, var(--color-success) 0%, var(--color-success-dark) 100%)', color: 'var(--color-text-primary)', fontSize: '12px', fontWeight: 'bold', textAlign: 'center', padding: '8px', borderRadius: '6px', marginBottom: '20px', boxShadow: '0 4px 10px rgba(46, 204, 113, 0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', animation: 'fadeIn 0.5s' }}>
                     <FaCrown /><span>{t('statistics.betaNotice')} <b>{t('statistics.fullAnalyticsUnlocked')}</b></span>
                 </div>
             )}

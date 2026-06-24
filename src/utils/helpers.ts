@@ -1,12 +1,10 @@
 import { MAP_DATA as LOCAL_MAP_DATA } from './constants';
 
 export const getRankColor = (rank: number | string) => {
-    if (rank === 1 || rank === '1' || rank === '#1') return "#ff4757";
-    const r = parseInt(String(rank).replace('#',''));
-    if (!isNaN(r)) {
-        if (r <= 5) return "#00d2be";
-    }
-    return "#dfe6e9";
+    if (rank === 1 || rank === '1' || rank === '#1') return 'var(--color-rank-first)';
+    const r = parseInt(String(rank).replace('#', ''));
+    if (!isNaN(r) && r <= 5) return 'var(--color-rank-top5)';
+    return 'var(--color-rank-other)';
 };
 
 export const formatMatchTime = (ms: number, style: 'digital' | 'text' = 'digital') => {
@@ -27,14 +25,12 @@ export const formatMatchTime = (ms: number, style: 'digital' | 'text' = 'digital
     return "";
 };
 
-export const getRelativeTime = (timestamp: number | string) => {
+/** Relative duration only (e.g. `3h`, `5m`). Use `formatRelativeTime` for display. */
+export const getRelativeTime = (timestamp: number | string): string => {
     if (!timestamp) return "";
 
-    // 🟢 [수정] 입력값이 문자열(ISO Date)인 경우 숫자로 변환
     const timeMs = typeof timestamp === 'string' ? new Date(timestamp).getTime() : timestamp;
-    
-    // 유효하지 않은 날짜 포맷 방어
-    if (isNaN(timeMs) || timeMs <= 0) return "Never Searched";
+    if (isNaN(timeMs) || timeMs <= 0) return "";
 
     const now = Date.now();
     const diff = now - timeMs;
@@ -44,15 +40,26 @@ export const getRelativeTime = (timestamp: number | string) => {
     const month = 30 * day;
     const year = 365 * day;
 
-    // 미래의 시간일 경우 처리 (서버-클라이언트 시간 오차 대비)
-    if (diff < 0) return 'Just now';
+    if (diff < 0) return 'justNow';
+    if (diff < minute) return 'justNow';
+    if (diff < hour) return `${Math.floor(diff / minute)}m`;
+    if (diff < day) return `${Math.floor(diff / hour)}h`;
+    if (diff < month) return `${Math.floor(diff / day)}d`;
+    if (diff < year) return `${Math.floor(diff / month)}M`;
+    return `${Math.floor(diff / year)}y`;
+};
 
-    if (diff < minute) return 'Just now';
-    if (diff < hour) return `${Math.floor(diff / minute)}m ago`;
-    if (diff < day) return `${Math.floor(diff / hour)}h ago`;
-    if (diff < month) return `${Math.floor(diff / day)}d ago`;
-    if (diff < year) return `${Math.floor(diff / month)}M ago`;
-    return `${Math.floor(diff / year)}y ago`;
+type TranslateFn = (key: string, options?: Record<string, unknown>) => string;
+
+export const formatRelativeTime = (
+    time: string,
+    t: TranslateFn,
+    options: { agoKey?: string; justNowKey?: string } = {}
+): string => {
+    const { agoKey = 'relativeTime.ago', justNowKey = 'relativeTime.justNow' } = options;
+    if (!time) return '';
+    if (time === 'justNow') return t(justNowKey);
+    return t(agoKey, { time });
 };
 
 export const getMapConfig = (mapName: string) => {

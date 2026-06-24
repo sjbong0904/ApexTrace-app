@@ -17,15 +17,15 @@ interface StatCardProps {
 
 const StatCard = ({ icon, label, value, color }: StatCardProps) => (
     <div style={{
-        background: '#222', borderRadius: '4px', padding: '4px 2px',
+        background: 'var(--color-bg-table-header)', borderRadius: '4px', padding: '4px 2px',
         display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-        border: '1px solid #333', position: 'relative', overflow: 'hidden',
+        border: '1px solid var(--color-border)', position: 'relative', overflow: 'hidden',
         minHeight: '0'
     }}>
-        <div style={{ fontSize: '9px', color: '#888', fontWeight: 'bold', textTransform: 'uppercase', marginBottom: '1px', display: 'flex', alignItems: 'center', gap: '3px' }}>
+        <div style={{ fontSize: '9px', color: 'var(--color-text-muted)', fontWeight: 'bold', textTransform: 'uppercase', marginBottom: '1px', display: 'flex', alignItems: 'center', gap: '3px' }}>
             <span style={{ color }}>{icon}</span> {label}
         </div>
-        <div style={{ fontSize: '14px', fontWeight: '800', color: '#eee', lineHeight: '1.1' }}>{value}</div>
+        <div style={{ fontSize: '14px', fontWeight: '800', color: 'var(--color-text-secondary)', lineHeight: '1.1' }}>{value}</div>
     </div>
 );
 
@@ -66,16 +66,16 @@ const SidebarStats: React.FC<SidebarStatsProps> = ({ history }) => {
 
     if (!stats) {
         return (
-            <div style={{ fontSize: '11px', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#666', background: '#1a1a1a' }}>
+            <div style={{ fontSize: '11px', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'var(--color-text-faint)', background: 'var(--color-bg-sub-header)' }}>
                 <div style={{ fontSize: '11px' }}>{t('sidebarStats.noMatches')}</div>
             </div>
         );
     }
 
     return (
-        <div style={{ width: '100%', height: '100%', padding: '10px', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', background: '#1a1a1a' }}>
+        <div style={{ width: '100%', height: '100%', padding: '10px', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', background: 'var(--color-bg-sub-header)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px', flexShrink: 0 }}>
-                <div style={{ fontSize: '10px', fontWeight: 'bold', color: '#e67e22', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                <div style={{ fontSize: '10px', fontWeight: 'bold', color: 'var(--color-warning)', display: 'flex', alignItems: 'center', gap: '5px' }}>
                     <FaChartLine /> {t('sidebarStats.recentGames', { count: stats.count })}
                 </div>
             </div>
@@ -89,12 +89,12 @@ const SidebarStats: React.FC<SidebarStatsProps> = ({ history }) => {
 
                 {/* 모스트 레전드 */}
                 <div style={{
-                    background: '#222', borderRadius: '4px', padding: '0',
+                    background: 'var(--color-bg-table-header)', borderRadius: '4px', padding: '0',
                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    border: '1px solid #333', position: 'relative', overflow: 'hidden'
+                    border: '1px solid var(--color-border)', position: 'relative', overflow: 'hidden'
                 }}>
-                    <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '12px', background: 'linear-gradient(to bottom, rgba(0,0,0,0.8), transparent)', zIndex: 1 }} />
-                    <div style={{ position: 'absolute', top: '2px', width: '100%', textAlign: 'center', fontSize: '8px', color: '#2ecc71', fontWeight: 'bold', zIndex: 2, textShadow: '0 1px 2px black' }}>
+                    <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '12px', background: 'linear-gradient(to bottom, color-mix(in srgb, var(--color-bg-deep) 85%, transparent), transparent)', zIndex: 1 }} />
+                    <div style={{ position: 'absolute', top: '2px', width: '100%', textAlign: 'center', fontSize: '8px', color: 'var(--color-success)', fontWeight: 'bold', zIndex: 2, textShadow: '0 1px 2px rgba(0,0,0,0.8)' }}>
                         {t('sidebarStats.mostPlayed')}
                     </div>
                     <img
@@ -103,7 +103,7 @@ const SidebarStats: React.FC<SidebarStatsProps> = ({ history }) => {
                         style={{ width: '100%', height: '100%', objectFit: 'contain', transform: 'scale(1.1) translateY(-10px)', filter: 'brightness(0.9)' }}
                         onError={(e) => { (e.target as HTMLImageElement).src = 'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/unknown.png'; }}
                     />
-                    <div style={{ position: 'absolute', bottom: 0, width: '100%', background: 'rgba(0,0,0,0.7)', color: '#fff', fontSize: '9px', fontWeight: 'bold', textAlign: 'center', padding: '1px 0' }}>
+                    <div style={{ position: 'absolute', bottom: 0, width: '100%', background: 'color-mix(in srgb, var(--color-bg-deep) 75%, transparent)', color: 'var(--color-text-primary)', fontSize: '9px', fontWeight: 'bold', textAlign: 'center', padding: '1px 0' }}>
                         {stats.mostLegend.toUpperCase()}
                     </div>
                 </div>

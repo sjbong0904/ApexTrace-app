@@ -15,12 +15,12 @@ const LoadoutDisplay = ({ match }: { match: Match }) => {
 
         if (isCompletelyEmpty) {
             return (
-                <div style={{ flex: 1, background: '#252525', borderRadius: '8px', border: '1px solid #333', padding: '8px 10px', display: 'flex', flexDirection: 'column', alignItems: 'center', position: 'relative', overflow: 'hidden' }}>
-                    <div style={{ width: '100%', fontSize: '9px', color: '#666', fontWeight: 'bold', textAlign: 'left', marginBottom: '4px' }}>
-                        {label}
-                    </div>
-                    <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', minHeight: '40px' }}>
-                        <div style={{ color: '#333', fontSize: '11px', fontWeight: 'bold' }}>{t('loadout.noWeapon')}</div>
+        <div style={{ flex: 1, background: 'var(--color-bg-card)', borderRadius: '8px', border: '1px solid var(--color-border)', padding: '8px 10px', display: 'flex', flexDirection: 'column', alignItems: 'center', position: 'relative', overflow: 'hidden' }}>
+            <div style={{ width: '100%', fontSize: '9px', color: 'var(--color-text-faint)', fontWeight: 'bold', textAlign: 'left', marginBottom: '4px' }}>
+                {label}
+            </div>
+            <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', minHeight: '40px' }}>
+                <div style={{ color: 'var(--color-border)', fontSize: '11px', fontWeight: 'bold' }}>{t('loadout.noWeapon')}</div>
                     </div>
                 </div>
             );
@@ -34,10 +34,10 @@ const LoadoutDisplay = ({ match }: { match: Match }) => {
             ?? weaponName.toUpperCase();
 
         return (
-            <div style={{ flex: 1, background: '#252525', borderRadius: '8px', border: '1px solid #333', padding: '8px 10px', display: 'flex', flexDirection: 'column', alignItems: 'center', position: 'relative', overflow: 'hidden' }}>
-                <div style={{ width: '100%', fontSize: '9px', color: '#666', fontWeight: 'bold', textAlign: 'left', marginBottom: '4px' }}>
-                    {label}
-                </div>
+        <div style={{ flex: 1, background: 'var(--color-bg-card)', borderRadius: '8px', border: '1px solid var(--color-border)', padding: '8px 10px', display: 'flex', flexDirection: 'column', alignItems: 'center', position: 'relative', overflow: 'hidden' }}>
+            <div style={{ width: '100%', fontSize: '9px', color: 'var(--color-text-faint)', fontWeight: 'bold', textAlign: 'left', marginBottom: '4px' }}>
+                {label}
+            </div>
 
                 <div style={{ width: '100%', height: '55px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     {/* ✅ knownShortName 조건 제거 — fileKey만 있으면 이미지 시도 */}
@@ -51,19 +51,19 @@ const LoadoutDisplay = ({ match }: { match: Match }) => {
                                 const target = e.target as HTMLImageElement;
                                 target.style.display = 'none';
                                 if (target.parentElement) {
-                                    target.parentElement.innerHTML = `<span style="color:#f89b44; font-size:10px; text-align:center; word-break:break-all; line-height:1.2;">${displayName}</span>`;
+                                    target.parentElement.innerHTML = `<span style="color:var(--color-warning); font-size:10px; text-align:center; word-break:break-all; line-height:1.2;">${displayName}</span>`;
                                 }
                             }}
                         />
                     ) : (
-                        <span style={{ color: '#f89b44', fontSize: '10px', textAlign: 'center', wordBreak: 'break-all', lineHeight: '1.2' }}>
+                        <span style={{ color: 'var(--color-warning)', fontSize: '10px', textAlign: 'center', wordBreak: 'break-all', lineHeight: '1.2' }}>
                             {displayName}
                         </span>
                     )}
                 </div>
 
                 {/* ✅ displayName으로 교체 */}
-                <div style={{ marginTop: 'auto', fontSize: '10px', color: '#eee', fontWeight: '700', letterSpacing: '0.5px', background: '#252525', padding: '2px 8px', borderRadius: '4px', textAlign: 'center', width: '100%', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                <div style={{ marginTop: 'auto', fontSize: '10px', color: 'var(--color-text-secondary)', fontWeight: '700', letterSpacing: '0.5px', background: 'var(--color-bg-card)', padding: '2px 8px', borderRadius: '4px', textAlign: 'center', width: '100%', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                     {displayName}
                 </div>
             </div>
@@ -71,8 +71,8 @@ const LoadoutDisplay = ({ match }: { match: Match }) => {
     };
 
     return (
-        <div style={{ padding: '15px', width: '100%', height: '100%', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', background: '#1e1e1e' }}>
-            <div style={{ fontSize: '11px', fontWeight: 'bold', color: '#888', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+        <div style={{ padding: '15px', width: '100%', height: '100%', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', background: 'var(--color-bg-sub-header)' }}>
+            <div style={{ fontSize: '11px', fontWeight: 'bold', color: 'var(--color-text-muted)', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                 {t('loadout.title')}
             </div>
             <div style={{ display: 'flex', gap: '10px', width: '100%', flex: 1 }}>

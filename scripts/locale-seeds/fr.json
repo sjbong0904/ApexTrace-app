@@ -57,6 +57,21 @@
     "assists": "ASSISTS",
     "knocks": "KNOCKS"
   },
+  "matchDetails": {
+    "stats": "Statistiques",
+    "loadoutTimeline": "Chronologie de l'équipement",
+    "loadoutTimelineDesc": "Changements d'armes détectés pendant ce match.",
+    "noLoadoutTimeline": "Aucun changement d'arme enregistré pour ce match.",
+    "time": "Temps",
+    "before": "Avant",
+    "after": "Après",
+    "actionLoadoutChange": "Changement d'équipement"
+  },
+  "hotkeyReminder": {
+    "label": "Raccourci en jeu",
+    "desktopLabel": "Raccourci second écran",
+    "inGameLabel": "Raccourci en jeu"
+  },
   "premium": {
     "betaUsers": "Utilisateurs bêta :",
     "allUnlocked": "Tous les matchs enregistrés sont débloqués.",
@@ -177,7 +192,8 @@
       "elite": "Elite",
       "boostedLoader": "Boosted Loader",
       "shatterCaps": "Shatter Caps",
-      "dualShell": "Dual Shell"
+      "dualShell": "Dual Shell",
+      "executioner": "Executioner"
     },
     "consumables": {
       "thermite": "Thermite",
@@ -260,7 +276,14 @@
     "sections": {
       "community": "Communauté et support",
       "tools": "Outils et utilitaires",
-      "appInfo": "Infos sur l'app"
+      "appInfo": "Infos sur l'app",
+      "theme": "Thème"
+    },
+    "theme": {
+      "modeTitle": "Mode",
+      "modeDesc": "Modifier la couleur de fond de l'application.",
+      "dark": "Sombre",
+      "light": "Clair"
     },
     "discord": {
       "title": "Rejoindre Discord",
@@ -272,7 +295,11 @@
       "tutorialTitle": "Tutoriel de l'app",
       "tutorialDesc": "Lancez le tutoriel pour apprendre à utiliser l'application.",
       "hotkeyTitle": "Raccourci de l'app",
-      "hotkeyDesc": "Modifier le raccourci — redirige vers les paramètres Overwolf.",
+      "hotkeyDesc": "Consultez et modifiez les raccourcis ApexTrace dans l'app.",
+      "desktopHotkeyTitle": "Raccourci second écran",
+      "desktopHotkeyDesc": "Modifier le raccourci qui affiche ou masque la fenêtre de second écran.",
+      "inGameHotkeyTitle": "Raccourci de la fenêtre en jeu",
+      "inGameHotkeyDesc": "Modifier le raccourci qui affiche ou masque l'overlay en jeu.",
       "logsTitle": "Ouvrir le dossier des logs",
       "logsDesc": "Ouvre le dossier local contenant les logs de l'application.",
       "versionTitle": "Version de l'app",
@@ -508,11 +535,16 @@
     "subtitle": "(Plus ancien → Plus récent)",
     "noData": "Aucune donnée de match enregistrée."
   },
+  "relativeTime": {
+    "justNow": "À l'instant",
+    "ago": "Il y a {{time}}"
+  },
   "playerModal": {
     "title": "Sélectionner un joueur",
     "found": "{{count}} profils trouvés.",
     "neverSearched": "Jamais recherché",
-    "searched": "Recherché il y a {{time}}"
+    "searched": "Recherché il y a {{time}}",
+    "searchedJustNow": "Recherché à l'instant"
   },
   "sidebar": {
     "emptyNotice": "Jouez d'abord un match pour enregistrer votre compte avant de rechercher.",

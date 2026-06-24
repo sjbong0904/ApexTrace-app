@@ -1,19 +1,18 @@
 import { useState, useEffect, useCallback, useMemo, useRef, memo } from 'react';
 import ResizeHandles from './components/ResizeHandle';
 import { useWindowAutoResize } from './hooks/useWindowAutoResize';
-import { useAppToggle } from './hooks/useAppToggle';
 import Navigation from './components/Navigation';
 import Sidebar from './components/Sidebar';
 import SidebarStats from './components/SidebarStats';
-import type { User } from './types';
+import type { Match, User } from './types';
 import MapVisualizer from './components/MapVisualizer';
 import CombatLog from './components/CombatLog';
-import MatchStats from './components/MatchStats';
+import MatchDetailTabs from './components/MatchDetailTabs';
 import LoadoutDisplay from './components/LoadoutDisplay';
 import PerformanceTrend from './components/PerformanceTrend';
 import StatisticsTab from './components/StatisticsTab';
 import WeaponsTab from './components/weaponsTab';
-import { getRankColor, getRelativeTime } from './utils/helpers';
+import { formatRelativeTime, getRankColor, getRelativeTime } from './utils/helpers';
 import { FaSearch, FaSync, FaQuestionCircle, FaCrown, FaList, FaStar, FaChartBar, FaCrosshairs, FaCog } from 'react-icons/fa';
 import PlayerSelectionModal from './components/PlayerSelectionModal';
 import AdUnit from './components/AdUnit';
@@ -21,6 +20,7 @@ import SettingsTab from './components/SettingsTab';
 import { startTutorial } from './utils/tutorial';
 import WindowControls from './components/WindowControls';
 import { LocalDB } from './utils/LocalDB';
+import { normalizeHistoryForFrontend } from './utils/matchNormalizer';
 import NetworkStatus from './components/NetworkStatus';
 import GameStatusIndicator from './components/GameStatusIndicator';
 import HotkeyReminder from './components/HotkeyReminder';
@@ -51,8 +51,8 @@ const SearchBar = memo(({ onSearch, isSearching }: { onSearch: (query: string) =
     };
 
     return (
-        <form onSubmit={handleSubmit} style={{ display: 'flex', alignItems: 'center', background: '#252525', borderRadius: '6px', border: '1px solid #444', padding: '0 10px', height: '40px', boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.2)' }}>
-            <FaSearch color="#666" style={{ marginRight: '8px' }} />
+        <form onSubmit={handleSubmit} style={{ display: 'flex', alignItems: 'center', background: 'var(--color-bg-card)', borderRadius: '6px', border: '1px solid var(--color-border-light)', padding: '0 10px', height: '40px', boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.2)' }}>
+            <FaSearch color="var(--color-text-faint)" style={{ marginRight: '8px' }} />
             <input
                 type="text"
                 value={localQuery}
@@ -68,9 +68,9 @@ const SearchBar = memo(({ onSearch, isSearching }: { onSearch: (query: string) =
                 }}
                 placeholder={t('search.placeholder')}
                 disabled={isSearching}
-                style={{ background: 'transparent', border: 'none', color: '#eee', fontSize: '14px', width: '100%', outline: 'none', fontWeight: '500' }}
+                style={{ background: 'transparent', border: 'none', color: 'var(--color-text-secondary)', fontSize: '14px', width: '100%', outline: 'none', fontWeight: '500' }}
             />
-            {isSearching && <FaSync className="spin-animation" color="#e67e22" />}
+            {isSearching && <FaSync className="spin-animation" color="var(--color-warning)" />}
         </form>
     );
 });
@@ -82,10 +82,10 @@ const isSupportedMode = (mode: string = "") => {
 
 const getModeColor = (mode: string = "") => {
     const m = mode.toLowerCase();
-    if (m.includes('ranked')) return '#d97affff';
-    if (m.includes('trio')) return '#509df5ff';
-    if (m.includes('duo')) return '#ffaf6dff';
-    return '#fd9daaff';
+    if (m.includes('ranked')) return 'var(--color-mode-ranked)';
+    if (m.includes('trio'))   return 'var(--color-mode-trio)';
+    if (m.includes('duo'))    return 'var(--color-mode-duo)';
+    return 'var(--color-mode-other)';
 };
 
 const getTabStyle = (isActive: boolean): React.CSSProperties => ({
@@ -93,8 +93,8 @@ const getTabStyle = (isActive: boolean): React.CSSProperties => ({
     cursor: 'pointer',
     fontSize: '13px',
     fontWeight: 'bold',
-    color: isActive ? '#fff' : '#666',
-    borderBottom: isActive ? '2px solid #fff' : '2px solid transparent',
+    color: isActive ? 'var(--color-text-primary)' : 'var(--color-text-faint)',
+    borderBottom: isActive ? '2px solid var(--color-text-primary)' : '2px solid transparent',
     background: 'transparent',
     border: 'none',
     transition: 'all 0.2s'
@@ -147,7 +147,6 @@ const App = () => {
     }, [activeTab, selectedSeasonId, user.uid]);
 
     useWindowAutoResize(1400, 800);
-    useAppToggle();
 
     const mainScrollRef = useRef<HTMLDivElement>(null);
     const userRef = useRef(user);
@@ -221,7 +220,7 @@ const App = () => {
                             setHistory(prev => {
                                 const uniqueMap = new Map();
                                 prev.forEach(m => uniqueMap.set(m.matchId, m));
-                                result.history.forEach((m: any) => uniqueMap.set(m.matchId, m));
+                                normalizeHistoryForFrontend(result.history).forEach((m) => uniqueMap.set(m.matchId, m));
                                 return Array.from(uniqueMap.values()).sort((a: any, b: any) => 
                                     (b.startTime || b.endTime) - (a.startTime || a.endTime)
                                 );
@@ -319,15 +318,12 @@ const App = () => {
             const liveIds = new Set(liveMatches.map((m: any) => m.matchId));
             const oldMatches = prev.filter(m => !liveIds.has(m.matchId) && isSupportedMode(m.mode));
 
-            let merged = [...liveMatches, ...oldMatches].sort((a: any, b: any) =>
+            const merged = [...liveMatches, ...oldMatches].sort((a: any, b: any) =>
                 (b.startTime || b.endTime) - (a.startTime || a.endTime)
             );
-            if (!pinnedUid) {
-                merged = merged.slice(0, 20);
-            }
             return merged;
         });
-    }, [pinnedUid]);
+    }, []);
 
     useEffect(() => {
         fetchData();
@@ -460,7 +456,7 @@ const App = () => {
                         });
                         
                         const history = await bg.apexData.getHistory();
-                        setHistory(history || []);
+                        setHistory(normalizeHistoryForFrontend(history));
                         
                         // 🌟 탭 강제 이동 방지 조건문 추가
                         if (!skipTabSwitch) {
@@ -505,7 +501,7 @@ const App = () => {
                     return prevFavs;
                 });
 
-                const newMatches = result.history || [];
+                const newMatches = normalizeHistoryForFrontend(result.history);
                 setHistory(prev => {
                     if (prev.length > 0 && prev[0].uid !== freshUser.uid) {
                         return newMatches.sort((a: any, b: any) => (b.startTime || b.endTime) - (a.startTime || a.endTime));
@@ -616,69 +612,64 @@ const App = () => {
 
             return isModeMatch && isAfterStart && isBeforeEnd;
         });
-    }, [history, activeTab, selectedSeasonId]);
+    }, [history, activeTab, selectedSeasonId, SEASONS]);
 
-    const totalPages = Math.ceil(filteredHistory.length / MATCHES_PER_PAGE);
+    const totalPages = Math.max(1, Math.ceil(filteredHistory.length / MATCHES_PER_PAGE));
+    const effectiveCurrentPage = Math.min(currentPage, totalPages);
     const currentMatches = useMemo(() => {
-        const startIndex = (currentPage - 1) * MATCHES_PER_PAGE;
+        const startIndex = (effectiveCurrentPage - 1) * MATCHES_PER_PAGE;
         return filteredHistory.slice(startIndex, startIndex + MATCHES_PER_PAGE);
-    }, [filteredHistory, currentPage]);
+    }, [filteredHistory, effectiveCurrentPage]);
+
+    useEffect(() => {
+        if (currentPage > totalPages) {
+            setCurrentPage(totalPages);
+        }
+    }, [currentPage, totalPages]);
 
     const syncHistory = useCallback(async () => {
         if (!user.uid) return;
-        const isMyProfile = (user.uid === pinnedUid);
-        if (isPremium && isMyProfile) {
-            try {
-                const localMatches = await LocalDB.getMatchesByUid(user.uid!);
-                let serverMatches: any[] = [];
-                const latestLocalTime = localMatches.length > 0 
-                    ? (localMatches[0].endTime || localMatches[0].startTime) 
-                    : 0;
-                const bg = window.overwolf?.windows?.getMainWindow();
-                if (bg && bg.APIService) {
-                    const url = `https://apex-trace.vercel.app/api/history?uid=${user.uid}&startDate=${latestLocalTime + 1}`;
-                    const res = await fetch(url);
-                    const json = await res.json();
-                    if (json.history) serverMatches = json.history;
-                }
+        try {
+            const localMatches = await LocalDB.getMatchesByUid(user.uid!);
+            let serverMatches: Match[] = [];
+            const latestLocalTime = localMatches.length > 0 
+                ? (localMatches[0].endTime || localMatches[0].startTime) 
+                : 0;
+            const bg = window.overwolf?.windows?.getMainWindow();
+            if (bg && bg.APIService) {
+                const matches = await bg.APIService.getHistorySince(user.uid, latestLocalTime + 1);
+                serverMatches = normalizeHistoryForFrontend(matches);
+            }
 
-                setHistory(prevHistory => {
-                    const uniqueMap = new Map();
-                    localMatches.forEach((m: any) => uniqueMap.set(m.matchId, m));
-                    serverMatches.forEach((m: any) => uniqueMap.set(m.matchId, m));
+            setHistory(prevHistory => {
+                const uniqueMap = new Map();
+                localMatches.forEach((m: any) => uniqueMap.set(m.matchId, m));
+                serverMatches.forEach((m: any) => uniqueMap.set(m.matchId, m));
 
-                    if (prevHistory.length > 0) {
-                        const potentialLiveMatch = prevHistory[0];
-                        if (!uniqueMap.has(potentialLiveMatch.matchId)) {
-                            const matchTime = potentialLiveMatch.endTime || potentialLiveMatch.startTime;
-                            const isRecent = (Date.now() - matchTime) < 120000;
-                            if (isRecent) {
-                                console.log("🛡️ Keeping live match visible (Sync pending):", potentialLiveMatch.matchId);
-                                uniqueMap.set(potentialLiveMatch.matchId, potentialLiveMatch);
-                            }
+                if (prevHistory.length > 0) {
+                    const potentialLiveMatch = prevHistory[0];
+                    if (!uniqueMap.has(potentialLiveMatch.matchId)) {
+                        const matchTime = potentialLiveMatch.endTime || potentialLiveMatch.startTime;
+                        const isRecent = (Date.now() - matchTime) < 120000;
+                        if (isRecent) {
+                            console.log("🛡️ Keeping live match visible (Sync pending):", potentialLiveMatch.matchId);
+                            uniqueMap.set(potentialLiveMatch.matchId, potentialLiveMatch);
                         }
                     }
+                }
 
-                    const mergedList = Array.from(uniqueMap.values()).sort((a: any, b: any) => {
-                        return (b.startTime || b.endTime) - (a.startTime || a.endTime);
-                    });
-
-                    const validServerMatches = serverMatches.filter((m:any) => isSupportedMode(m.mode));
-                    if (validServerMatches.length > 0) {
-                        LocalDB.saveMatches(user.uid!, validServerMatches).catch(console.error);
-                    }   
-                    return mergedList;
+                const mergedList = Array.from(uniqueMap.values()).sort((a: any, b: any) => {
+                    return (b.startTime || b.endTime) - (a.startTime || a.endTime);
                 });
-            } catch (e) { console.error(e); }
-        } 
-        else {
-            const bg = window.overwolf?.windows?.getMainWindow();
-            if (bg && bg.apexData) {
-                const latestMatches = bg.apexData.getHistory() || [];
-                if (latestMatches.length > 0) setHistory(latestMatches);
-            }
-        }
-    }, [user.uid, isPremium, pinnedUid]);
+
+                const validServerMatches = serverMatches.filter((m:any) => isSupportedMode(m.mode));
+                if (validServerMatches.length > 0) {
+                    LocalDB.saveMatches(user.uid!, validServerMatches).catch(console.error);
+                }   
+                return mergedList;
+            });
+        } catch (e) { console.error(e); }
+    }, [user.uid]);
 
     useEffect(() => {
         syncHistory();
@@ -687,11 +678,7 @@ const App = () => {
     }, [syncHistory]);
 
     const downloadFullArchive = useCallback(async (currentOldestTime: number) => {
-        if (!user.uid || !pinnedUid) return;
-        if (String(user.uid) !== String(pinnedUid)) {
-            console.log(`🚫 Skipping archive download. UID mismatch. (User: ${user.uid}, Pinned: ${pinnedUid})`);
-            return;
-        }
+        if (!user.uid) return;
 
         if (localStorage.getItem(`ARCHIVE_FULL_SYNC_${user.uid}`)) {
             console.log("✅ Full Archive already synced (Skipping).");
@@ -711,7 +698,7 @@ const App = () => {
         try {
             while (hasMore) {
                 console.log(`📡 Fetching archive older than: ${cursor}`);
-                const matches = await bg.APIService.getArchivedMatches(user.uid, cursor);
+                const matches = normalizeHistoryForFrontend(await bg.APIService.getArchivedMatches(user.uid, cursor));
                 if (matches && matches.length > 0) {
                     await LocalDB.saveMatches(user.uid!, matches);
                     const oldestInChunk = Math.min(...matches.map((m: any) => m.startTime || m.endTime));
@@ -743,22 +730,20 @@ const App = () => {
         } finally {
             setIsDownloadingArchive(false);
         }
-    }, [user.uid, pinnedUid, t]);
+    }, [user.uid, t]);
 
     useEffect(() => {
         const initSync = async () => {
             if (!user.uid) return;
             await syncHistory();
-            if (isPremium && String(user.uid) === String(pinnedUid)) {
-                const localMatches = await LocalDB.getMatchesByUid(user.uid!);
-                const oldestTime = localMatches.length > 0 
-                    ? Math.min(...localMatches.map((m: any) => m.startTime || m.endTime))
-                    : Date.now();
-                downloadFullArchive(oldestTime);
-            }
+            const localMatches = await LocalDB.getMatchesByUid(user.uid!);
+            const oldestTime = localMatches.length > 0 
+                ? Math.min(...localMatches.map((m: any) => m.startTime || m.endTime))
+                : Date.now();
+            downloadFullArchive(oldestTime);
         };
         initSync();
-    }, [user.uid, isPremium, pinnedUid, syncHistory, downloadFullArchive]);
+    }, [user.uid, syncHistory, downloadFullArchive]);
 
     const handleHeaderDoubleClick = () => {
         if (typeof overwolf === 'undefined') return;
@@ -775,7 +760,7 @@ const App = () => {
     };
 
     return (
-        <div style={{ display: 'flex', flexDirection: 'column', width: '100vw', height: '100vh', background: '#1e1e1e', fontFamily: "'Segoe UI', sans-serif", overflow: 'hidden', color: 'white', boxSizing: 'border-box', border: isMaximized ? 'none' : '1px solid #535252' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', width: '100vw', height: '100vh', background: 'var(--color-bg-main)', fontFamily: "'Segoe UI', sans-serif", overflow: 'hidden', color: 'var(--color-text-primary)', boxSizing: 'border-box', border: isMaximized ? 'none' : '1px solid var(--color-border-light)' }}>
             <style>{`
                 @keyframes spin {
                     from { transform: rotate(0deg); }
@@ -793,15 +778,16 @@ const App = () => {
             <div 
                 onDoubleClick={handleHeaderDoubleClick}
                 onMouseDown={(e) => {
-                    if (e.target !== e.currentTarget) return;
+                    const target = e.target as HTMLElement;
+                    if (target.closest('button, select, input, a')) return;
                     overwolf.windows.getCurrentWindow((result) => {
                         if (result.success && result.window) overwolf.windows.dragMove(result.window.id);
                     });
                 }}
-                style={{ height: '35px', background: '#101010', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'default', flexShrink: 0, userSelect: 'none' } as any }>
+                style={{ height: '35px', background: 'var(--color-bg-top-bar)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'default', flexShrink: 0, userSelect: 'none' } as any }>
                 
                 {/* 왼쪽: 앱 로고 & 타이틀 */}
-                <div style={{ paddingLeft: '15px', fontSize: '12px', fontWeight: 'bold', color: '#888', letterSpacing: '1px', display: 'flex', alignItems: 'center' }}>
+                <div style={{ paddingLeft: '15px', fontSize: '12px', fontWeight: 'bold', color: 'var(--color-text-muted)', letterSpacing: '1px', display: 'flex', alignItems: 'center' }}>
                     <img src="/icons/IconMouseOver.png" style={{ width: '18px', height: '18px', marginRight: '8px', objectFit: 'contain' }} />
                     {t('app.title')}
                 </div>
@@ -817,7 +803,7 @@ const App = () => {
                         }}
                         style={{ 
                             background: 'transparent', 
-                            color: '#888', 
+                            color: 'var(--color-text-muted)', 
                             border: 'none', 
                             fontSize: '12px', 
                             outline: 'none', 
@@ -838,18 +824,18 @@ const App = () => {
             </div>
 
             <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
-                <div style={{ flex: '0 0 70px', background: '#000', borderRight: '1px solid #333', zIndex: 20, display: 'flex', flexDirection: 'column', alignItems: 'center', paddingTop: '20px' }}>
+                <div style={{ flex: '0 0 70px', background: 'var(--color-bg-nav)', borderRight: '1px solid var(--color-border)', zIndex: 20, display: 'flex', flexDirection: 'column', alignItems: 'center', paddingTop: '20px' }}>
                     <Navigation activeTab={mainTab} onTabChange={setMainTab} />
                 </div>
 
-                <div style={{ flex: 2, minWidth: '320px', maxWidth: '350px', borderRight: '1px solid #333', background: '#181818', display: 'flex', flexDirection: 'column', position: 'relative', overflow: 'hidden' }}>
-                    <div style={{ padding: '15px', background: '#1e1e1e', flexShrink: 0 }}>
+                <div style={{ flex: 2, minWidth: '320px', maxWidth: '350px', borderRight: '1px solid var(--color-border)', background: 'var(--color-bg-panel)', display: 'flex', flexDirection: 'column', position: 'relative', overflow: 'hidden' }}>
+                    <div style={{ padding: '15px', background: 'var(--color-bg-main)', flexShrink: 0 }}>
                         <SearchBar
                             onSearch={handleSearch}
                             isSearching={isSearching}
                         />
                         {statusMessage && (
-                            <div style={{ color: '#ff6b6b', fontSize: '11px', marginTop: '5px', textAlign: 'center', fontWeight: 'bold' }}>{statusMessage}</div>
+                            <div style={{ color: 'var(--color-danger)', fontSize: '11px', marginTop: '5px', textAlign: 'center', fontWeight: 'bold' }}>{statusMessage}</div>
                         )}
                     </div>
 
@@ -866,31 +852,31 @@ const App = () => {
                         />
                     </div>
 
-                    <div style={{ height: '270px', flexShrink: 0, borderTop: '1px solid #333', background: isPremium ? '#1a1a1a' : '#4e4e4e00', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10 }}>
+                    <div style={{ height: '270px', flexShrink: 0, borderTop: '1px solid var(--color-border)', background: isPremium ? 'var(--color-bg-sub-header)' : 'transparent', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 10 }}>
                         {isPremium ? ( <SidebarStats history={history} /> ) : ( <MemoAdUnit width={300} height={250} /> )}
                     </div>
                 </div>
 
-                <div style={{ flex: 8, display: 'flex', flexDirection: 'column', background: '#181818', minWidth: '600px', position: 'relative' }}>
+                <div style={{ flex: 8, display: 'flex', flexDirection: 'column', background: 'var(--color-bg-panel)', minWidth: '600px', position: 'relative' }}>
                     <NetworkStatus />
                     
-                    <div style={{ height: '60px', borderBottom: '1px solid #333', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 30px', background: '#1a1a1a' }}>    
-                        <div style={{ fontWeight: 'bold', fontSize: '20px', color: '#eee', display: 'flex', alignItems: 'center', gap: '10px' }}>
-                            {mainTab === "DASHBOARD" ? <><FaList color="#888"/> {t('nav.matchHistory')}</> : 
+                    <div style={{ height: '60px', borderBottom: '1px solid var(--color-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 30px', background: 'var(--color-bg-sub-header)' }}>    
+                        <div style={{ fontWeight: 'bold', fontSize: '20px', color: 'var(--color-text-secondary)', display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            {mainTab === "DASHBOARD" ? <><FaList color="var(--color-text-muted)"/> {t('nav.matchHistory')}</> : 
                              mainTab === "FAVORITES" ? <><FaStar color="#e1b12c"/> {t('nav.favorites')}</> :
                              mainTab === "STATISTICS" ? <><FaChartBar color="#e17055"/> {t('nav.statistics')}</> :
-                             mainTab === "WEAPONS" ? <><FaCrosshairs color="#00cec9"/> {t('nav.weapons')}</> : <><FaCog color="#aaa"/> {t('nav.settings')}</>}
+                             mainTab === "WEAPONS" ? <><FaCrosshairs color="#00cec9"/> {t('nav.weapons')}</> : <><FaCog color="var(--color-text-muted)"/> {t('nav.settings')}</>}
                         </div>
 
                         <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
                             {isDownloadingArchive && (
-                                <div style={{ fontSize: '12px', color: '#e67e22', display: 'flex', alignItems: 'center', gap: '6px', marginRight:'10px' }}>
+                                <div style={{ fontSize: '12px', color: 'var(--color-warning)', display: 'flex', alignItems: 'center', gap: '6px', marginRight:'10px' }}>
                                     <FaSync className="spin-animation" /> {t('sync.syncingArchive')} ({downloadProgress})
                                 </div>
                             )}
 
                             {(mainTab === "DASHBOARD" || mainTab === "STATISTICS") && (
-                                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: '#252525', padding: '5px 10px', borderRadius: '6px', border: '1px solid #444' }}>
+                                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: 'var(--color-bg-card)', padding: '5px 10px', borderRadius: '6px', border: '1px solid var(--color-border-light)' }}>
                                     <select 
                                         value={selectedSeasonId} 
                                         onChange={(e) => {
@@ -899,7 +885,7 @@ const App = () => {
                                                 mainScrollRef.current.scrollTo({ top: 0, behavior: 'smooth' });
                                             }
                                         }}
-                                        style={{ background: 'transparent', color: '#8f8f8f', border: 'none', fontSize: '13px', outline: 'none', cursor: 'pointer', fontWeight: 'bold' }}
+                                        style={{ background: 'transparent', color: 'var(--color-text-muted)', border: 'none', fontSize: '13px', outline: 'none', cursor: 'pointer', fontWeight: 'bold' }}
                                     >
                                         {SEASONS.map(season => (
                                             <option key={season.id} value={season.id}>{season.name}</option>
@@ -915,7 +901,7 @@ const App = () => {
                                     background: 'transparent',
                                     border: 'none',
                                     cursor: refreshCooldown > 0 ? 'not-allowed' : 'pointer', 
-                                    color: refreshCooldown > 0 ? '#444' : '#ccc', 
+                                    color: refreshCooldown > 0 ? 'var(--color-border-light)' : 'var(--color-text-dim)', 
                                     display: 'flex', 
                                     alignItems: 'center', 
                                     justifyContent: 'center', 
@@ -925,13 +911,13 @@ const App = () => {
                                 }} 
                                 onMouseEnter={(e) => { 
                                     if(refreshCooldown === 0) {
-                                        e.currentTarget.style.color = '#fff'; 
+                                        e.currentTarget.style.color = 'var(--color-text-primary)'; 
                                         e.currentTarget.style.transform = 'scale(1.1) rotate(180deg)'; 
                                     }
                                 }}
                                 onMouseLeave={(e) => { 
                                     if(refreshCooldown === 0) {
-                                        e.currentTarget.style.color = '#ccc';
+                                        e.currentTarget.style.color = 'var(--color-text-dim)';
                                         e.currentTarget.style.transform = 'scale(1) rotate(0deg)';
                                     }
                                 }}
@@ -950,15 +936,15 @@ const App = () => {
                         {mainTab === "FAVORITES" ? (
                             <>
                                 {favorites.length === 0 ? (
-                                    <div style={{ textAlign: 'center', color: '#666', marginTop: '50px', fontSize: '14px' }}>{t('favorites.empty')}<br/></div>
+                                    <div style={{ textAlign: 'center', color: 'var(--color-text-faint)', marginTop: '50px', fontSize: '14px' }}>{t('favorites.empty')}<br/></div>
                                 ) : (
                                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '15px' }}>
                                         {favorites.map(fav => (
-                                            <div key={fav.uid} onClick={() => handleSelectUser(fav)} style={{ background: '#252525', padding: '20px', borderRadius: '10px', border: '1px solid #333', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', transition: 'transform 0.2s, background 0.2s', position: 'relative' }} onMouseEnter={e => { e.currentTarget.style.background = '#2a2a2a'; e.currentTarget.style.transform = 'translateY(-2px)'; }} onMouseLeave={e => { e.currentTarget.style.background = '#252525'; e.currentTarget.style.transform = 'translateY(0)'; }}>
-                                                <div onClick={(e) => { e.preventDefault(); e.stopPropagation(); if (fav.uid) handleRemoveFavorite(fav.uid); }} style={{ position: 'absolute', top: '10px', right: '10px', width: '24px', height: '24px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.3)', color: '#aaa', fontSize: '14px', transition: 'all 0.2s', zIndex: 100 }} onMouseEnter={e => { e.currentTarget.style.background = '#ff4757'; e.currentTarget.style.color = '#fff'; }} onMouseLeave={e => { e.currentTarget.style.background = 'rgba(0,0,0,0.4)'; e.currentTarget.style.color = '#ccc'; }}>✕</div>
-                                                <img src={`https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/${(fav.legend || 'unknown').toLowerCase()}.png`} alt={fav.name} style={{ width: '60px', height: '60px', borderRadius: '50%', objectFit: 'cover', marginBottom: '10px', border: '2px solid #444', background: '#111' }} onError={(e) => { (e.target as HTMLImageElement).src = 'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/unknown.png'; }} />
-                                                <div style={{ fontSize: '16px', fontWeight: 'bold', color: '#fff', marginBottom: '5px', textAlign: 'center', width: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{fav.name}</div>
-                                                <div style={{ fontSize: '12px', color: '#aaa' }}> Lv.{fav.level + 500 * fav.prestige} / {fav.rankScore} RP / {fav.rankName==='Apex Predator' ? t('favorites.predator') : fav.rankName || t('favorites.unranked')}</div>
+                                            <div key={fav.uid} onClick={() => handleSelectUser(fav)} style={{ background: 'var(--color-bg-card)', padding: '20px', borderRadius: '10px', border: '1px solid var(--color-border)', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', transition: 'transform 0.2s, background 0.2s', position: 'relative' }} onMouseEnter={e => { e.currentTarget.style.background = 'var(--color-bg-card-hover)'; e.currentTarget.style.transform = 'translateY(-2px)'; }} onMouseLeave={e => { e.currentTarget.style.background = 'var(--color-bg-card)'; e.currentTarget.style.transform = 'translateY(0)'; }}>
+                                                <div onClick={(e) => { e.preventDefault(); e.stopPropagation(); if (fav.uid) handleRemoveFavorite(fav.uid); }} style={{ position: 'absolute', top: '10px', right: '10px', width: '24px', height: '24px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.3)', color: 'var(--color-text-muted)', fontSize: '14px', transition: 'all 0.2s', zIndex: 100 }} onMouseEnter={e => { e.currentTarget.style.background = 'var(--color-accent-hover)'; e.currentTarget.style.color = 'var(--color-text-primary)'; }} onMouseLeave={e => { e.currentTarget.style.background = 'rgba(0,0,0,0.4)'; e.currentTarget.style.color = 'var(--color-text-dim)'; }}>✕</div>
+                                                <img src={`https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/${(fav.legend || 'unknown').toLowerCase()}.png`} alt={fav.name} style={{ width: '60px', height: '60px', borderRadius: '50%', objectFit: 'cover', marginBottom: '10px', border: '2px solid var(--color-border-light)', background: 'var(--color-bg-deep)' }} onError={(e) => { (e.target as HTMLImageElement).src = 'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/unknown.png'; }} />
+                                                <div style={{ fontSize: '16px', fontWeight: 'bold', color: 'var(--color-text-primary)', marginBottom: '5px', textAlign: 'center', width: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{fav.name}</div>
+                                                <div style={{ fontSize: '12px', color: 'var(--color-text-muted)' }}> Lv.{fav.level + 500 * fav.prestige} / {fav.rankScore} RP / {fav.rankName==='Apex Predator' ? t('favorites.predator') : fav.rankName || t('favorites.unranked')}</div>
                                             </div>
                                         ))}
                                     </div>
@@ -976,26 +962,26 @@ const App = () => {
                         ) : mainTab === "WEAPONS" ? (
                             <WeaponsTab />
                         ) : mainTab === "SETTINGS" ? (
-                            <SettingsTab />
+                            <SettingsTab isPremium={isPremium} />
                         ) : (
                             <>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '20px', borderBottom: '1px solid #333', paddingBottom: '0px' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '20px', borderBottom: '1px solid var(--color-border)', paddingBottom: '0px' }}>
                                     <div style={{ display: 'flex', gap: '5px' }}>
                                         {["BR", "RANKED", "TRIO", "DUO"].map(tab => (
                                             <button key={tab} onClick={() => setActiveTab(tab)} style={getTabStyle(activeTab === tab)}>{tab}</button>
                                         ))}
                                     </div>
                                     {expandedMatchIds.length > 0 && (
-                                        <button onClick={collapseAll} style={{ marginBottom: '5px', background: 'transparent', border: '1px solid #444', color: '#aaa', padding: '4px 10px', cursor: 'pointer', borderRadius: '4px', fontSize: '11px' }}>{t('controls.collapseAll')}</button>
+                                        <button onClick={collapseAll} style={{ marginBottom: '5px', background: 'transparent', border: '1px solid var(--color-border-light)', color: 'var(--color-text-muted)', padding: '4px 10px', cursor: 'pointer', borderRadius: '4px', fontSize: '11px' }}>{t('controls.collapseAll')}</button>
                                     )}
                                 </div>
                                 
                                 <div style={{ marginBottom: '20px' }}><PerformanceTrend history={currentMatches} /></div>
                                 {filteredHistory.length === 0 ? (
-                                    <div style={{ display: 'flex', flexDirection: 'column', textAlign: 'center', padding: '40px', color: '#555', border: '2px dashed #333', borderRadius: '10px', alignItems: 'center', justifyContent: 'center' }}>
+                                    <div style={{ display: 'flex', flexDirection: 'column', textAlign: 'center', padding: '40px', color: 'var(--color-text-subtle)', border: '2px dashed var(--color-border)', borderRadius: '10px', alignItems: 'center', justifyContent: 'center' }}>
                                         <>
-                                            <div style={{ marginBottom: '15px', fontSize: '14px', lineHeight: '1.5', color: '#888' }}>{t('match.emptyTitle')}<br />{t('match.emptyDesc')}</div>
-                                            <button onClick={startTutorial} style={{ background: '#e67e22', color: '#fff', border: 'none', padding: '10px 20px', borderRadius: '6px', fontSize: '13px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', boxShadow: '0 4px 6px rgba(0,0,0,0.2)', transition: 'transform 0.2s, background 0.2s' }} onMouseEnter={(e) => { e.currentTarget.style.background = '#d35400'; e.currentTarget.style.transform = 'translateY(-2px)'; }} onMouseLeave={(e) => { e.currentTarget.style.background = '#e67e22'; e.currentTarget.style.transform = 'translateY(0)'; }}>
+                                            <div style={{ marginBottom: '15px', fontSize: '14px', lineHeight: '1.5', color: 'var(--color-text-muted)' }}>{t('match.emptyTitle')}<br />{t('match.emptyDesc')}</div>
+                                            <button onClick={startTutorial} style={{ background: 'var(--color-warning)', color: 'var(--color-text-primary)', border: 'none', padding: '10px 20px', borderRadius: '6px', fontSize: '13px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', boxShadow: '0 4px 6px rgba(0,0,0,0.2)', transition: 'transform 0.2s, background 0.2s' }} onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--color-warning-hover)'; e.currentTarget.style.transform = 'translateY(-2px)'; }} onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--color-warning)'; e.currentTarget.style.transform = 'translateY(0)'; }}>
                                                 <FaQuestionCircle /> {t('controls.tutorial')}
                                             </button>
                                         </>
@@ -1006,39 +992,40 @@ const App = () => {
                                             const displayRank = (match.placement === 1 || match.placement === '1') ? 1 : match.placement;
                                             const isExpanded = expandedMatchIds.includes(match.matchId);
                                             const legendFile = (match.legend || "unknown").toLowerCase();
-                                            const timeLabel = getRelativeTime(match.endTime || match.startTime);
+                                            const timePart = getRelativeTime(match.endTime || match.startTime);
+                                            const timeLabel = formatRelativeTime(timePart, t);
                                             const gameMode = match.mode || "Battle Royale";
                                             const modeColor = getModeColor(gameMode);
 
                                             return (
-                                                <div key={match.matchId} style={{ background: '#252525', borderRadius: '8px', overflow: 'hidden', boxShadow: '0 2px 5px rgba(0,0,0,0.2)', border: '1px solid #333' }}>
-                                                    <div onClick={() => toggleMatch(match.matchId)} style={{ display: 'flex', alignItems: 'center', padding: '15px 20px', cursor: 'pointer', borderLeft: `6px solid ${getRankColor(displayRank)}`, background: isExpanded ? '#333' : '#252525', transition: 'background 0.2s' }}>
-                                                        <div style={{ position: 'relative', width: '50px', height: '50px', borderRadius: '10px', background: '#1a1a1a', overflow: 'hidden', marginRight: '20px', border: '2px solid #444', flexShrink: 0 }}>
+                                                <div key={match.matchId} style={{ background: 'var(--color-bg-card)', borderRadius: '8px', overflow: 'hidden', boxShadow: '0 2px 5px rgba(0,0,0,0.2)', border: '1px solid var(--color-border)' }}>
+                                                    <div onClick={() => toggleMatch(match.matchId)} style={{ display: 'flex', alignItems: 'center', padding: '15px 20px', cursor: 'pointer', borderLeft: `6px solid ${getRankColor(displayRank)}`, background: isExpanded ? 'var(--color-bg-card-hover)' : 'var(--color-bg-card)', transition: 'background 0.2s' }}>
+                                                        <div style={{ position: 'relative', width: '50px', height: '50px', borderRadius: '10px', background: 'var(--color-bg-sub-header)', overflow: 'hidden', marginRight: '20px', border: '2px solid var(--color-border-light)', flexShrink: 0 }}>
                                                             <img src={`https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/${legendFile}.png`} alt={match.legend || "?"} style={{ width: '100%', height: '100%', objectFit: 'cover', transform: 'scale(1.1)' }} onError={(e) => { (e.target as HTMLImageElement).src = 'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/unknown.png'; }} />
-                                                            <div style={{ position: 'absolute', top: 0, left: 0, background: 'rgba(0, 0, 0, 0.7)', color: '#eee', fontSize: '9px', padding: '2px 4px', borderBottomRightRadius: '5px', fontWeight: 'bold', lineHeight: '1', backdropFilter: 'blur(2px)' }}>{timeLabel}</div>
+                                                            <div style={{ position: 'absolute', top: 0, left: 0, background: 'color-mix(in srgb, var(--color-bg-deep) 80%, transparent)', color: 'var(--color-text-secondary)', fontSize: '9px', padding: '2px 4px', borderBottomRightRadius: '5px', fontWeight: 'bold', lineHeight: '1', backdropFilter: 'blur(2px)' }}>{timeLabel}</div>
                                                         </div>
                                                         <div style={{ flex: 1, display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '10px', alignItems: 'center' }}>
-                                                            <div><div style={{ fontSize: '10px', color: '#888' }}>{t('match.rank')}</div><div style={{ fontWeight: 'bold', fontSize: '16px', color: '#fff' }}>#{displayRank}</div></div>
-                                                            <div><div style={{ fontSize: '10px', color: '#888' }}>{t('match.gamemode')}</div><div style={{ fontWeight: 'bold', fontSize: '14px', color: modeColor, textTransform: 'uppercase' }}>{gameMode}</div></div>
-                                                            <div style={{ overflow: 'hidden' }}><div style={{ fontSize: '10px', color: '#888' }}>{t('match.map')}</div><div style={{ fontWeight: 'bold', color: '#ccc', fontSize: '14px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }} title={match.map}>{match.map}</div></div>
-                                                            <div><div style={{ fontSize: '10px', color: '#888' }}>{t('match.damage')}</div><div style={{ fontWeight: 'bold', color: '#ff6b6b', fontSize: '16px' }}>{Math.round(match.damage)}</div></div>
-                                                            <div><div style={{ fontSize: '10px', color: '#888' }}>{t('match.kills')}</div><div style={{ fontWeight: 'bold', color: '#fff', fontSize: '16px' }}>{match.kills}</div></div>
-                                                            <div><div style={{ fontSize: '10px', color: '#888' }}>{t('match.assists')}</div><div style={{ fontWeight: 'bold', color: '#fff', fontSize: '16px' }}>{match.assists || 0}</div></div>
-                                                            <div><div style={{ fontSize: '10px', color: '#888' }}>{t('match.knocks')}</div><div style={{ fontWeight: 'bold', color: '#fff', fontSize: '16px' }}>{match.knocks || 0}</div></div>
+                                                            <div><div style={{ fontSize: '10px', color: 'var(--color-text-muted)' }}>{t('match.rank')}</div><div style={{ fontWeight: 'bold', fontSize: '16px', color: 'var(--color-text-primary)' }}>#{displayRank}</div></div>
+                                                            <div><div style={{ fontSize: '10px', color: 'var(--color-text-muted)' }}>{t('match.gamemode')}</div><div style={{ fontWeight: 'bold', fontSize: '14px', color: modeColor, textTransform: 'uppercase' }}>{gameMode}</div></div>
+                                                            <div style={{ overflow: 'hidden' }}><div style={{ fontSize: '10px', color: 'var(--color-text-muted)' }}>{t('match.map')}</div><div style={{ fontWeight: 'bold', color: 'var(--color-text-dim)', fontSize: '14px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }} title={match.map}>{match.map}</div></div>
+                                                            <div><div style={{ fontSize: '10px', color: 'var(--color-text-muted)' }}>{t('match.damage')}</div><div style={{ fontWeight: 'bold', color: 'var(--color-danger)', fontSize: '16px' }}>{Math.round(match.damage)}</div></div>
+                                                            <div><div style={{ fontSize: '10px', color: 'var(--color-text-muted)' }}>{t('match.kills')}</div><div style={{ fontWeight: 'bold', color: 'var(--color-text-primary)', fontSize: '16px' }}>{match.kills}</div></div>
+                                                            <div><div style={{ fontSize: '10px', color: 'var(--color-text-muted)' }}>{t('match.assists')}</div><div style={{ fontWeight: 'bold', color: 'var(--color-text-primary)', fontSize: '16px' }}>{match.assists || 0}</div></div>
+                                                            <div><div style={{ fontSize: '10px', color: 'var(--color-text-muted)' }}>{t('match.knocks')}</div><div style={{ fontWeight: 'bold', color: 'var(--color-text-primary)', fontSize: '16px' }}>{match.knocks || 0}</div></div>
                                                         </div>
-                                                        <div style={{ fontSize: '12px', color: '#666', marginLeft: '10px', transition: 'transform 0.3s', transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)' }}>▼</div>
+                                                        <div style={{ fontSize: '12px', color: 'var(--color-text-faint)', marginLeft: '10px', transition: 'transform 0.3s', transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)' }}>▼</div>
                                                     </div>
 
                                                     <div className={`match-accordion ${isExpanded ? 'open' : ''}`}>
                                                         <div className="match-accordion-inner">
-                                                            <div style={{ height: '420px', display: 'flex', borderTop: '1px solid #333', background: '#1a1a1a' }}>
-                                                                <div style={{ flex: 5, minWidth: '250px', position: 'relative', borderRight: '1px solid #333', overflow: 'hidden' }}>{isExpanded && <MapVisualizer match={match} />}</div>
-                                                                <div style={{ flex: 3, minWidth: '280px', borderRight: '1px solid #333', display: 'flex', flexDirection: 'column', zIndex: 10 }}>
+                                                            <div style={{ height: '420px', display: 'flex', borderTop: '1px solid var(--color-border)', background: 'var(--color-bg-sub-header)' }}>
+                                                                <div style={{ flex: 5, minWidth: '250px', position: 'relative', borderRight: '1px solid var(--color-border)', overflow: 'hidden' }}>{isExpanded && <MapVisualizer match={match} />}</div>
+                                                                <div style={{ flex: 3, minWidth: '280px', borderRight: '1px solid var(--color-border)', display: 'flex', flexDirection: 'column', zIndex: 10 }}>
                                                                     <div style={{ flex: 1, overflow: 'hidden', minHeight: 0 }}><CombatLog match={match} /></div>
-                                                                    <div style={{ height: '180px', borderTop: '1px solid #333', background: '#1e1e1e', flexShrink: 0 }}><LoadoutDisplay match={match} /></div>
+                                                                    <div style={{ height: '180px', borderTop: '1px solid var(--color-border)', background: 'var(--color-bg-main)', flexShrink: 0 }}><LoadoutDisplay match={match} /></div>
                                                                 </div>
-                                                                <div style={{ flex: 4, minWidth: '240px', display: 'flex', flexDirection: 'column', background: '#1e1e1e' }}>
-                                                                    <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}><MatchStats match={match} onUserSelect={handleSelectUser}/></div>
+                                                                <div style={{ flex: 4, minWidth: '240px', display: 'flex', flexDirection: 'column', background: 'var(--color-bg-main)' }}>
+                                                                    <MatchDetailTabs match={match} onUserSelect={handleSelectUser} />
                                                                 </div>
                                                             </div>
                                                         </div>
@@ -1049,26 +1036,26 @@ const App = () => {
                                         {totalPages > 1 && (
                                             <div style={{ 
                                                 display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '15px', 
-                                                marginTop: '10px', padding: '15px 0', borderTop: '1px solid #333' 
+                                                marginTop: '10px', padding: '15px 0', borderTop: '1px solid var(--color-border)' 
                                             }}>
                                                 <button 
                                                     onClick={() => {
                                                         setCurrentPage(p => Math.max(1, p - 1));
                                                         mainScrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
                                                     }} 
-                                                    disabled={currentPage === 1}
+                                                    disabled={effectiveCurrentPage === 1}
                                                     style={{ 
-                                                        padding: '8px 20px', background: currentPage === 1 ? '#2a2a2a' : '#444', 
-                                                        color: currentPage === 1 ? '#666' : '#fff', border: 'none', 
-                                                        borderRadius: '6px', cursor: currentPage === 1 ? 'not-allowed' : 'pointer',
+                                                        padding: '8px 20px', background: effectiveCurrentPage === 1 ? 'var(--color-bg-card-hover)' : 'var(--color-border-light)', 
+                                                        color: effectiveCurrentPage === 1 ? 'var(--color-text-faint)' : 'var(--color-text-primary)', border: 'none', 
+                                                        borderRadius: '6px', cursor: effectiveCurrentPage === 1 ? 'not-allowed' : 'pointer',
                                                         fontWeight: 'bold', transition: 'background 0.2s'
                                                     }}
                                                 >
                                                     {t('controls.prev')}
                                                 </button>
                                                 
-                                                <span style={{ fontSize: '14px', color: '#ccc', fontWeight: 'bold' }}>
-                                                    {t('controls.page')} <span style={{color: '#fff'}}>{currentPage}</span> {t('controls.of')} {totalPages}
+                                                <span style={{ fontSize: '14px', color: 'var(--color-text-dim)', fontWeight: 'bold' }}>
+                                                    {t('controls.page')} <span style={{color: 'var(--color-text-primary)'}}>{effectiveCurrentPage}</span> {t('controls.of')} {totalPages}
                                                 </span>
                                                 
                                                 <button 
@@ -1076,11 +1063,11 @@ const App = () => {
                                                         setCurrentPage(p => Math.min(totalPages, p + 1));
                                                         mainScrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
                                                     }} 
-                                                    disabled={currentPage === totalPages}
+                                                    disabled={effectiveCurrentPage === totalPages}
                                                     style={{ 
-                                                        padding: '8px 20px', background: currentPage === totalPages ? '#2a2a2a' : '#444', 
-                                                        color: currentPage === totalPages ? '#666' : '#fff', border: 'none', 
-                                                        borderRadius: '6px', cursor: currentPage === totalPages ? 'not-allowed' : 'pointer',
+                                                        padding: '8px 20px', background: effectiveCurrentPage === totalPages ? 'var(--color-bg-card-hover)' : 'var(--color-border-light)', 
+                                                        color: effectiveCurrentPage === totalPages ? 'var(--color-text-faint)' : 'var(--color-text-primary)', border: 'none', 
+                                                        borderRadius: '6px', cursor: effectiveCurrentPage === totalPages ? 'not-allowed' : 'pointer',
                                                         fontWeight: 'bold', transition: 'background 0.2s'
                                                     }}
                                                 >
@@ -1091,15 +1078,15 @@ const App = () => {
                                         {filteredHistory.length > 0 && (
                                             <div style={{ marginTop: '10px', paddingBottom: '20px' }}>
                                                 {isPremium && (
-                                                    <div style={{ background: 'linear-gradient(90deg, #2ecc71 0%, #27ae60 100%)', color: '#fff', fontSize: '12px', fontWeight: 'bold', textAlign: 'center', padding: '8px', borderRadius: '6px', marginBottom: '20px', boxShadow: '0 4px 10px rgba(46, 204, 113, 0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', animation: 'fadeIn 0.5s' }}>
+                                                    <div style={{ background: 'linear-gradient(90deg, var(--color-success) 0%, var(--color-success-dark) 100%)', color: 'var(--color-text-primary)', fontSize: '12px', fontWeight: 'bold', textAlign: 'center', padding: '8px', borderRadius: '6px', marginBottom: '20px', boxShadow: '0 4px 10px rgba(0,0,0,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', animation: 'fadeIn 0.5s' }}>
                                                         <FaCrown /><span>{t('premium.betaUsers')} <b>{t('premium.allUnlocked')}</b></span>
                                                     </div>
                                                 )}
                                                 {!isPremium ? (
-                                                    <div onClick={() => { alert(t('premium.redirecting')); }} style={{ background: `repeating-linear-gradient(45deg, #1a1a1a, #1a1a1a 10px, #202020 10px, #202020 20px)`, border: '2px dashed #444', borderRadius: '8px', padding: '25px', textAlign: 'center', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', transition: 'all 0.2s' }} onMouseEnter={e => { e.currentTarget.style.borderColor = '#e67e22'; }} onMouseLeave={e => { e.currentTarget.style.borderColor = '#444'; }}>
-                                                        <div style={{ background: '#333', width: '40px', height: '40px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><span style={{ fontSize: '20px' }}>🔒</span></div>
-                                                        <div style={{ fontSize: '15px', fontWeight: 'bold', color: '#fff' }}>{t('premium.archiveTitle')}</div>
-                                                        <div style={{ fontSize: '12px', color: '#aaa' }}>{t('premium.archiveDesc1')} <b>{t('premium.archiveDescBold')}</b>.<br/><span style={{ color: '#e67e22', fontWeight: 'bold' }}>{t('premium.subscribe')}</span></div>
+                                                    <div onClick={() => { alert(t('premium.redirecting')); }} style={{ background: `repeating-linear-gradient(45deg, var(--color-bg-sub-header), var(--color-bg-sub-header) 10px, var(--color-bg-table-header) 10px, var(--color-bg-table-header) 20px)`, border: '2px dashed var(--color-border-light)', borderRadius: '8px', padding: '25px', textAlign: 'center', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', transition: 'all 0.2s' }} onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--color-warning)'; }} onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--color-border-light)'; }}>
+                                                        <div style={{ background: 'var(--color-bg-card-hover)', width: '40px', height: '40px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><span style={{ fontSize: '20px' }}>🔒</span></div>
+                                                        <div style={{ fontSize: '15px', fontWeight: 'bold', color: 'var(--color-text-primary)' }}>{t('premium.archiveTitle')}</div>
+                                                        <div style={{ fontSize: '12px', color: 'var(--color-text-muted)' }}>{t('premium.archiveDesc1')} <b>{t('premium.archiveDescBold')}</b>.<br/><span style={{ color: 'var(--color-warning)', fontWeight: 'bold' }}>{t('premium.subscribe')}</span></div>
                                                     </div>
                                                 ) : (
                                                     <span></span>
@@ -1112,7 +1099,7 @@ const App = () => {
                         )}
                     </div>
                     {!isPremium && (
-                        <div style={{ position: 'absolute', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '728px', height: '90px', background: '#5e5e5e', borderTop: '1px solid #00000000', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}>
+                        <div style={{ position: 'absolute', bottom: 0, left: '50%', transform: 'translateX(-50%)', width: '728px', height: '90px', background: 'var(--color-bg-sub-header)', borderTop: '1px solid var(--color-border)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}>
                             <MemoAdUnit width={728} height={90} />
                         </div>
                     )}

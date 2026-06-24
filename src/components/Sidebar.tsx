@@ -262,7 +262,7 @@ const Sidebar: React.FC<SidebarProps> = ({
 
     if (!user || !user.uid) {
         return (
-            <div style={{ width: '100%', height: '100%', background: '#1e1e1e', color: '#ecf0f1', display: 'flex', flexDirection: 'column', borderRight: '1px solid #333', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ width: '100%', height: '100%', background: 'var(--color-bg-main)', color: 'var(--color-text-secondary)', display: 'flex', flexDirection: 'column', borderRight: '1px solid var(--color-border)', alignItems: 'center', justifyContent: 'center' }}>
                 <div style={{ opacity: 0.3, textAlign: 'center', padding: '20px' }}>
                     <img src="https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/unknown.png" alt="Logo" style={{ width: '80px', marginBottom: '15px', filter: 'grayscale(100%)' }} />
                     <div style={{ fontSize: '18px', fontWeight: 'bold' }}>ApexTrace</div>
@@ -293,7 +293,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     const totalLevel = ((user.prestige || 0) * 500) + (user.level || 0);
 
     return (
-        <div style={{ width: '100%', height: '100%', background: '#1e1e1e', color: '#ecf0f1', display: 'flex', flexDirection: 'column', borderRight: '1px solid #333', position: 'relative' }}>
+        <div style={{ width: '100%', height: '100%', background: 'var(--color-bg-main)', color: 'var(--color-text-secondary)', display: 'flex', flexDirection: 'column', borderRight: '1px solid var(--color-border)', position: 'relative' }}>
             {/* ✅ style 태그를 JSX 외부 상수로 분리 */}
             <style>{SIDEBAR_STYLES}</style>
 
@@ -305,21 +305,21 @@ const Sidebar: React.FC<SidebarProps> = ({
                         onClick={onTogglePin}
                         // ✅ 번역 키 적용
                         title={isPinned ? t('controls.unpin') : t('controls.pin')}
-                        style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '20px', color: isPinned ? '#2ecc71' : '#555', transform: isPinned ? 'rotate(-45deg)' : 'rotate(0deg)', transition: 'all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)', padding: '5px', filter: isPinned ? 'drop-shadow(0 0 5px rgba(46, 204, 113, 0.5))' : 'none' }}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '20px', color: isPinned ? 'var(--color-success)' : 'var(--color-text-subtle)', transform: isPinned ? 'rotate(-45deg)' : 'rotate(0deg)', transition: 'all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)', padding: '5px', filter: isPinned ? 'drop-shadow(0 0 5px rgba(46, 204, 113, 0.5))' : 'none' }}
                     >
                         <FaThumbtack />
                     </button>
                     <button
                         onClick={onToggleFavorite}
                         title={t('nav.favorites')}
-                        style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '22px', color: isFavorite ? '#f1c40f' : '#555', transition: 'all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)', transform: 'scale(1)', padding: '5px', filter: isFavorite ? 'drop-shadow(0 0 5px rgba(241, 196, 15, 0.5))' : 'none' }}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '22px', color: isFavorite ? '#f1c40f' : 'var(--color-text-subtle)', transition: 'all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)', transform: 'scale(1)', padding: '5px', filter: isFavorite ? 'drop-shadow(0 0 5px rgba(241, 196, 15, 0.5))' : 'none' }}
                     >
                         {isFavorite ? <FaStar /> : <FaRegStar />}
                     </button>
                 </div>
 
                 {/* 아바타 */}
-                <div style={{ width: avatarSize, height: avatarSize, borderRadius: '50%', border: '4px solid #333', overflow: 'hidden', background: '#111', marginBottom: '15px', marginTop: '10px', boxShadow: '0 8px 20px rgba(0,0,0,0.3)' }}>
+                <div style={{ width: avatarSize, height: avatarSize, borderRadius: '50%', border: '4px solid var(--color-border)', overflow: 'hidden', background: 'var(--color-bg-deep)', marginBottom: '15px', marginTop: '10px', boxShadow: '0 8px 20px rgba(0,0,0,0.3)' }}>
                     <img src={displayImage} alt="Legend" style={{ width: '100%', height: '100%', objectFit: 'cover', transform: 'scale(1.1)' }} />
                 </div>
 
@@ -337,7 +337,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                             onClick={onReturnToPinned}
                             // ✅ 번역 키 적용
                             title={t('controls.returnToPinned')}
-                            style={{ width: `${btnSize}px`, height: `${btnSize}px`, minWidth: `${btnSize}px`, minHeight: `${btnSize}px`, marginLeft: `${btnGap}px`, borderRadius: '50%', background: '#2ecc71', border: 'none', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, cursor: 'pointer', flexShrink: 0, transition: 'all 0.2s', boxShadow: '0 2px 5px rgba(46, 204, 113, 0.4)' }}
+                            style={{ width: `${btnSize}px`, height: `${btnSize}px`, minWidth: `${btnSize}px`, minHeight: `${btnSize}px`, marginLeft: `${btnGap}px`, borderRadius: '50%', background: 'var(--color-success)', border: 'none', color: 'var(--color-text-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, cursor: 'pointer', flexShrink: 0, transition: 'all 0.2s', boxShadow: '0 2px 5px rgba(46, 204, 113, 0.4)' }}
                         >
                             <FaUndo size={12} />
                         </button>
@@ -345,18 +345,18 @@ const Sidebar: React.FC<SidebarProps> = ({
                 </div>
 
                 {/* ✅ "Level" 하드코딩 → 번역 키 적용 */}
-                <div style={{ fontSize: '13px', color: '#888', marginBottom: '15px', background: '#252525', padding: '2px 10px', borderRadius: '12px' }}>
+                <div style={{ fontSize: '13px', color: 'var(--color-text-muted)', marginBottom: '15px', background: 'var(--color-bg-card)', padding: '2px 10px', borderRadius: '12px' }}>
                     {t('favorites.level')} {totalLevel}
                 </div>
 
                 {/* 랭크 */}
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', marginBottom: '20px', background: 'rgba(255,255,255,0.03)', padding: '8px 15px', borderRadius: '8px', width: '100%', boxSizing: 'border-box' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', marginBottom: '20px', background: 'var(--color-bg-card)', border: '1px solid var(--color-border)', padding: '8px 15px', borderRadius: '8px', width: '100%', boxSizing: 'border-box' }}>
                     <img src={rankIcon} alt="Rank" style={{ width: rankIconSize, height: rankIconSize, objectFit: 'contain' }} />
                     <div style={{ textAlign: 'left' }}>
-                        <div style={{ fontSize: '15px', fontWeight: 'bold', color: '#eee', lineHeight: '1.2' }}>
+                        <div style={{ fontSize: '15px', fontWeight: 'bold', color: 'var(--color-text-secondary)', lineHeight: '1.2' }}>
                             {user.rankName === 'Apex Predator' ? t('favorites.predator') : user.rankName || t('favorites.unranked')}
                         </div>
-                        <div style={{ fontSize: '12px', color: '#f89b44', fontWeight: '600' }}>
+                        <div style={{ fontSize: '12px', color: 'var(--color-warning)', fontWeight: '600' }}>
                             {(user.rankScore || 0).toLocaleString()} RP
                         </div>
                     </div>

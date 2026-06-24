@@ -57,6 +57,21 @@
     "assists": "ASSISTS",
     "knocks": "KNOCKS"
   },
+  "matchDetails": {
+    "stats": "統計",
+    "loadoutTimeline": "武器時間軸",
+    "loadoutTimelineDesc": "本場比賽中偵測到的武器變化。",
+    "noLoadoutTimeline": "本場比賽沒有記錄武器變化。",
+    "time": "時間",
+    "before": "變更前",
+    "after": "變更後",
+    "actionLoadoutChange": "武器配置變更"
+  },
+  "hotkeyReminder": {
+    "label": "遊戲內快捷鍵",
+    "desktopLabel": "第二螢幕快捷鍵",
+    "inGameLabel": "遊戲內快捷鍵"
+  },
   "premium": {
     "betaUsers": "測試使用者：",
     "allUnlocked": "已解鎖全部已記錄對局。",
@@ -177,7 +192,8 @@
       "elite": "Elite",
       "boostedLoader": "Boosted Loader",
       "shatterCaps": "Shatter Caps",
-      "dualShell": "Dual Shell"
+      "dualShell": "Dual Shell",
+      "executioner": "Executioner"
     },
     "consumables": {
       "thermite": "鋁熱劑",
@@ -260,7 +276,14 @@
     "sections": {
       "community": "社區與支持",
       "tools": "工具與實用功能",
-      "appInfo": "應用資訊"
+      "appInfo": "應用資訊",
+      "theme": "主題"
+    },
+    "theme": {
+      "modeTitle": "模式",
+      "modeDesc": "更改整個應用程式的背景顏色",
+      "dark": "深色",
+      "light": "淺色"
     },
     "discord": {
       "title": "加入 Discord",
@@ -272,7 +295,11 @@
       "tutorialTitle": "應用程式教學",
       "tutorialDesc": "執行教學以瞭解如何使用本應用程式。",
       "hotkeyTitle": "應用快捷鍵",
-      "hotkeyDesc": "更改快捷鍵 — 將跳轉到 Overwolf 設定。",
+      "hotkeyDesc": "在應用程式內查看並更改 ApexTrace 快捷鍵。",
+      "desktopHotkeyTitle": "第二螢幕快捷鍵",
+      "desktopHotkeyDesc": "更改用於顯示/隱藏第二螢幕視窗的快捷鍵。",
+      "inGameHotkeyTitle": "遊戲內視窗快捷鍵",
+      "inGameHotkeyDesc": "更改用於顯示/隱藏遊戲內覆蓋層的快捷鍵。",
       "logsTitle": "打開日誌檔案夾",
       "logsDesc": "打開存放應用日誌的本地檔案夾。",
       "versionTitle": "應用版本",
@@ -508,11 +535,16 @@
     "subtitle": "（最早 → 最新）",
     "noData": "尚無對局資料。"
   },
+  "relativeTime": {
+    "justNow": "剛剛",
+    "ago": "{{time}}前"
+  },
   "playerModal": {
     "title": "選擇玩家",
     "found": "找到 {{count}} 個資料。",
     "neverSearched": "從未搜尋",
-    "searched": "{{time}} 前搜尋過"
+    "searched": "{{time}} 前搜尋過",
+    "searchedJustNow": "剛剛搜尋過"
   },
   "sidebar": {
     "emptyNotice": "請先進行一場對局以註冊賬號，然後再搜尋。",

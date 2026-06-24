@@ -19,20 +19,20 @@ const CombatLog = ({ match }: { match: Match }) => {
 
     if (validEvents.length === 0) {
         return (
-            <div style={{ width: '100%', height: '100%', background: '#1e1e1e', color: '#666', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '13px' }}>
+            <div style={{ width: '100%', height: '100%', background: 'var(--color-bg-sub-header)', color: 'var(--color-text-faint)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '13px' }}>
                 {t('combatLog.noEvents')}
             </div>
         );
     }
 
     return (
-        <div style={{ paddingTop: '20px', width: '100%', height: '100%', display: 'flex', flexDirection: 'column', background: '#1e1e1e' }}>
+        <div style={{ paddingTop: '20px', width: '100%', height: '100%', display: 'flex', flexDirection: 'column', background: 'var(--color-bg-sub-header)' }}>
             
             {/* 헤더 */}
             <div style={{ 
-                borderBottom: '1px solid #333', 
-                background: '#1e1e1e',
-                color: '#888', 
+                borderBottom: '1px solid var(--color-border)', 
+                background: 'var(--color-bg-sub-header)',
+                color: 'var(--color-text-muted)', 
                 fontWeight: 'bold',
                 fontSize: '11px',
                 display: 'flex',
@@ -54,26 +54,26 @@ const CombatLog = ({ match }: { match: Match }) => {
                     const isMyDeath = isVictimMe || event.type === 'death';
                     
                     let Icon = GiCrossedSwords;
-                    let color = '#ccc';
-                    let rowBg = '#252525';
-                    let borderColor = '#555';
+                    let color = 'var(--color-text-dim)';
+                    let rowBg = 'var(--color-bg-card)';
+                    let borderColor = 'var(--color-border-light)';
                     const timeLabel = formatMatchTime(event.timestamp - startTime, 'digital');
 
-                    if (event.type === 'kill') { Icon = FaSkull; color = '#c4c4c4'; }
-                    else if (event.type === 'death') { Icon = FaCross; color = '#c4c4c4';}
-                    else if (event.type === 'knockdown') { Icon = FaCrosshairs; color = '#fa5a2a'; }
-                    else if (event.type === 'assist') { Icon = FaHandshake; color = '#3498db'; }
-                    else if (event.type === 'revive' || event.type === 'respawn') { Icon = FaHandshake; color = '#2ecc71'; }
+                    if (event.type === 'kill') { Icon = FaSkull; color = 'var(--color-text-muted)'; }
+                    else if (event.type === 'death') { Icon = FaCross; color = 'var(--color-text-muted)'; }
+                    else if (event.type === 'knockdown') { Icon = FaCrosshairs; color = 'var(--color-warning)'; }
+                    else if (event.type === 'assist') { Icon = FaHandshake; color = 'var(--color-mode-trio)'; }
+                    else if (event.type === 'revive' || event.type === 'respawn') { Icon = FaHandshake; color = 'var(--color-success)'; }
 
                     if (isMyKill) {
-                        if(event.type === 'kill'){
-                            rowBg = '#2ecc7027';
-                            borderColor = '#2ecc70c7';
+                        if (event.type === 'kill') {
+                            rowBg = 'color-mix(in srgb, var(--color-success) 18%, var(--color-bg-card))';
+                            borderColor = 'var(--color-success)';
                         }
                     } else if (isMyDeath) {
-                        if(event.type === 'kill' || event.type === 'death'){
-                            rowBg = '#e74d3c2a';
-                            borderColor = '#e74d3cd5';
+                        if (event.type === 'kill' || event.type === 'death') {
+                            rowBg = 'color-mix(in srgb, var(--color-accent) 18%, var(--color-bg-card))';
+                            borderColor = 'var(--color-accent)';
                         }
                     }
 
@@ -94,7 +94,7 @@ const CombatLog = ({ match }: { match: Match }) => {
                             borderLeft: `4px solid ${borderColor}`, boxSizing: 'border-box'
                         }}>
                             {/* 시간 */}
-                            <div style={{ minWidth: '40px', color: '#777', fontSize: '11px', fontWeight: 'bold' }}>
+                            <div style={{ minWidth: '40px', color: 'var(--color-text-subtle)', fontSize: '11px', fontWeight: 'bold' }}>
                                 {timeLabel}
                             </div>
                             
@@ -106,7 +106,7 @@ const CombatLog = ({ match }: { match: Match }) => {
                                     ...nameStyle,
                                     textAlign: 'center',
                                     fontWeight: 'normal', 
-                                    color: isAttackerMe ? '#2ecc71' : '#ccc', 
+                                    color: isAttackerMe ? 'var(--color-success)' : 'var(--color-text-dim)', 
                                 }} title={event.attacker}>
                                     {event.attacker}
                                 </span>
@@ -119,7 +119,7 @@ const CombatLog = ({ match }: { match: Match }) => {
                                     alignItems: 'center',
                                     justifyContent: 'center',
                                     gap: '4px',
-                                    color: '#555',
+                                    color: 'var(--color-text-subtle)',
                                 }} title={event.type}>
                                     <span style={{ fontSize: '10px' }}>▶</span>
                                     <Icon size={10} color={color} />
@@ -130,7 +130,7 @@ const CombatLog = ({ match }: { match: Match }) => {
                                     ...nameStyle,
                                     textAlign: 'center',
                                     fontWeight: 'normal',
-                                    color: isVictimMe ? '#e74c3c' : '#ccc', 
+                                    color: isVictimMe ? 'var(--color-accent)' : 'var(--color-text-dim)', 
                                 }} title={event.victim}>
                                     {event.victim}
                                 </span>

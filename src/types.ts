@@ -10,6 +10,26 @@ export interface MatchEvent {
     raw?: string;
 }
 
+export interface RingRound {
+    round: number;
+    startTime?: number;
+    endTime?: number;
+    nextRingCenterX: number;
+    nextRingCenterY: number;
+    nextRingRadius: number;
+    revealedAt?: number;
+}
+
+export interface WeaponTimelineEntry {
+    timestamp: number;
+    primary?: string | null;
+    secondary?: string | null;
+    previousPrimary?: string | null;
+    previousSecondary?: string | null;
+    equipped?: string | null;
+    action?: 'pickup' | 'drop' | 'swap' | 'equip' | 'loadout_change' | 'unknown';
+}
+
 export interface Match {
     matchId: string;
     platformId: string | null;
@@ -37,6 +57,7 @@ export interface Match {
     
     rpChange: number;
     rpProcessed: boolean;
+    rankScore?: number;
 
     startTime: number;
     endTime: number;
@@ -47,6 +68,8 @@ export interface Match {
     };
     
     path: { x: number; y: number; t?: number; p?: string; s?: number }[];
+    ringRounds?: RingRound[];
+    weaponTimeline?: WeaponTimelineEntry[];
     events: MatchEvent[];
     teamStats: {
         uid: any; 

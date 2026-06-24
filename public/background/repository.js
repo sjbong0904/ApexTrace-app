@@ -3,7 +3,7 @@ console.log("Initializing Cloud Repository (Proxy Mode)");
 
 (function() { 
     const getProxyBaseUrl = () =>
-        window.PROXY_BASE_URL ?? "https://apex-trace.vercel.app/api";
+        window.PROXY_BASE_URL ?? "https://trace-proxy-server.vercel.app/api";
 
     // 공통 Fetch 헬퍼
     const requestProxy = async (endpoint, method, body = null) => {
@@ -129,6 +129,7 @@ console.log("Initializing Cloud Repository (Proxy Mode)");
         // 히스토리 불러오기 (백엔드가 융합해서 주므로 uid만 던지면 됨)
         fetch: async (uid) => {
             try {
+                const PROXY_BASE_URL = getProxyBaseUrl();
                 const res = await fetch(`${PROXY_BASE_URL}/history?uid=${uid}`);
                 if (!res.ok) return [];
                 const json = await res.json();
@@ -156,6 +157,52 @@ console.log("Initializing Cloud Repository (Proxy Mode)");
         }
     };
 
+    const DailyRankSnapshotModule = {
+        upsert: async (uid, user, source = 'als') => {
+            if (!uid || !user) return null;
+            const rankScore = Number(user.rankScore ?? user.rank_score);
+            if (!Number.isFinite(rankScore)) return null;
+
+            const snapshotDate = new Date().toISOString().slice(0, 10);
+            const payload = {
+                uid: String(uid),
+                snapshot_date: snapshotDate,
+                rank_score: rankScore,
+                rank_name: user.rankName || user.rank_name || null,
+                level: user.level ?? null,
+                prestige: user.prestige ?? null,
+                legend: user.legend ?? null,
+                source
+            };
+
+            try {
+                const PROXY_BASE_URL = getProxyBaseUrl();
+                const res = await fetch(`${PROXY_BASE_URL}/rank-snapshots`, {
+                    method: 'POST',
+                    // Keep this a simple request so missing/deploying proxy routes do not fail at CORS preflight.
+                    headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
+                    body: JSON.stringify({ snapshot: payload })
+                });
+
+                // The proxy endpoint may be deployed separately from this extension.
+                if (res.status === 404) return null;
+                if (!res.ok) {
+                    console.warn(`[Repository] Daily rank snapshot failed (${res.status})`);
+                    return null;
+                }
+
+                const result = await res.json();
+                if (result?.success) {
+                    console.log(`[Repository] Daily rank snapshot upserted: ${uid} @ ${snapshotDate}`);
+                }
+                return result;
+            } catch (e) {
+                console.warn('[Repository] Daily rank snapshot network error:', e);
+                return null;
+            }
+        }
+    };
+
     // EXPORT
     window.CloudRepository = {
         findUidByName: async (name) => {
@@ -169,6 +216,7 @@ console.log("Initializing Cloud Repository (Proxy Mode)");
         
         fetchHistoryFile: HistoryStorageModule.fetch,
         appendMatchHistory: HistoryStorageModule.save, 
+        upsertDailyRankSnapshot: DailyRankSnapshotModule.upsert,
         
         listArchives: async () => [],
         loadArchiveFile: async () => []

@@ -1,5 +1,5 @@
 // src/background/services/apiService.js
-const getApiBaseUrl = () => window.PROXY_BASE_URL ?? "https://apex-trace.vercel.app/api";
+const getApiBaseUrl = () => window.PROXY_BASE_URL ?? "https://trace-proxy-server.vercel.app/api";
 
 const APIService = {
     fetchUserStats: async (query, type) => {
@@ -53,6 +53,30 @@ const APIService = {
         } catch (error) { 
             console.error("[APIService] Archive Fetch Error:", error);
             return null; 
+        }
+    },
+
+    getHistorySince: async (uid, startDate) => {
+        if (!uid) return [];
+        const API_BASE_URL = getApiBaseUrl();
+        const safeUid = encodeURIComponent(uid);
+        const safeStartDate = encodeURIComponent(startDate || 1);
+        const url = `${API_BASE_URL}/history?uid=${safeUid}&startDate=${safeStartDate}`;
+
+        try {
+            const response = await fetch(url);
+            if (!response.ok) return [];
+
+            const text = await response.text();
+            if (!text) return [];
+
+            let json;
+            try { json = JSON.parse(text); } catch (e) { return []; }
+
+            return Array.isArray(json.history) ? json.history : [];
+        } catch (error) {
+            console.error("[APIService] History Fetch Error:", error);
+            return [];
         }
     }
 };

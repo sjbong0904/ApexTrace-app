@@ -4,9 +4,29 @@ import "driver.js/dist/driver.css";
 import i18n from '../i18n';
 
 export const startTutorial = () => {
+    const handleTutorialDrag = (event: MouseEvent) => {
+        if (event.button !== 0 || event.clientY > 40) return;
+
+        const target = event.target as HTMLElement | null;
+        if (target?.closest('button, input, textarea, select, a, [contenteditable="true"]')) return;
+
+        event.preventDefault();
+        event.stopPropagation();
+        overwolf.windows.getCurrentWindow((result) => {
+            if (result.success && result.window) {
+                overwolf.windows.dragMove(result.window.id);
+            }
+        });
+    };
+
+    document.addEventListener('mousedown', handleTutorialDrag, true);
+
     const driverObj = driver({
         showProgress: true,
         animate: true,
+        onDestroyed: () => {
+            document.removeEventListener('mousedown', handleTutorialDrag, true);
+        },
         steps: [
             {
                 element: '#nav-dashboard',

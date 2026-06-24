@@ -57,6 +57,21 @@
     "assists": "ASSISTS",
     "knocks": "KNOCKS"
   },
+  "matchDetails": {
+    "stats": "统计",
+    "loadoutTimeline": "武器时间线",
+    "loadoutTimelineDesc": "本场比赛中检测到的武器变化。",
+    "noLoadoutTimeline": "本场比赛没有记录武器变化。",
+    "time": "时间",
+    "before": "变更前",
+    "after": "变更后",
+    "actionLoadoutChange": "武器配置变更"
+  },
+  "hotkeyReminder": {
+    "label": "游戏内快捷键",
+    "desktopLabel": "第二屏快捷键",
+    "inGameLabel": "游戏内快捷键"
+  },
   "premium": {
     "betaUsers": "测试用户：",
     "allUnlocked": "已解锁全部已记录对局。",
@@ -177,7 +192,8 @@
       "elite": "Elite",
       "boostedLoader": "Boosted Loader",
       "shatterCaps": "Shatter Caps",
-      "dualShell": "Dual Shell"
+      "dualShell": "Dual Shell",
+      "executioner": "Executioner"
     },
     "consumables": {
       "thermite": "铝热剂",
@@ -260,7 +276,14 @@
     "sections": {
       "community": "社区与支持",
       "tools": "工具与实用功能",
-      "appInfo": "应用信息"
+      "appInfo": "应用信息",
+      "theme": "主题"
+    },
+    "theme": {
+      "modeTitle": "模式",
+      "modeDesc": "更改整个应用的背景颜色",
+      "dark": "深色",
+      "light": "浅色"
     },
     "discord": {
       "title": "加入 Discord",
@@ -272,7 +295,11 @@
       "tutorialTitle": "应用教程",
       "tutorialDesc": "运行教程以了解如何使用本应用。",
       "hotkeyTitle": "应用快捷键",
-      "hotkeyDesc": "更改快捷键 — 将跳转到 Overwolf 设置。",
+      "hotkeyDesc": "在应用内查看并更改 ApexTrace 快捷键。",
+      "desktopHotkeyTitle": "第二屏快捷键",
+      "desktopHotkeyDesc": "更改用于显示/隐藏第二屏窗口的快捷键。",
+      "inGameHotkeyTitle": "游戏内窗口快捷键",
+      "inGameHotkeyDesc": "更改用于显示/隐藏游戏内覆盖层的快捷键。",
       "logsTitle": "打开日志文件夹",
       "logsDesc": "打开存放应用日志的本地文件夹。",
       "versionTitle": "应用版本",
@@ -508,11 +535,16 @@
     "subtitle": "（最早 → 最新）",
     "noData": "尚无对局数据。"
   },
+  "relativeTime": {
+    "justNow": "刚刚",
+    "ago": "{{time}}前"
+  },
   "playerModal": {
     "title": "选择玩家",
     "found": "找到 {{count}} 个资料。",
     "neverSearched": "从未搜索",
-    "searched": "{{time}} 前搜索过"
+    "searched": "{{time}} 前搜索过",
+    "searchedJustNow": "刚刚搜索过"
   },
   "sidebar": {
     "emptyNotice": "请先进行一场对局以注册账号，然后再搜索。",

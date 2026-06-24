@@ -57,6 +57,21 @@
     "assists": "ASSISTS",
     "knocks": "KNOCKS"
   },
+  "matchDetails": {
+    "stats": "Estatísticas",
+    "loadoutTimeline": "Linha temporal do armamento",
+    "loadoutTimelineDesc": "Alterações de armas detetadas durante esta partida.",
+    "noLoadoutTimeline": "Nenhuma alteração de arma registada nesta partida.",
+    "time": "Tempo",
+    "before": "Antes",
+    "after": "Depois",
+    "actionLoadoutChange": "Alteração de armamento"
+  },
+  "hotkeyReminder": {
+    "label": "Atalho em jogo",
+    "desktopLabel": "Atalho do segundo ecrã",
+    "inGameLabel": "Atalho em jogo"
+  },
   "premium": {
     "betaUsers": "Utilizadores beta:",
     "allUnlocked": "Todas as partidas registradas desbloqueadas.",
@@ -177,7 +192,8 @@
       "elite": "Elite",
       "boostedLoader": "Boosted Loader",
       "shatterCaps": "Shatter Caps",
-      "dualShell": "Dual Shell"
+      "dualShell": "Dual Shell",
+      "executioner": "Executioner"
     },
     "consumables": {
       "thermite": "Termita",
@@ -260,7 +276,14 @@
     "sections": {
       "community": "Comunidade e suporte",
       "tools": "Ferramentas e utilitários",
-      "appInfo": "Informações do app"
+      "appInfo": "Informações do app",
+      "theme": "Tema"
+    },
+    "theme": {
+      "modeTitle": "Modo",
+      "modeDesc": "Altera a cor de fundo de toda a aplicação.",
+      "dark": "Escuro",
+      "light": "Claro"
     },
     "discord": {
       "title": "Entrar no Discord",
@@ -272,7 +295,11 @@
       "tutorialTitle": "Tutorial do app",
       "tutorialDesc": "Execute o tutorial para aprender a usar o aplicativo.",
       "hotkeyTitle": "Atalho do app",
-      "hotkeyDesc": "Alterar atalho — redireciona para as configurações do Overwolf.",
+      "hotkeyDesc": "Veja e altere os atalhos do ApexTrace dentro da app.",
+      "desktopHotkeyTitle": "Atalho do segundo ecrã",
+      "desktopHotkeyDesc": "Altere o atalho que mostra ou oculta a janela do segundo ecrã.",
+      "inGameHotkeyTitle": "Atalho da janela no jogo",
+      "inGameHotkeyDesc": "Altere o atalho que mostra ou oculta a sobreposição no jogo.",
       "logsTitle": "Abrir pasta de logs",
       "logsDesc": "Abre a pasta local com os logs do aplicativo.",
       "versionTitle": "Versão do app",
@@ -508,11 +535,16 @@
     "subtitle": "(Mais antiga → Mais recente)",
     "noData": "Ainda não há dados de partidas registrados."
   },
+  "relativeTime": {
+    "justNow": "Agora",
+    "ago": "Há {{time}}"
+  },
   "playerModal": {
     "title": "Selecionar jogador",
     "found": "{{count}} perfis encontrados.",
     "neverSearched": "Nunca buscado",
-    "searched": "Buscado há {{time}}"
+    "searched": "Buscado há {{time}}",
+    "searchedJustNow": "Buscado agora"
   },
   "sidebar": {
     "emptyNotice": "Jogue uma partida primeiro para registrar sua conta antes de buscar.",

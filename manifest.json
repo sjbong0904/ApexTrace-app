@@ -3,7 +3,7 @@
     "type": "WebApp",
     "meta": {
         "name": "ApexTrace",
-        "version": "0.0.3",
+        "version": "0.0.4",
         "minimum-overwolf-version": "0.160.0",
         "author": "SiNiz",
         "icon": "icons/IconMouseOver.png",
@@ -12,10 +12,12 @@
         "window_icon": "icons/IconMouseOver.png",
         "description": "Apex Legends Movement Path Tracker"
     },
+    "disable_hardware_acceleration": true,
     "permissions": [
         "Hotkeys",
         "GameInfo",
-        "FileSystem"
+        "FileSystem",
+        "DesktopStreaming"
     ],
     "data": {
         "start_window": "background", 
@@ -29,7 +31,6 @@
                 "transparent": true,
                 "show_in_taskbar": false,
                 "resizable": false,
-                "frame": false,
                 "size": { "width": 10, "height": 10 }
             },
             "desktop": {
@@ -39,6 +40,7 @@
                 "use_os_windowing": true,
                 "native_window": true,
                 "desktop_only": true,
+                "keep_window_location": true,
                 "size": { "width": 1540, "height": 850 },
                 "min_size": { "width": 1250, "height": 650 },
                 "topmost": false,
@@ -53,14 +55,20 @@
                 "size": { "width": 1540, "height": 850 },
                 "min_size": { "width": 1250, "height": 650 },
                 "focus_game_takeover": "ReleaseOnHidden",
-                "focus_game_takeover_release_hotkey": "toggle_app"
+                "focus_game_takeover_release_hotkey": "toggle_in_game_window"
             }
         },
         "hotkeys": {
-            "toggle_app": {
-                "title": "Show/Hide ApexTrace",
+            "toggle_desktop_window": {
+                "title": "Show/Hide ApexTrace Second Screen",
                 "action-type": "custom",
                 "default": "Ctrl+Shift+=", 
+                "hold": false
+            },
+            "toggle_in_game_window": {
+                "title": "Show/Hide ApexTrace In-Game",
+                "action-type": "custom",
+                "default": "Ctrl+Shift+-",
                 "hold": false
             }
         },

@@ -12,6 +12,10 @@ export default defineConfig({
         {
           src: 'manifest.json',
           dest: '.'
+        },
+        {
+          src: 'uninstall.js',
+          dest: '.'
         }
       ]
     })
@@ -24,6 +28,7 @@ export default defineConfig({
         desktop: resolve(__dirname, 'index.html'),
         background: resolve(__dirname, 'background.html'),
         worker: resolve(__dirname, 'worker.html'),
+        uninstall: resolve(__dirname, 'uninstall.html'),
       },
       output: {
         manualChunks(id) {

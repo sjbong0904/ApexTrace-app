@@ -47,7 +47,7 @@ const AdUnit: React.FC<AdUnitProps> = ({ width, height, className, style }) => {
                 width: `${width}px`, 
                 height: `${height}px`,
                 position: 'relative',
-                background: '#000',
+                background: 'var(--color-bg-nav)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -56,7 +56,7 @@ const AdUnit: React.FC<AdUnitProps> = ({ width, height, className, style }) => {
         >
             <div ref={adContainerRef} style={{ width: '100%', height: '100%' }} />
             
-            <div style={{ position: 'absolute', color: '#444', fontSize: '12px', zIndex: 0 }}>
+            <div style={{ position: 'absolute', color: 'var(--color-border-light)', fontSize: '12px', zIndex: 0 }}>
                 
             </div>
         </div>

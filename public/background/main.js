@@ -13,6 +13,10 @@ if (!window._supabase) {
 console.log("🚀 Initializing Apex Trace");
 
 const TARGET_GAME_ID = 21566;
+const HOTKEYS = {
+    desktop: 'toggle_desktop_window',
+    inGame: 'toggle_in_game_window'
+};
 const isApexGame = (gameId) => (gameId === TARGET_GAME_ID || Math.floor(gameId / 10) === TARGET_GAME_ID);
 
 window.GAME_MODE_MAP = window.GAME_MODE_MAP || {};
@@ -27,27 +31,95 @@ if (!window.Utils || !window.CloudRepository || !window.APIService) {
 
 const WindowController = {
     _isWindowOpen: false,
+    _workerWindowId: null,
+    _lastGameMonitorHandle: null,
+
+    _normalizeMonitorHandle: (handle) => (
+        handle === undefined || handle === null || handle === '' ? null : String(handle)
+    ),
+
+    _displayArea: (display) => (Number(display?.width || 0) * Number(display?.height || 0)),
+
+    _displayMatchesHandle: (display, monitorHandle) => {
+        if (!display || monitorHandle === undefined || monitorHandle === null) return false;
+        const handle = String(monitorHandle);
+        return [
+            display.id,
+            display.handle,
+            display.monitorHandle,
+            display.monitor_handle,
+            display.name,
+        ].filter((value) => value !== undefined && value !== null)
+            .some((value) => String(value) === handle);
+    },
+
+    _selectSecondScreen: (displays, gameInfo) => {
+        const primaryDisplay = displays.find(d => d.is_primary) || displays[0];
+        const gameRunning = gameInfo && gameInfo.isRunning && isApexGame(gameInfo.classId);
+        const gameMonitorHandle = gameInfo?.monitorHandle;
+
+        if (!gameRunning) return primaryDisplay;
+
+        const gameDisplay = displays.find((display) =>
+            WindowController._displayMatchesHandle(display, gameMonitorHandle)
+        );
+
+        const nonGameDisplays = gameDisplay
+            ? displays.filter((display) => display !== gameDisplay)
+            : displays.filter((display) => !display.is_primary);
+
+        return [...nonGameDisplays].sort((a, b) =>
+            WindowController._displayArea(b) - WindowController._displayArea(a)
+        )[0] || primaryDisplay;
+    },
+
+    _repositionDesktopIfVisible: () => {
+        overwolf.windows.obtainDeclaredWindow("desktop", (res) => {
+            if (res.status !== "success") return;
+            const state = res.window.stateEx || res.window.state;
+            const isVisible = state === "normal" || state === "maximized";
+            if (isVisible) WindowController.centerWindow(res.window.id);
+        });
+    },
 
     centerWindow: (windowId) => {
         overwolf.utils.getMonitorsList((res) => {
             if (res.success && res.displays && res.displays.length > 0) {
-                // 주 모니터(Primary Monitor)를 찾거나, 없으면 첫 번째 모니터를 사용
-                const primaryDisplay = res.displays.find(d => d.is_primary) || res.displays;
-                
-                // 현재 창의 크기를 가져와서 중앙 좌표 계산
-                overwolf.windows.obtainDeclaredWindow("desktop", (winRes) => {
-                    if (winRes.success) {
-                        const winWidth = winRes.window.width || 1540;
-                        const winHeight = winRes.window.height || 850;
-                        
-                        // 모니터 정중앙 좌표 계산
-                        const centerX = primaryDisplay.x + Math.round((primaryDisplay.width - winWidth) / 2);
-                        const centerY = primaryDisplay.y + Math.round((primaryDisplay.height - winHeight) / 2);
-                        
-                        // 계산된 좌표로 창 위치 강제 이동 (화면 위로 넘어가지 않도록 Math.max 처리)
-                        overwolf.windows.changePosition(windowId, centerX, Math.max(0, centerY));
-                    }
+                const displays = res.displays;
+
+                overwolf.games.getRunningGameInfo((gameRes) => {
+                    const targetDisplay = WindowController._selectSecondScreen(displays, gameRes);
+
+                    // 현재 창의 크기를 가져와서 중앙 좌표 계산
+                    overwolf.windows.obtainDeclaredWindow("desktop", (winRes) => {
+                        if (winRes.success) {
+                            const winWidth = winRes.window.width || 1540;
+                            const winHeight = winRes.window.height || 850;
+
+                            const centerX = targetDisplay.x + Math.round((targetDisplay.width - winWidth) / 2);
+                            const centerY = targetDisplay.y + Math.round((targetDisplay.height - winHeight) / 2);
+
+                            overwolf.windows.changePosition(windowId, centerX, Math.max(targetDisplay.y, centerY));
+                        }
+                    });
                 });
+            }
+        });
+    },
+
+    toggleDeclaredWindow: (targetWindow) => {
+        overwolf.windows.obtainDeclaredWindow(targetWindow, (winRes) => {
+            if (winRes.status === "success") {
+                const winState = winRes.window.stateEx;
+                const isVisible = winState === "normal" || winState === "maximized";
+
+                if (isVisible) {
+                    overwolf.windows.hide(winRes.window.id);
+                } else {
+                    overwolf.windows.restore(winRes.window.id, () => {
+                        if (targetWindow === "desktop") WindowController.centerWindow(winRes.window.id);
+                    });
+                }
             }
         });
     },
@@ -55,22 +127,19 @@ const WindowController = {
     toggleWindow: () => {
         overwolf.games.getRunningGameInfo((res) => {
             const inGame = res && res.isRunning && isApexGame(res.classId);
-            const targetWindow = inGame ? "in_game" : "desktop";
+            WindowController.toggleDeclaredWindow(inGame ? "in_game" : "desktop");
+        });
+    },
 
-            overwolf.windows.obtainDeclaredWindow(targetWindow, (winRes) => {
-                if (winRes.status === "success") {
-                    const winState = winRes.window.stateEx;
-                    // 🌟 [수정됨] 창이 확실하게 화면에 떠 있는(normal/maximized) 상태일 때만 숨김 처리
-                    if (winState === "normal" || winState === "maximized") {
-                        overwolf.windows.hide(winRes.window.id);
-                    } else {
-                        // 그 외의 모든 상태(minimized, hidden, closed 등)에서는 무조건 창을 복구
-                        overwolf.windows.restore(winRes.window.id, () => {
-                            if (!inGame) WindowController.centerWindow(winRes.window.id);
-                        });
-                    }
-                }
-            });
+    showSecondScreen: () => {
+        overwolf.windows.obtainDeclaredWindow("desktop", (res) => {
+            if (res.status === "success") {
+                overwolf.windows.restore(res.window.id, () => {
+                    WindowController._isWindowOpen = true;
+                    WindowController.centerWindow(res.window.id);
+                    overwolf.windows.bringToFront(res.window.id, false, () => {});
+                });
+            }
         });
     },
 
@@ -81,6 +150,7 @@ const WindowController = {
                 overwolf.windows.restore(res.window.id, (result) => {
                     if (result.success) {
                         WindowController._isWindowOpen = true; 
+                        WindowController.centerWindow(res.window.id);
                     }
                 });
             }
@@ -89,7 +159,22 @@ const WindowController = {
     
     startWorker: () => {
         overwolf.windows.obtainDeclaredWindow("worker", (res) => {
-            if (res.status === "success") overwolf.windows.restore(res.window.id);
+            if (res.status === "success") {
+                WindowController._workerWindowId = res.window.id;
+                overwolf.windows.restore(res.window.id);
+            }
+        });
+    },
+
+    closeWorker: () => {
+        if (WindowController._workerWindowId) {
+            overwolf.windows.close(WindowController._workerWindowId);
+            WindowController._workerWindowId = null;
+            return;
+        }
+
+        overwolf.windows.obtainDeclaredWindow("worker", (res) => {
+            if (res.status === "success") overwolf.windows.close(res.window.id);
         });
     }
 };
@@ -148,7 +233,7 @@ window.Store = {
         avatar: null,
         updated_at: null
     },
-    game: { phase: "LOBBY", map: "Unknown", mode: "Unknown" },
+    game: { phase: "OFFLINE", map: "Unknown", mode: "Unknown" },
     activeMatch: null, 
     history: [],
     preMatchRoster: [],
@@ -317,12 +402,26 @@ const CoreController = {
                 // DB 주소록 업데이트 시 정제된 객체 전달
                 if (window.CloudRepository) {
                     window.CloudRepository.updateAddressBook(normalizedUser.name, normalizedUser.uid, normalizedUser);
+                    if (apiStats && window.CloudRepository.upsertDailyRankSnapshot) {
+                        window.CloudRepository
+                            .upsertDailyRankSnapshot(normalizedUser.uid, normalizedUser, 'als')
+                            .catch((e) => console.warn('[Repository] Daily rank snapshot failed:', e));
+                    }
                 }
                 
                 // Store 업데이트
                 window.Store.user = normalizedUser;
                 window.Store.history = remoteHistory || [];
                 window.Store.system.candidates = null;
+
+                if (window.Store.activeMatch) {
+                    const active = window.Store.activeMatch;
+                    if (!active.platformId) active.platformId = normalizedUser.uid;
+                    if (active.playerName === 'Unknown') active.playerName = normalizedUser.name;
+                    if ((!active.legend || active.legend === 'Unknown') && normalizedUser.legend) {
+                        active.legend = window.Utils?.normalizeLegend?.(normalizedUser.legend) || normalizedUser.legend;
+                    }
+                }
             
                 console.log(`[Core] User Profile Loaded from ${source} (Name: ${window.Store.user.name}, History: ${window.Store.history.length})`);
                 return { success: true, data: window.Store.user, history: window.Store.history };
@@ -392,10 +491,14 @@ const CoreController = {
         }
 
         if (window.Store.activeMatch) {
-            if (window.Store.activeMatch.platformId !== identity.uid) {
-                window.Store.activeMatch.platformId = identity.uid;
-                window.Store.activeMatch.playerName = identity.name;
-                window.MatchService.updateSession(window.Store.activeMatch, 'CHECK_ROSTER_AGAIN', null);
+            const active = window.Store.activeMatch;
+            if (active.platformId !== identity.uid) {
+                active.platformId = identity.uid;
+                active.playerName = identity.name;
+                window.MatchService.updateSession(active, 'CHECK_ROSTER_AGAIN', null);
+            }
+            if ((!active.legend || active.legend === 'Unknown') && window.Store.user?.legend) {
+                active.legend = window.Utils?.normalizeLegend?.(window.Store.user.legend) || window.Store.user.legend;
             }
         }
         
@@ -459,6 +562,88 @@ const CoreController = {
     _applySaveResult: (result, match) => {
         if (!window.Store.activeMatch) window.Store.preMatchRoster = [];
         if (result.saved && result.uid) CoreController._prependHistory(match, result.uid);
+        else console.warn(`[Match] Not saved: ${result.reason || 'UNKNOWN'}`, {
+            matchId: match?.matchId,
+            playerName: match?.playerName,
+            platformId: match?.platformId,
+            damage: match?.damage,
+            kills: match?.kills,
+            durationMs: match?.endTime && match?.startTime ? match.endTime - match.startTime : undefined
+        });
+    },
+
+    _isJunkMatch: (match) => {
+        let displacement = 99999;
+        if (match.startPos && match.endPos) {
+            const dx = match.endPos.x - match.startPos.x;
+            const dy = match.endPos.y - match.startPos.y;
+            displacement = Math.sqrt(dx * dx + dy * dy);
+        }
+
+        const duration = Date.now() - match.startTime;
+        const isNoStats = (!match.damage || match.damage === 0) && (!match.kills || match.kills === 0);
+        const thresholds = window.JUNK_MATCH_THRESHOLDS ?? { min_duration_ms: 120000, min_displacement: 100 };
+        return isNoStats && (duration < thresholds.min_duration_ms || displacement < thresholds.min_displacement);
+    },
+
+    _queueMatchUpload: (match) => MatchLifecycle.enqueue(async () => {
+        await new Promise(resolve => setTimeout(resolve, 1500));
+
+        if (!match.teammateKills) match.teammateKills = {};
+
+        if (!match.platformId) {
+            const fallbackUser = window.Store.system?.localUser || window.Store.user;
+            if (fallbackUser?.uid && fallbackUser.uid !== 'null') {
+                match.platformId = fallbackUser.uid;
+                match.playerName = fallbackUser.name || match.playerName;
+            } else {
+                if (match.playerName && match.playerName !== 'Unknown') {
+                    window.Store.pendingMatches.push(match);
+                    persistPendingMatches();
+                    console.warn(`[Match] Deferred save until local UID is resolved: ${match.playerName}`);
+                } else {
+                    console.warn('[Match] Dropped match because no local UID or player name was available', {
+                        matchId: match.matchId,
+                        damage: match.damage,
+                        kills: match.kills
+                    });
+                }
+                return;
+            }
+        }
+
+        if ((!match.map || match.map === 'Unknown') && window.Store.game.map && window.Store.game.map !== 'Unknown') {
+            match.map = window.Store.game.map;
+        }
+        if (match.mode === 'Unknown' && window.Store.game.mode !== 'Unknown') match.mode = window.Store.game.mode;
+
+        const result = await window.MatchService.finalizeDetached(match);
+        CoreController._applySaveResult(result, match);
+    }),
+
+    /** Finalize a captured session even if it is no longer Store.activeMatch */
+    finalizeMatchSession: async (match) => {
+        if (!match || match._ending) return;
+        if (window.Store.activeMatch === match) {
+            return CoreController.endMatch();
+        }
+
+        match._ending = true;
+        if (CoreController._isJunkMatch(match)) {
+            console.warn('[Match] Discarded junk session', {
+                matchId: match.matchId,
+                durationMs: Date.now() - match.startTime,
+                damage: match.damage,
+                kills: match.kills
+            });
+            if (window.MatchService?.data === match) {
+                window.MatchService.isStarted = false;
+                window.MatchService.data = null;
+            }
+            return;
+        }
+
+        return CoreController._queueMatchUpload(match);
     },
 
     startMatch: async (triggerData = null) => {
@@ -547,19 +732,13 @@ const CoreController = {
         window.Utils.sendWorkerMessage('CMD_STOP_SCAN');
         GameStatePoller.stop();
 
-        let displacement = 99999;
-        if (match.startPos && match.endPos) {
-            const dx = match.endPos.x - match.startPos.x;
-            const dy = match.endPos.y - match.startPos.y;
-            displacement = Math.sqrt(dx*dx + dy*dy);
-        }
-
-        const duration = Date.now() - match.startTime;
-        const isNoStats = (!match.damage || match.damage === 0) && (!match.kills || match.kills === 0);
-        const thresholds = window.JUNK_MATCH_THRESHOLDS ?? { min_duration_ms: 120000, min_displacement: 100 };
-        const isJunk = isNoStats && (duration < thresholds.min_duration_ms || displacement < thresholds.min_displacement);
-
-        if (isJunk) {
+        if (CoreController._isJunkMatch(match)) {
+            console.warn('[Match] Discarded junk active session', {
+                matchId: match.matchId,
+                durationMs: Date.now() - match.startTime,
+                damage: match.damage,
+                kills: match.kills
+            });
             if (window.MatchService?.data === match) {
                 window.MatchService.isStarted = false;
                 window.MatchService.data = null;
@@ -579,32 +758,7 @@ const CoreController = {
             return;
         }
 
-        return MatchLifecycle.enqueue(async () => {
-            await new Promise(resolve => setTimeout(resolve, 1500));
-
-            if (!match.teammateKills) match.teammateKills = {};
-
-            if (!match.platformId) {
-                if (window.Store.system?.localUser) {
-                    match.platformId = window.Store.system.localUser.uid;
-                    match.playerName = window.Store.system.localUser.name;
-                } else {
-                    if (match.playerName && match.playerName !== 'Unknown') {
-                        window.Store.pendingMatches.push(match);
-                        persistPendingMatches();
-                    }
-                    return;
-                }
-            }
-
-            if ((!match.map || match.map === "Unknown") && window.Store.game.map && window.Store.game.map !== "Unknown") {
-                match.map = window.Store.game.map;
-            }
-            if (match.mode === "Unknown" && window.Store.game.mode !== "Unknown") match.mode = window.Store.game.mode;
-
-            const result = await window.MatchService.finalizeDetached(match);
-            CoreController._applySaveResult(result, match);
-        });
+        return CoreController._queueMatchUpload(match);
     },
     
     addEvent: (evt) => {
@@ -680,17 +834,29 @@ const GameProcessMonitor = {
         const isRunning = gameInfo.isRunning;
 
         if (isApex && isRunning) {
-            // 🌟 [수정됨] hide() 대신 minimize()를 사용하여 작업표시줄 아이콘을 살려둡니다.
-            overwolf.windows.obtainDeclaredWindow("desktop", (res) => {
-                if (res.status === "success") overwolf.windows.minimize(res.window.id);
-            });
-            WindowController._isWindowOpen = false;
-
-            if (window.Store.game.phase === 'OFFLINE') window.Store.game.phase = 'LOBBY';
+            const wasOffline = window.Store.game.phase === 'OFFLINE';
+            if (wasOffline) {
+                window.Store.game.phase = 'LOBBY';
+                WindowController.showSecondScreen();
+            }
             if (!GameProcessMonitor._featuresRegistered) GameProcessMonitor.registerFeatures();
+
+            const currentMonitorHandle = WindowController._normalizeMonitorHandle(
+                gameInfo.monitorHandle ?? gameInfo.monitor_handle
+            );
+            if (currentMonitorHandle) {
+                const previousHandle = WindowController._lastGameMonitorHandle;
+                if (previousHandle !== currentMonitorHandle) {
+                    WindowController._lastGameMonitorHandle = currentMonitorHandle;
+                    // Only relocate when the game actually moved monitors — not on focus clicks
+                    // (handle type flicker used to re-center every time the game was focused).
+                    if (previousHandle) WindowController._repositionDesktopIfVisible();
+                }
+            }
         } else if (isApex && !isRunning) {
             if (window.Store.game.phase !== 'OFFLINE') {
                 window.Store.game.phase = 'OFFLINE';
+                WindowController._lastGameMonitorHandle = null;
                 if (window.Store.activeMatch) window.CoreController.endMatch();
                 GameProcessMonitor._featuresRegistered = false;
                 
@@ -717,7 +883,7 @@ const GameProcessMonitor = {
 
         const REQUIRED_FEATURES = window.GEP_FEATURES ?? [
             'gep_internal', 'game_info', 'match_info', 'kill', 'death', 'revive',
-            'me', 'roster', 'rank', 'team', 'location', 'inventory', 'kill_feed', 'match_state'
+            'me', 'roster', 'rank', 'team', 'location', 'inventory', 'kill_feed', 'match_state', 'damage'
         ];
         const RETRY_DELAY = 3000;
 
@@ -783,20 +949,29 @@ const initApp = () => {
 
 initApp();
 
+overwolf.settings.hotkeys.onPressed.addListener((event) => {
+    if (event.name === HOTKEYS.desktop) {
+        WindowController.toggleDeclaredWindow("desktop");
+        return;
+    }
+
+    if (event.name === HOTKEYS.inGame) {
+        WindowController.toggleDeclaredWindow("in_game");
+        return;
+    }
+
+});
+
 overwolf.extensions.onAppLaunchTriggered.addListener(() => {
     WindowController.toggleWindow();
 });
 
 window.addEventListener('beforeunload', () => {
     if (window.Store.activeMatch) CoreController.endMatch();
-    
-    // 메인 앱 종료 시 Worker 창도 명시적으로 함께 종료
-    overwolf.windows.obtainDeclaredWindow("worker", (res) => {
-        if (res.status === "success") {
-            overwolf.windows.close(res.window.id);
-        }
-    });
+    WindowController.closeWorker();
 });
+
+window.WindowController = WindowController;
 
 if (window.EventRouter) {
     overwolf.games.events.onNewEvents.removeListener(window.EventRouter.onNewEvents);
