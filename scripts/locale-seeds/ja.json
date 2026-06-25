@@ -260,7 +260,43 @@
     "good": "ステータス：正常\nすべてのゲームイベントが正常に動作しています。",
     "partial": "ステータス：一部障害\nゲームパッチにより、一部のイベント（キル・ダメージ・順位など）が取得できない場合があります。",
     "unavailable": "ステータス：利用不可\nApex Legends APIが現在ダウン中です。トラッキングは無効化されています。",
-    "unknown": "ステータス：不明"
+    "unknown": "ステータス：不明",
+    "overall": {
+      "goodTitle": "イベント状態：正常",
+      "goodSummary": "ApexTraceが使用するゲームイベントは現在正常と報告されています。",
+      "partialTitle": "イベント状態：一部障害",
+      "partialSummary": "一部のゲームイベントが低下しています。マッチ記録が不完全になる場合があります。",
+      "unavailableTitle": "イベント状態：利用不可",
+      "unavailableSummary": "多くのゲームイベントがダウンしています。複数のマッチ統計が記録されない場合があります。",
+      "unknownTitle": "イベント状態：不明",
+      "unknownSummary": "最新のゲームイベント状態レポートを読み込めませんでした。"
+    },
+    "severity": {
+      "green": "正常",
+      "yellow": "一部障害",
+      "red": "利用不可"
+    },
+    "panel": {
+      "loading": "ゲームイベント状態を読み込み中...",
+      "affectedTitle": "ApexTrace記録への影響",
+      "allTrackedGood": "追跡中のゲームイベントはすべて正常です。",
+      "otherIssuesTitle": "その他の影響を受けるイベント ({{count}})",
+      "fetchFailed": "ゲームイベント状態レポートの取得に失敗しました。",
+      "source": "出典: Overwolf game-events-status API",
+      "updatedAt": "更新: {{time}}"
+    },
+    "groups": {
+      "gameMode": { "label": "ゲームモード", "impact": "Ranked / Trio / Duo の検出に失敗する場合があります。マッチは BR として保存されることがあります。" },
+      "combatLogs": { "label": "戦闘ログ", "impact": "キル、ノックダウン、キルフィード、スコアボード統計が欠落または不完全になる場合があります。" },
+      "rank": { "label": "順位", "impact": "最終順位、マッチサマリー、勝利判定が不正確になる場合があります。" },
+      "movementPath": { "label": "移動経路", "impact": "マップ上の移動経路と区間別ルート記録が不完全になる場合があります。" },
+      "loadout": { "label": "武器ロードアウト", "impact": "武器変更とロードアウトタイムラインの記録が欠落する場合があります。" },
+      "teamInfo": { "label": "チーム情報", "impact": "チームメイトのロスターと生存 / ノック / 死亡状態が正しく更新されない場合があります。" },
+      "legend": { "label": "レジェンド", "impact": "マッチ開始時に選択したレジェンドが記録されない場合があります。" },
+      "ultimate": { "label": "アルティメット使用", "impact": "アルティメット使用回数が追跡されない場合があります。" },
+      "matchLifecycle": { "label": "マッチ開始 / 終了", "impact": "マッチ開始または終了の自動検出に失敗する場合があります。" },
+      "revive": { "label": "蘇生 / リスポーン", "impact": "ノックダウン蘇生とリスポーンイベントが記録されない場合があります。" }
+    }
   },
   "loadout": {
     "title": "ロードアウト",

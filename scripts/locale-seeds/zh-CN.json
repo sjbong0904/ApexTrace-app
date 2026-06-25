@@ -260,7 +260,39 @@
     "good": "状态：正常\n所有游戏事件运行正常。",
     "partial": "状态：部分异常\n因游戏补丁，部分事件（击杀、伤害、名次等）可能缺失。",
     "unavailable": "状态：不可用\nApex Legends API 当前离线，追踪已禁用。",
-    "unknown": "状态：未知"
+    "unknown": "状态：未知",
+    "overall": {
+      "goodTitle": "事件状态：正常",
+      "goodSummary": "ApexTrace 使用的游戏事件目前报告为正常。",
+      "partialTitle": "事件状态：部分异常",
+      "partialSummary": "部分游戏事件已降级，比赛记录可能不完整。",
+      "unavailableTitle": "事件状态：不可用",
+      "unavailableSummary": "许多游戏事件已下线，多项比赛统计可能无法记录。",
+      "unknownTitle": "事件状态：未知",
+      "unknownSummary": "无法加载最新的游戏事件状态报告。"
+    },
+    "severity": { "green": "正常", "yellow": "部分异常", "red": "不可用" },
+    "panel": {
+      "loading": "正在加载游戏事件状态...",
+      "affectedTitle": "对 ApexTrace 记录的影响",
+      "allTrackedGood": "所有追踪中的游戏事件目前正常。",
+      "otherIssuesTitle": "其他受影响事件 ({{count}})",
+      "fetchFailed": "获取游戏事件状态报告失败。",
+      "source": "来源：Overwolf game-events-status API",
+      "updatedAt": "更新于 {{time}}"
+    },
+    "groups": {
+      "gameMode": { "label": "游戏模式", "impact": "可能无法检测 Ranked / Trio / Duo，比赛可能保存为 BR。" },
+      "combatLogs": { "label": "战斗日志", "impact": "击杀、击倒、击杀 feed 和计分板统计可能缺失或不完整。" },
+      "rank": { "label": "名次", "impact": "最终名次、比赛摘要和胜利判定可能不准确。" },
+      "movementPath": { "label": "移动轨迹", "impact": "地图移动路径和分段路线记录可能不完整。" },
+      "loadout": { "label": "武器配装", "impact": "武器更换和配装时间线记录可能缺失。" },
+      "teamInfo": { "label": "队伍信息", "impact": "队友名单及存活 / 击倒 / 死亡状态可能无法正确更新。" },
+      "legend": { "label": "传奇", "impact": "比赛开始时选择的传奇可能未被记录。" },
+      "ultimate": { "label": "终极技能", "impact": "终极技能使用次数可能无法追踪。" },
+      "matchLifecycle": { "label": "比赛开始 / 结束", "impact": "自动检测比赛开始或结束可能失败。" },
+      "revive": { "label": "复活 / 重生", "impact": "击倒复活和重生事件可能未被记录。" }
+    }
   },
   "loadout": {
     "title": "装备",

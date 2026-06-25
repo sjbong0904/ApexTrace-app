@@ -260,7 +260,39 @@
     "good": "Status: Normal\nTodos os eventos do jogo estão funcionando corretamente.",
     "partial": "Status: Interrupção parcial\nAlguns eventos (abates, dano, colocação etc.) podem estar ausentes devido a um patch.",
     "unavailable": "Status: Indisponível\nA API do Apex Legends está fora do ar. O rastreamento está desativado.",
-    "unknown": "Status: Desconhecido"
+    "unknown": "Status: Desconhecido",
+    "overall": {
+      "goodTitle": "Status de eventos: Normal",
+      "goodSummary": "Os eventos de jogo usados pelo ApexTrace estão sendo reportados como saudáveis.",
+      "partialTitle": "Status de eventos: Interrupção parcial",
+      "partialSummary": "Alguns eventos de jogo estão degradados. O registro de partidas pode ficar incompleto.",
+      "unavailableTitle": "Status de eventos: Indisponível",
+      "unavailableSummary": "Muitos eventos de jogo estão fora do ar. Várias estatísticas podem não ser registradas.",
+      "unknownTitle": "Status de eventos: Desconhecido",
+      "unknownSummary": "Não foi possível carregar o relatório mais recente de status dos eventos."
+    },
+    "severity": { "green": "Saudável", "yellow": "Parcial", "red": "Indisponível" },
+    "panel": {
+      "loading": "Carregando status dos eventos de jogo...",
+      "affectedTitle": "Impacto no registro do ApexTrace",
+      "allTrackedGood": "Todos os eventos rastreados estão saudáveis.",
+      "otherIssuesTitle": "Outros eventos afetados ({{count}})",
+      "fetchFailed": "Falha ao obter o relatório de status dos eventos.",
+      "source": "Fonte: Overwolf game-events-status API",
+      "updatedAt": "Atualizado às {{time}}"
+    },
+    "groups": {
+      "gameMode": { "label": "Modo de jogo", "impact": "A detecção de Ranked / Trio / Duo pode falhar. Partidas podem ser salvas como BR." },
+      "combatLogs": { "label": "Registro de combate", "impact": "Abates, derrubadas, kill feed e estatísticas do placar podem faltar ou ficar incompletas." },
+      "rank": { "label": "Colocação", "impact": "A colocação final, o resumo da partida e a detecção de vitória podem ser imprecisos." },
+      "movementPath": { "label": "Trajetória", "impact": "O caminho no mapa e o registro por fase podem ficar incompletos." },
+      "loadout": { "label": "Loadout", "impact": "Trocas de armas e entradas da linha do tempo de loadout podem faltar." },
+      "teamInfo": { "label": "Info do time", "impact": "O roster e os estados vivo / derrubado / morto dos companheiros podem não atualizar." },
+      "legend": { "label": "Lenda", "impact": "A lenda escolhida no início da partida pode não ser registrada." },
+      "ultimate": { "label": "Uso de ultimate", "impact": "A contagem de ultimates usados pode não ser rastreada." },
+      "matchLifecycle": { "label": "Início / fim da partida", "impact": "A detecção automática de início ou fim da partida pode falhar." },
+      "revive": { "label": "Revive / respawn", "impact": "Revives após derrubada e respawns podem não ser registrados." }
+    }
   },
   "loadout": {
     "title": "Equipamento",

@@ -260,7 +260,39 @@
     "good": "Statut : Normal\nTous les événements du jeu fonctionnent correctement.",
     "partial": "Statut : Panne partielle\nCertains événements (éliminations, dégâts, placement, etc.) peuvent manquer en raison d'un patch.",
     "unavailable": "Statut : Indisponible\nL'API Apex Legends est hors service. Le suivi est désactivé.",
-    "unknown": "Statut : Inconnu"
+    "unknown": "Statut : Inconnu",
+    "overall": {
+      "goodTitle": "Statut des événements : Normal",
+      "goodSummary": "Les événements de jeu utilisés par ApexTrace sont actuellement signalés comme sains.",
+      "partialTitle": "Statut des événements : Panne partielle",
+      "partialSummary": "Certains événements de jeu sont dégradés. L'enregistrement des matchs peut être incomplet.",
+      "unavailableTitle": "Statut des événements : Indisponible",
+      "unavailableSummary": "De nombreux événements de jeu sont hors service. Plusieurs statistiques peuvent ne pas être enregistrées.",
+      "unknownTitle": "Statut des événements : Inconnu",
+      "unknownSummary": "Impossible de charger le dernier rapport d'état des événements de jeu."
+    },
+    "severity": { "green": "Sain", "yellow": "Partiel", "red": "Indisponible" },
+    "panel": {
+      "loading": "Chargement de l'état des événements de jeu...",
+      "affectedTitle": "Impact sur l'enregistrement ApexTrace",
+      "allTrackedGood": "Tous les événements suivis sont actuellement sains.",
+      "otherIssuesTitle": "Autres événements affectés ({{count}})",
+      "fetchFailed": "Échec de récupération du rapport d'état des événements.",
+      "source": "Source : Overwolf game-events-status API",
+      "updatedAt": "Mis à jour à {{time}}"
+    },
+    "groups": {
+      "gameMode": { "label": "Mode de jeu", "impact": "La détection Ranked / Trio / Duo peut échouer. Les matchs peuvent être enregistrés en BR." },
+      "combatLogs": { "label": "Journal de combat", "impact": "Éliminations, knockdowns, kill feed et stats du tableau peuvent manquer ou être incomplètes." },
+      "rank": { "label": "Classement", "impact": "Le placement final, le résumé de match et la détection de victoire peuvent être inexacts." },
+      "movementPath": { "label": "Trajectoire", "impact": "Le tracé de déplacement sur la carte et par phase peut être incomplet." },
+      "loadout": { "label": "Équipement", "impact": "Les changements d'armes et la timeline d'équipement peuvent manquer." },
+      "teamInfo": { "label": "Infos d'équipe", "impact": "Le roster et les états vivant / knock / mort des coéquipiers peuvent ne pas se mettre à jour." },
+      "legend": { "label": "Légende", "impact": "La légende choisie au début du match peut ne pas être enregistrée." },
+      "ultimate": { "label": "Utilisation ultime", "impact": "Le nombre d'utilisations de l'ultime peut ne pas être suivi." },
+      "matchLifecycle": { "label": "Début / fin de match", "impact": "La détection automatique du début ou de la fin de match peut échouer." },
+      "revive": { "label": "Réa / respawn", "impact": "Les réanimations après knock et les respawns peuvent ne pas être enregistrés." }
+    }
   },
   "loadout": {
     "title": "Équipement",

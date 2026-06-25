@@ -122,10 +122,10 @@ apex-trace/
 ├── src/                       # React frontend (TypeScript)
 │   ├── App.tsx                # Main shell: sidebar, map, tabs, match list
 │   ├── main.tsx               # Entry — Overwolf → App, browser → SimpleWebApp
-│   ├── components/            # UI components (MapVisualizer, MatchStats, SettingsTab, …)
+│   ├── components/            # UI components (MapVisualizer, MatchStats, GameStatusIndicator, …)
 │   ├── theme/                 # ThemeProvider, dark/light token sets
 │   ├── hooks/                 # useWindowAutoResize, …
-│   ├── utils/                 # helpers, LocalDB, matchNormalizer, WeaponsData, tutorial
+│   ├── utils/                 # helpers, LocalDB, matchNormalizer, matchMode, gepStatus, tutorial
 │   ├── lib/                   # supabase client, loadLanguages
 │   ├── constants/             # APP_LANGUAGES (BCP 47 codes)
 │   ├── web/                   # Browser-only preview (SimpleWebApp + api.ts)
@@ -236,6 +236,8 @@ Legacy table `match_archives` is managed by the proxy repo and is not recreated 
 - **Weapons tab** — weapon / hop-up reference
 - **Settings** — theme (dark/light), in-app hotkey rebinding, tutorial, log folder
 - **Player search** — autocomplete via proxy, multi-profile local history
+- **GEP event status** — click the colored dot next to refresh to see which recordings are affected (Game Mode, Combat Logs, Placement, Movement Path, …) via Overwolf's live status API
+- **Game mode fallback** — when GEP omits `game_mode`, real matches with map + teammates are saved as `BR` and shown only in the BR tab
 
 ---
 

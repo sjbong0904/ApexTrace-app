@@ -260,7 +260,73 @@
     "good": "Status: Normal\nAll game events are running properly.",
     "partial": "Status: Partial Outage\nSome events (kills, damage, placement, etc.) may be missing due to a game patch.",
     "unavailable": "Status: Unavailable\nApex Legends API is currently down. Tracking is disabled.",
-    "unknown": "Status: Unknown"
+    "unknown": "Status: Unknown",
+    "overall": {
+      "goodTitle": "Event Status: Normal",
+      "goodSummary": "Game events ApexTrace uses are currently reported as healthy.",
+      "partialTitle": "Event Status: Partial Outage",
+      "partialSummary": "Some game events are degraded. Match recording may be incomplete.",
+      "unavailableTitle": "Event Status: Unavailable",
+      "unavailableSummary": "Many game events are down. Several match stats may not be recorded.",
+      "unknownTitle": "Event Status: Unknown",
+      "unknownSummary": "Could not load the latest game event health report."
+    },
+    "severity": {
+      "green": "Healthy",
+      "yellow": "Partial",
+      "red": "Unavailable"
+    },
+    "panel": {
+      "loading": "Loading game event health report...",
+      "affectedTitle": "Recording impact in ApexTrace",
+      "allTrackedGood": "All tracked game events are currently healthy.",
+      "otherIssuesTitle": "Other affected events ({{count}})",
+      "fetchFailed": "Failed to fetch the game event status report.",
+      "source": "Source: Overwolf game-events-status API",
+      "updatedAt": "Updated at {{time}}"
+    },
+    "groups": {
+      "gameMode": {
+        "label": "Game Mode",
+        "impact": "Ranked / Trio / Duo detection may fail. Matches may be saved as BR."
+      },
+      "combatLogs": {
+        "label": "Combat Logs",
+        "impact": "Kills, knockdowns, kill feed entries, and scoreboard stats may be missing or incomplete."
+      },
+      "rank": {
+        "label": "Placement",
+        "impact": "Final placement, match summary, and win detection may be inaccurate."
+      },
+      "movementPath": {
+        "label": "Movement Path",
+        "impact": "Map movement path and route phase recording may be incomplete."
+      },
+      "loadout": {
+        "label": "Weapon Loadout",
+        "impact": "Weapon changes and loadout timeline entries may be missing."
+      },
+      "teamInfo": {
+        "label": "Team Info",
+        "impact": "Teammate roster and alive / knocked / dead states may not update correctly."
+      },
+      "legend": {
+        "label": "Legend",
+        "impact": "The legend you picked at match start may not be recorded."
+      },
+      "ultimate": {
+        "label": "Ultimate Usage",
+        "impact": "Ultimate usage count may not be tracked."
+      },
+      "matchLifecycle": {
+        "label": "Match Start / End",
+        "impact": "Automatic match start or end detection may fail."
+      },
+      "revive": {
+        "label": "Revive / Respawn",
+        "impact": "Knockdown revive and respawn events may not be recorded."
+      }
+    }
   },
   "loadout": {
     "title": "Loadout",

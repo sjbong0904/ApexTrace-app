@@ -257,10 +257,42 @@
     "unknown": "Desconhecido"
   },
   "gameStatus": {
-    "good": "Status: Normal\nTodos os eventos do jogo estão funcionando corretamente.",
-    "partial": "Status: Interrupção parcial\nAlguns eventos (abates, dano, colocação etc.) podem estar ausentes devido a um patch.",
-    "unavailable": "Status: Indisponível\nA API do Apex Legends está fora do ar. O rastreamento está desativado.",
-    "unknown": "Status: Desconhecido"
+    "good": "Status: Normal\nTodos os eventos do jogo estão a funcionar corretamente.",
+    "partial": "Status: Interrupção parcial\nAlguns eventos (eliminações, dano, colocação, etc.) podem estar em falta devido a um patch.",
+    "unavailable": "Status: Indisponível\nA API do Apex Legends está offline. O rastreamento está desativado.",
+    "unknown": "Status: Desconhecido",
+    "overall": {
+      "goodTitle": "Estado dos eventos: Normal",
+      "goodSummary": "Os eventos de jogo usados pelo ApexTrace estão a ser reportados como saudáveis.",
+      "partialTitle": "Estado dos eventos: Interrupção parcial",
+      "partialSummary": "Alguns eventos de jogo estão degradados. O registo de partidas pode ficar incompleto.",
+      "unavailableTitle": "Estado dos eventos: Indisponível",
+      "unavailableSummary": "Muitos eventos de jogo estão offline. Várias estatísticas podem não ser registadas.",
+      "unknownTitle": "Estado dos eventos: Desconhecido",
+      "unknownSummary": "Não foi possível carregar o relatório mais recente de estado dos eventos."
+    },
+    "severity": { "green": "Saudável", "yellow": "Parcial", "red": "Indisponível" },
+    "panel": {
+      "loading": "A carregar estado dos eventos de jogo...",
+      "affectedTitle": "Impacto no registo do ApexTrace",
+      "allTrackedGood": "Todos os eventos rastreados estão saudáveis.",
+      "otherIssuesTitle": "Outros eventos afetados ({{count}})",
+      "fetchFailed": "Falha ao obter o relatório de estado dos eventos.",
+      "source": "Fonte: Overwolf game-events-status API",
+      "updatedAt": "Atualizado às {{time}}"
+    },
+    "groups": {
+      "gameMode": { "label": "Modo de jogo", "impact": "A deteção de Ranked / Trio / Duo pode falhar. As partidas podem ser guardadas como BR." },
+      "combatLogs": { "label": "Registo de combate", "impact": "Eliminações, derribos, kill feed e estatísticas do marcador podem faltar ou ficar incompletas." },
+      "rank": { "label": "Colocação", "impact": "A colocação final, o resumo da partida e a deteção de vitória podem ser imprecisos." },
+      "movementPath": { "label": "Trajetória", "impact": "O percurso no mapa e o registo por fase podem ficar incompletos." },
+      "loadout": { "label": "Equipamento", "impact": "Mudanças de armas e entradas da linha temporal de equipamento podem faltar." },
+      "teamInfo": { "label": "Info da equipa", "impact": "O roster e os estados vivo / derribado / morto dos companheiros podem não atualizar." },
+      "legend": { "label": "Lenda", "impact": "A lenda escolhida no início da partida pode não ser registada." },
+      "ultimate": { "label": "Uso de ultimate", "impact": "A contagem de ultimates usados pode não ser rastreada." },
+      "matchLifecycle": { "label": "Início / fim da partida", "impact": "A deteção automática de início ou fim da partida pode falhar." },
+      "revive": { "label": "Revive / respawn", "impact": "Revives após derribo e respawns podem não ser registados." }
+    }
   },
   "loadout": {
     "title": "Equipamento",

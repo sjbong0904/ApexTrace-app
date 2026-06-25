@@ -260,7 +260,73 @@
     "good": "상태: 정상\n모든 게임 이벤트가 정상 작동 중입니다.",
     "partial": "상태: 부분 장애\n게임 패치로 인해 일부 이벤트(킬, 데미지, 순위 등)가 누락될 수 있습니다.",
     "unavailable": "상태: 사용 불가\nApex Legends API가 현재 다운되었습니다. 추적이 비활성화됩니다.",
-    "unknown": "상태: 알 수 없음"
+    "unknown": "상태: 알 수 없음",
+    "overall": {
+      "goodTitle": "이벤트 상태: 정상",
+      "goodSummary": "ApexTrace가 사용하는 게임 이벤트가 현재 정상으로 보고되고 있습니다.",
+      "partialTitle": "이벤트 상태: 부분 장애",
+      "partialSummary": "일부 게임 이벤트가 degraded 상태입니다. 매치 기록이 불완전할 수 있습니다.",
+      "unavailableTitle": "이벤트 상태: 사용 불가",
+      "unavailableSummary": "많은 게임 이벤트가 다운된 상태입니다. 여러 매치 통계가 기록되지 않을 수 있습니다.",
+      "unknownTitle": "이벤트 상태: 알 수 없음",
+      "unknownSummary": "최신 게임 이벤트 상태 리포트를 불러오지 못했습니다."
+    },
+    "severity": {
+      "green": "정상",
+      "yellow": "부분 장애",
+      "red": "사용 불가"
+    },
+    "panel": {
+      "loading": "게임 이벤트 상태를 불러오는 중...",
+      "affectedTitle": "ApexTrace 기록에 영향",
+      "allTrackedGood": "추적 중인 게임 이벤트가 모두 정상입니다.",
+      "otherIssuesTitle": "기타 영향받는 이벤트 ({{count}})",
+      "fetchFailed": "게임 이벤트 상태 리포트를 가져오지 못했습니다.",
+      "source": "출처: Overwolf game-events-status API",
+      "updatedAt": "갱신: {{time}}"
+    },
+    "groups": {
+      "gameMode": {
+        "label": "게임 모드",
+        "impact": "Ranked / Trio / Duo 감지가 실패할 수 있습니다. 매치가 BR로 저장될 수 있습니다."
+      },
+      "combatLogs": {
+        "label": "전투 로그",
+        "impact": "킬, 넉다운, 킬 피드, 스코어보드 통계가 누락되거나 불완전할 수 있습니다."
+      },
+      "rank": {
+        "label": "등수",
+        "impact": "최종 등수, 매치 요약, 승리 판정이 부정확할 수 있습니다."
+      },
+      "movementPath": {
+        "label": "동선 기록",
+        "impact": "맵 이동 경로와 구간별 동선 기록이 불완전할 수 있습니다."
+      },
+      "loadout": {
+        "label": "무기 로드아웃",
+        "impact": "무기 변경 및 로드아웃 타임라인 항목이 누락될 수 있습니다."
+      },
+      "teamInfo": {
+        "label": "팀 정보",
+        "impact": "팀원 로스터와 생존 / 넉다운 / 사망 상태가 올바르게 갱신되지 않을 수 있습니다."
+      },
+      "legend": {
+        "label": "레전드",
+        "impact": "매치 시작 시 선택한 레전드가 기록되지 않을 수 있습니다."
+      },
+      "ultimate": {
+        "label": "궁극기 사용",
+        "impact": "궁극기 사용 횟수가 추적되지 않을 수 있습니다."
+      },
+      "matchLifecycle": {
+        "label": "매치 시작 / 종료",
+        "impact": "매치 시작 또는 종료 자동 감지가 실패할 수 있습니다."
+      },
+      "revive": {
+        "label": "부활 / 리스폰",
+        "impact": "넉다운 부활 및 리스폰 이벤트가 기록되지 않을 수 있습니다."
+      }
+    }
   },
   "loadout": {
     "title": "로드아웃",

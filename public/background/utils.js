@@ -203,6 +203,44 @@ const Utils = {
         return match.mode;
     },
 
+    hasRealMatchEvidence: (match) => {
+        if (!match) return false;
+
+        if ((match.kills || 0) > 0 || (match.damage || 0) > 0) return true;
+        if ((match.path?.length || 0) > 5) return true;
+        if ((match.weaponTimeline?.length || 0) > 0) return true;
+        if ((match.events?.length || 0) > 0) return true;
+        if (match.isDead || match._squadEliminated) return true;
+
+        const hasKnownWeapon = (weapon) =>
+            !!weapon && weapon !== "unknown" && weapon !== "Unknown";
+        if (hasKnownWeapon(match.loadout?.primary) || hasKnownWeapon(match.loadout?.secondary)) {
+            return true;
+        }
+
+        const hasMap = !!match.map && match.map !== "Unknown";
+        const hasTeammates = Array.isArray(match.teamStats)
+            && match.teamStats.some((tm) => tm?.name && tm.name !== "Unknown");
+        const durationMs = Math.max(0, (match.endTime || Date.now()) - (match.startTime || 0));
+
+        return hasMap && hasTeammates && durationMs >= 60000;
+    },
+
+    getMatchEvidenceSummary: (match) => ({
+        kills: match?.kills || 0,
+        damage: match?.damage || 0,
+        pathPoints: match?.path?.length || 0,
+        weaponChanges: match?.weaponTimeline?.length || 0,
+        events: match?.events?.length || 0,
+        isDead: !!match?.isDead,
+        squadEliminated: !!match?._squadEliminated,
+        map: match?.map,
+        teammates: match?.teamStats?.length || 0,
+        durationMs: match?.startTime
+            ? Math.max(0, (match.endTime || Date.now()) - match.startTime)
+            : 0,
+    }),
+
     inferLegendFromAction: (actionName) => {
         if (!actionName) return null;
         return window.ACTION_TO_LEGEND?.[actionName] ?? null;

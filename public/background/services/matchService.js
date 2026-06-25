@@ -319,16 +319,11 @@ class MatchService {
     }
 
     static isGhostMatch(match, durationSeconds) {
+        if (window.Utils?.hasRealMatchEvidence?.(match)) return false;
+
         const isEmptyStats = (match.kills || 0) === 0 && (match.damage || 0) === 0;
         const isUnknownLegend = !match.legend || match.legend === 'Unknown' || match.legend === 'unknown';
-        const hasActivity =
-            (match.weaponTimeline?.length || 0) > 0
-            || (match.path?.length || 0) > 10
-            || (match.events?.length || 0) > 0
-            || !!(match.loadout?.primary || match.loadout?.secondary)
-            || durationSeconds >= 120;
 
-        if (hasActivity) return false;
         if (durationSeconds < 30 && isEmptyStats) return true;
         return isUnknownLegend && isEmptyStats;
     }
@@ -404,12 +399,7 @@ class MatchService {
         if (MatchService.isGhostMatch(match, durationSeconds)) {
             console.warn('[Match] Rejected ghost session', {
                 matchId: match.matchId,
-                durationSeconds,
-                damage: match.damage,
-                kills: match.kills,
-                legend: match.legend,
-                weaponTimeline: match.weaponTimeline?.length || 0,
-                pathPoints: match.path?.length || 0
+                ...(window.Utils?.getMatchEvidenceSummary?.(match) || { durationSeconds }),
             });
             return { saved: false, reason: "GHOST" };
         }

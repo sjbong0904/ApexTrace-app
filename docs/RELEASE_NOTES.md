@@ -1,16 +1,27 @@
 # ApexTrace Release Notes
 
-## v0.0.5 — 2026-06-24
+## v0.0.5 — 2026-06-25
+
+### 새 기능
+
+- **GEP 이벤트 상태 패널** — 상단 상태 점(인디케이터)을 클릭하면 Overwolf [game-events-status API](https://game-events-status.overwolf.com/21566_prod.json) 기준으로 어떤 기록이 영향받는지 확인할 수 있습니다.
+  - **Game Mode** — `game_mode`
+  - **Combat Logs** — `kill`, `kill_feed`, `knockdown`, `tabs` 등
+  - **Placement (등수)** — `victory`, `match_summary`
+  - **Movement Path (동선 기록)** — `phase`, `location`
+  - Loadout, Team Info, Legend, Ultimate 등 추가 그룹
+- 10개 언어 번역 (en, ko, ja, zh-CN, zh-TW, fr, es-ES, es-MX, pt-BR, pt-PT) — Supabase `languages` 테이블 반영
 
 ### 개선
 
-- **GEP 게임 모드 fallback** — Overwolf GEP에서 `game_mode`가 오지 않아도, 맵·팀원 정보와 실제 플레이 흔적이 있는 매치는 `BR`로 저장합니다.
-- **BR 탭 전용 표시** — 위 fallback으로 저장된 매치는 Ranked / Trio / Duo 탭에 노출되지 않고 **BR 탭에만** 표시됩니다.
+- **GEP 게임 모드 fallback** — GEP에서 `game_mode`가 오지 않아도, 맵·팀원·플레이 흔적이 있는 매치는 `BR`로 저장합니다.
+- **BR 탭 전용 표시** — fallback `BR` 매치는 Ranked / Trio / Duo 탭에 노출되지 않고 **BR 탭에만** 표시됩니다.
+- **매치 폐기 기준 완화** — 이동 경로, 무기 교체, 사망 등 실제 매치 증거가 있으면 킬/데미지 0·2분 미만만으로 junk 세션을 폐기하지 않습니다.
 - 통계 탭·웹 프리뷰에도 동일한 모드 필터 규칙을 적용했습니다.
 
 ### 알려진 이슈
 
-- **GEP 게임 모드 미표시** — 근본 원인은 Overwolf GEP 측 이슈입니다. v0.0.5에서 매치 기록 유실을 막기 위한 fallback을 추가했습니다.
+- **GEP 게임 모드 미표시** — Overwolf GEP 측 이슈입니다. v0.0.5에서 fallback 저장과 상태 패널로 영향 범위를 안내합니다.
 
 ---
 

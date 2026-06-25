@@ -573,6 +573,8 @@ const CoreController = {
     },
 
     _isJunkMatch: (match) => {
+        if (window.Utils?.hasRealMatchEvidence?.(match)) return false;
+
         let displacement = 99999;
         if (match.startPos && match.endPos) {
             const dx = match.endPos.x - match.startPos.x;
@@ -632,9 +634,7 @@ const CoreController = {
         if (CoreController._isJunkMatch(match)) {
             console.warn('[Match] Discarded junk session', {
                 matchId: match.matchId,
-                durationMs: Date.now() - match.startTime,
-                damage: match.damage,
-                kills: match.kills
+                ...(window.Utils?.getMatchEvidenceSummary?.(match) || {}),
             });
             if (window.MatchService?.data === match) {
                 window.MatchService.isStarted = false;
@@ -735,9 +735,7 @@ const CoreController = {
         if (CoreController._isJunkMatch(match)) {
             console.warn('[Match] Discarded junk active session', {
                 matchId: match.matchId,
-                durationMs: Date.now() - match.startTime,
-                damage: match.damage,
-                kills: match.kills
+                ...(window.Utils?.getMatchEvidenceSummary?.(match) || {}),
             });
             if (window.MatchService?.data === match) {
                 window.MatchService.isStarted = false;
