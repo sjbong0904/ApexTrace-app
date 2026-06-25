@@ -9,6 +9,7 @@ import { FaLock, FaCrown, FaHistory, FaInfoCircle } from 'react-icons/fa';
 import { COLORS, TARGET_MAPS, MAP_THUMBNAILS, LEGENDS_LIST, SHORT_WEAPON_NAMES } from '../utils/gameData';
 import { useTranslation } from 'react-i18next';
 import type { MatchHistory, Season } from '../utils/match';
+import { matchesStatisticsMode } from '../utils/matchMode';
 
 const formatDuration = (ms: number): string => {
     if (!ms) return "0m 0s";
@@ -634,16 +635,7 @@ const StatisticsTab: React.FC<StatisticsTabProps> = ({ history, isPremium, selec
             return matchTime >= seasonStart && matchTime < seasonEnd;
         });
         result = result.filter(match => {
-            const m = ((match as any).mode || '').toLowerCase();
-            const isBR = m.includes('ranked') || m.includes('trio') || m.includes('duo');
-            if (!isBR) return false;
-            if (selectedMode !== 'ALL') {
-                if (selectedMode === 'RANKED') return m.includes('ranked');
-                if (selectedMode === 'TRIO') return m.includes('trio') && !m.includes('ranked');
-                if (selectedMode === 'DUO') return m.includes('duo') && !m.includes('ranked');
-                return false;
-            }
-            return true;
+            return matchesStatisticsMode((match as any).mode, selectedMode);
         });
         return result;
     }, [history, selectedMode, selectedSeasonId]);

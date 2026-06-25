@@ -164,6 +164,45 @@ const Utils = {
         return "Battle Royale";
     },
 
+    UNKNOWN_MODE_FALLBACK: "BR",
+
+    isMissingGameMode: (mode) => {
+        const normalized = String(mode ?? "").trim().toLowerCase();
+        return !normalized || normalized === "unknown";
+    },
+
+    hasModeFallbackEvidence: (match) => {
+        if (!match) return false;
+
+        const hasMap = !!match.map && match.map !== "Unknown";
+        const hasTeammates = Array.isArray(match.teamStats)
+            && match.teamStats.some((tm) => tm?.name && tm.name !== "Unknown");
+
+        const durationMs = Math.max(0, (match.endTime || Date.now()) - (match.startTime || 0));
+        const hasActivity =
+            durationMs >= 60000
+            || (match.path?.length || 0) > 5
+            || (match.events?.length || 0) > 0
+            || (match.kills || 0) > 0
+            || (match.damage || 0) > 0
+            || !!(match.loadout?.primary || match.loadout?.secondary);
+
+        return hasMap && hasTeammates && hasActivity;
+    },
+
+    applyMissingModeFallback: (match) => {
+        if (!match || !Utils.isMissingGameMode(match.mode)) return match?.mode;
+        if (!Utils.hasModeFallbackEvidence(match)) return match.mode;
+
+        match.mode = Utils.UNKNOWN_MODE_FALLBACK;
+        console.warn("[Match] Applied missing GEP game mode fallback: BR", {
+            matchId: match.matchId,
+            map: match.map,
+            teammates: match.teamStats?.length || 0,
+        });
+        return match.mode;
+    },
+
     inferLegendFromAction: (actionName) => {
         if (!actionName) return null;
         return window.ACTION_TO_LEGEND?.[actionName] ?? null;

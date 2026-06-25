@@ -1,7 +1,7 @@
 # ApexTrace
 
 **Repository:** https://github.com/sjbong0904/ApexTrace-app  
-**Current version:** `0.0.4` — see [docs/RELEASE_NOTES.md](docs/RELEASE_NOTES.md)
+**Current version:** `0.0.5` — see [docs/RELEASE_NOTES.md](docs/RELEASE_NOTES.md)
 
 Apex Legends match tracking, movement path visualization, and stats overlay built as an [Overwolf](https://www.overwolf.com/) desktop app. ApexTrace listens to in-game events (GEP), records match data locally, syncs history to the cloud, and presents analytics across a second-screen desktop window and an in-game overlay.
 

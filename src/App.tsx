@@ -21,6 +21,7 @@ import { startTutorial } from './utils/tutorial';
 import WindowControls from './components/WindowControls';
 import { LocalDB } from './utils/LocalDB';
 import { normalizeHistoryForFrontend } from './utils/matchNormalizer';
+import { getModeColor, getModeDisplayLabel, isSupportedMode, matchesHistoryTab } from './utils/matchMode';
 import NetworkStatus from './components/NetworkStatus';
 import GameStatusIndicator from './components/GameStatusIndicator';
 import HotkeyReminder from './components/HotkeyReminder';
@@ -74,19 +75,6 @@ const SearchBar = memo(({ onSearch, isSearching }: { onSearch: (query: string) =
         </form>
     );
 });
-
-const isSupportedMode = (mode: string = "") => {
-    const m = mode.toLowerCase();
-    return m.includes('ranked') || m.includes('trio') || m.includes('duo');
-};
-
-const getModeColor = (mode: string = "") => {
-    const m = mode.toLowerCase();
-    if (m.includes('ranked')) return 'var(--color-mode-ranked)';
-    if (m.includes('trio'))   return 'var(--color-mode-trio)';
-    if (m.includes('duo'))    return 'var(--color-mode-duo)';
-    return 'var(--color-mode-other)';
-};
 
 const getTabStyle = (isActive: boolean): React.CSSProperties => ({
     padding: '8px 16px',
@@ -583,23 +571,9 @@ const App = () => {
     const collapseAll = () => setExpandedMatchIds([]);
     const filteredHistory = useMemo(() => {
         return history.filter(match => {
-            const mode = (match.mode || "").toLowerCase();
-            let isModeMatch = false;
-            
-            if (activeTab === "BR") {
-                isModeMatch = mode.includes('ranked') || mode.includes('trio') || mode.includes('duo');
-            } 
-            else if (activeTab === "RANKED") {
-                isModeMatch = mode.includes('ranked');
-            } 
-            else if (activeTab === "TRIO") {
-                isModeMatch = mode.includes('trio') && !mode.includes('ranked');
-            } 
-            else if (activeTab === "DUO") {
-                isModeMatch = mode.includes('duo') && !mode.includes('ranked');
+            if (!matchesHistoryTab(match.mode, activeTab as 'BR' | 'RANKED' | 'TRIO' | 'DUO')) {
+                return false;
             }
-
-            if (!isModeMatch) return false;
 
             const matchTime = match.startTime || match.endTime || 0;
             const currentSeason = SEASONS.find(s => s.id === selectedSeasonId);
@@ -610,7 +584,7 @@ const App = () => {
             const isAfterStart = matchTime >= currentSeason.startTime;
             const isBeforeEnd = nextSeason ? matchTime < nextSeason.startTime : true;
 
-            return isModeMatch && isAfterStart && isBeforeEnd;
+            return isAfterStart && isBeforeEnd;
         });
     }, [history, activeTab, selectedSeasonId, SEASONS]);
 
@@ -994,8 +968,8 @@ const App = () => {
                                             const legendFile = (match.legend || "unknown").toLowerCase();
                                             const timePart = getRelativeTime(match.endTime || match.startTime);
                                             const timeLabel = formatRelativeTime(timePart, t);
-                                            const gameMode = match.mode || "Battle Royale";
-                                            const modeColor = getModeColor(gameMode);
+                                            const gameMode = getModeDisplayLabel(match.mode);
+                                            const modeColor = getModeColor(match.mode);
 
                                             return (
                                                 <div key={match.matchId} style={{ background: 'var(--color-bg-card)', borderRadius: '8px', overflow: 'hidden', boxShadow: '0 2px 5px rgba(0,0,0,0.2)', border: '1px solid var(--color-border)' }}>

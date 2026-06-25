@@ -3,6 +3,10 @@ import { fetchHistoryByUid, fetchSeasons, fetchUserStatsByUid, searchCandidates,
 import { FaList, FaChartBar, FaSearch, FaLink, FaUserCircle } from 'react-icons/fa';
 import MapVisualizer from '../components/MapVisualizer';
 import MatchStats from '../components/MatchStats';
+import {
+    isSupportedMode,
+    matchesHistoryTab,
+} from '../utils/matchMode';
 
 const getNumeric = (value: unknown): number => {
     const n = Number(value);
@@ -72,19 +76,6 @@ const toCandidate = (uid: string, stats: RemoteUserStats | null): SearchCandidat
     legend: stats?.legend || 'unknown',
 });
 
-const isSupportedMode = (mode: string = ''): boolean => {
-    const lower = mode.toLowerCase();
-    return lower.includes('ranked') || lower.includes('trio') || lower.includes('duo');
-};
-
-const getModeType = (mode: string = ''): 'RANKED' | 'TRIO' | 'DUO' | 'OTHER' => {
-    const lower = mode.toLowerCase();
-    if (lower.includes('ranked')) return 'RANKED';
-    if (lower.includes('trio')) return 'TRIO';
-    if (lower.includes('duo')) return 'DUO';
-    return 'OTHER';
-};
-
 const getMatchKey = (match: any): string =>
     String(match.matchId || `${match.startTime || match.endTime || 0}-${match.mode || 'mode'}-${match.map || 'map'}`);
 
@@ -129,7 +120,7 @@ export default function SimpleWebApp() {
         let list = history.filter((m) => isSupportedMode(m?.mode));
 
         if (selectedMode !== 'ALL') {
-            list = list.filter((m) => getModeType(m?.mode) === selectedMode);
+            list = list.filter((m) => matchesHistoryTab(m?.mode, selectedMode));
         }
 
         const currentSeason = seasons.find((season) => season.id === selectedSeasonId);

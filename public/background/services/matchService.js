@@ -389,6 +389,10 @@ class MatchService {
             await window.EventRouter.refreshMatchFromGep(match, { maxAttempts: 5, delayMs: 1000 });
         }
 
+        if (window.Utils?.applyMissingModeFallback) {
+            window.Utils.applyMissingModeFallback(match);
+        }
+
         match.placement = MatchService.resolveFinalPlacement(match);
         if (match.placement < 20) {
             match._guessedRank = Math.min(match._guessedRank || 20, match.placement);

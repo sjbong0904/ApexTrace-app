@@ -3,7 +3,7 @@
     "type": "WebApp",
     "meta": {
         "name": "ApexTrace",
-        "version": "0.0.4",
+        "version": "0.0.5",
         "minimum-overwolf-version": "0.160.0",
         "author": "SiNiz",
         "icon": "icons/IconMouseOver.png",
