@@ -58,13 +58,23 @@ const MapVisualizer: React.FC<MapVisualizerProps> = ({ match }) => {
             container.addEventListener('wheel', handleWheel, { passive: false });
         }
 
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key !== 'Escape') return;
+            const fsEl = document.fullscreenElement;
+            if (!fsEl || fsEl !== containerRef.current) return;
+            e.preventDefault();
+            void document.exitFullscreen?.();
+        };
+
         document.addEventListener('fullscreenchange', handleFullscreenChange);
+        document.addEventListener('keydown', handleKeyDown);
         
         return () => {
             if (container) {
                 container.removeEventListener('wheel', handleWheel);
             }
             document.removeEventListener('fullscreenchange', handleFullscreenChange);
+            document.removeEventListener('keydown', handleKeyDown);
         };
     }, []);
 

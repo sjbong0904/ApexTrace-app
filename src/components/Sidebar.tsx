@@ -7,6 +7,8 @@ import {
 import { GiBullets, GiGunshot } from 'react-icons/gi';
 import { useTranslation } from 'react-i18next';
 import type { MatchHistory } from '../utils/match';
+import { formatFullRankName } from '../utils/helpers';
+import { getWeaponTagTheme, type WeaponTagTier } from '../utils/weaponTheme';
 
 
 // ✅ 최소 타입 정의
@@ -17,6 +19,7 @@ interface UserData {
     prestige?: number;
     rankName?: string;
     rankScore?: number;
+    rankDiv?: number | null;
     legend?: string | null;
     role?: string;
 }
@@ -42,6 +45,8 @@ interface PlayerTag {
     isRole?: boolean;
     glow?: string;
     themeColor?: string;
+    weaponTier?: WeaponTagTier;
+    shineGradient?: string;
 }
 
 interface RoleTagConfig {
@@ -110,7 +115,16 @@ const SIDEBAR_STYLES = `
         20% { background-position: 200% center; }
         100% { background-position: 200% center; }
     }
+    @keyframes weaponGodShine {
+        0% { background-position: -200% center; }
+        25% { background-position: 200% center; }
+        100% { background-position: 200% center; }
+    }
     .role-badge { background-size: 200% auto !important; animation: roleShine 10s linear infinite; }
+    .weapon-god-badge {
+        background-size: 200% auto !important;
+        animation: weaponGodShine 3.5s linear infinite;
+    }
     .tag-item:hover { transform: translateY(-2px); transition: transform 0.2s; }
 `;
 
@@ -211,12 +225,43 @@ const Sidebar: React.FC<SidebarProps> = ({
             const weaponKey = key.replace(/[-. ]/g, '').toLowerCase();
             const weaponLocalizedName = t(`sidebar.weaponNames.${weaponKey}`, key);
 
-            if (pickRate >= 0.3 && (avgWpnKills >= 5 || avgWpnDmg >= 1200))
-                tags.push({ label: `${weaponLocalizedName}${t('sidebar.tags.suffix.god')}`, desc: t('sidebar.tags.desc.weaponGod'), icon: <FaCrown />, color: '#fff', score: 97, bgGradient: getDynamicGradient(key) });
-            else if (pickRate >= 0.3 && (avgWpnKills >= 2.5 || avgWpnDmg >= 700))
-                tags.push({ label: `${weaponLocalizedName}${t('sidebar.tags.suffix.master')}`, desc: t('sidebar.tags.desc.weaponMaster'), icon: <GiGunshot />, color: '#fff', score: 90, bgGradient: getDynamicGradient(key) });
-            else if (pickRate >= 0.35)
-                tags.push({ label: `${weaponLocalizedName}${t('sidebar.tags.suffix.user')}`, desc: t('sidebar.tags.desc.weaponUser'), icon: <GiGunshot />, color: '#3498db', score: 72 });
+            if (pickRate >= 0.3 && (avgWpnKills >= 5 || avgWpnDmg >= 1200)) {
+                const theme = getWeaponTagTheme(key, 'god');
+                tags.push({
+                    label: `${weaponLocalizedName}${t('sidebar.tags.suffix.god')}`,
+                    desc: t('sidebar.tags.desc.weaponGod'),
+                    icon: <FaCrown />,
+                    color: theme.color,
+                    score: 97,
+                    bgGradient: theme.bgGradient,
+                    shineGradient: theme.shineGradient,
+                    themeColor: theme.themeColor,
+                    weaponTier: 'god',
+                });
+            } else if (pickRate >= 0.3 && (avgWpnKills >= 2.5 || avgWpnDmg >= 700)) {
+                const theme = getWeaponTagTheme(key, 'master');
+                tags.push({
+                    label: `${weaponLocalizedName}${t('sidebar.tags.suffix.master')}`,
+                    desc: t('sidebar.tags.desc.weaponMaster'),
+                    icon: <GiGunshot />,
+                    color: theme.color,
+                    score: 90,
+                    bgGradient: theme.bgGradient,
+                    themeColor: theme.themeColor,
+                    weaponTier: 'master',
+                });
+            } else if (pickRate >= 0.35) {
+                const theme = getWeaponTagTheme(key, 'user');
+                tags.push({
+                    label: `${weaponLocalizedName}${t('sidebar.tags.suffix.user')}`,
+                    desc: t('sidebar.tags.desc.weaponUser'),
+                    icon: <GiGunshot />,
+                    color: theme.color,
+                    score: 72,
+                    themeColor: theme.themeColor,
+                    weaponTier: 'user',
+                });
+            }
         });
 
         // 🦸 Legend Tags
@@ -282,6 +327,9 @@ const Sidebar: React.FC<SidebarProps> = ({
     };
 
     const rankIcon = getRankAsset(user.rankName || '');
+    const displayRankName = user.rankName === 'Apex Predator'
+        ? t('favorites.predator')
+        : formatFullRankName(user.rankName, user.rankDiv);
     const legendName = user.legend ? user.legend.toLowerCase() : 'unknown';
     const displayImage = `https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/${legendName}.png`;
     const avatarSize = viewMode === 'compact' ? '80px' : '100px';
@@ -354,7 +402,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                     <img src={rankIcon} alt="Rank" style={{ width: rankIconSize, height: rankIconSize, objectFit: 'contain' }} />
                     <div style={{ textAlign: 'left' }}>
                         <div style={{ fontSize: '15px', fontWeight: 'bold', color: 'var(--color-text-secondary)', lineHeight: '1.2' }}>
-                            {user.rankName === 'Apex Predator' ? t('favorites.predator') : user.rankName || t('favorites.unranked')}
+                            {displayRankName || t('favorites.unranked')}
                         </div>
                         <div style={{ fontSize: '12px', color: 'var(--color-warning)', fontWeight: '600' }}>
                             {(user.rankScore || 0).toLocaleString()} RP
@@ -365,29 +413,84 @@ const Sidebar: React.FC<SidebarProps> = ({
                 {/* 태그 리스트 */}
                 {playerTags.length > 0 && (
                     <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '6px', width: '100%' }}>
-                        {playerTags.map((tag, idx) => (
+                        {playerTags.map((tag, idx) => {
+                            const isWeaponGod = tag.weaponTier === 'god';
+                            const isWeaponMaster = tag.weaponTier === 'master';
+                            const isWeaponUser = tag.weaponTier === 'user';
+                            const accent = tag.themeColor ?? tag.color;
+                            const useGradientBg = isWeaponGod || isWeaponMaster || (!!tag.bgGradient && !isWeaponUser);
+                            const iconColor = tag.isRole
+                                ? accent
+                                : isWeaponUser
+                                    ? accent
+                                    : useGradientBg
+                                        ? '#fff'
+                                        : tag.color;
+                            const labelColor = tag.isRole
+                                ? tag.color
+                                : isWeaponUser
+                                    ? accent
+                                    : useGradientBg
+                                        ? '#fff'
+                                        : tag.color;
+
+                            return (
                             <div
                                 key={idx}
-                                className={`tag-item ${tag.isRole ? 'role-badge' : ''}`}
+                                className={`tag-item ${tag.isRole ? 'role-badge' : ''} ${isWeaponGod ? 'weapon-god-badge' : ''}`}
                                 title={tag.desc}
                                 style={{
                                     display: 'flex', alignItems: 'center',
-                                    background: tag.bgGradient ?? `${tag.color}22`,
+                                    background: isWeaponGod
+                                        ? tag.shineGradient
+                                        : isWeaponMaster
+                                            ? tag.bgGradient
+                                            : isWeaponUser
+                                                ? 'transparent'
+                                                : tag.bgGradient ?? `${tag.color}22`,
                                     padding: '4px 10px', borderRadius: '6px',
-                                    border: tag.isRole ? `1px solid ${tag.themeColor}` : (tag.bgGradient ? '1px solid transparent' : `1px solid ${tag.color}`),
+                                    border: tag.isRole || isWeaponUser || isWeaponGod
+                                        ? `1px solid ${accent}`
+                                        : useGradientBg
+                                            ? '1px solid transparent'
+                                            : `1px solid ${tag.color}`,
                                     fontSize: '11px', cursor: 'help',
-                                    boxShadow: tag.isRole ? `0 0 10px ${tag.glow}, inset 0 0 5px ${tag.glow}` : (tag.bgGradient ? '0 2px 6px rgba(0,0,0,0.3)' : 'none'),
+                                    boxShadow: tag.isRole
+                                        ? `0 0 10px ${tag.glow}, inset 0 0 5px ${tag.glow}`
+                                        : isWeaponGod
+                                            ? `0 0 10px ${accent}66, inset 0 0 5px ${accent}33`
+                                            : isWeaponMaster
+                                                ? '0 2px 6px rgba(0,0,0,0.3)'
+                                                : 'none',
                                     letterSpacing: tag.isRole ? '1px' : 'normal',
                                 }}
                             >
-                                <span style={{ color: tag.isRole ? tag.themeColor : (tag.bgGradient ? '#fff' : tag.color), marginRight: '6px', display: 'flex', filter: tag.isRole ? `drop-shadow(0 0 3px ${tag.themeColor})` : 'none' }}>
+                                <span style={{
+                                    color: iconColor,
+                                    marginRight: '6px',
+                                    display: 'flex',
+                                    filter: tag.isRole
+                                        ? `drop-shadow(0 0 3px ${accent})`
+                                        : isWeaponGod
+                                            ? `drop-shadow(0 0 3px ${accent})`
+                                            : 'none',
+                                }}>
                                     {tag.icon}
                                 </span>
-                                <span style={{ color: tag.isRole ? tag.color : (tag.bgGradient ? '#fff' : tag.color), fontWeight: '600', textShadow: tag.isRole ? `0 0 6px ${tag.glow}, 0 0 2px #000` : (tag.bgGradient ? '0 1px 2px rgba(0,0,0,0.4)' : 'none') }}>
+                                <span style={{
+                                    color: labelColor,
+                                    fontWeight: '600',
+                                    textShadow: tag.isRole
+                                        ? `0 0 6px ${tag.glow}, 0 0 2px #000`
+                                        : useGradientBg && !isWeaponUser
+                                            ? '0 1px 2px rgba(0,0,0,0.4)'
+                                            : 'none',
+                                }}>
                                     {tag.label}
                                 </span>
                             </div>
-                        ))}
+                            );
+                        })}
                     </div>
                 )}
             </div>

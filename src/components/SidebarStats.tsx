@@ -1,112 +1,212 @@
 import React, { useMemo } from 'react';
-import { FaTrophy, FaMedal, FaSkull, FaHandsHelping, FaFire, FaChartLine } from 'react-icons/fa';
 import { useTranslation } from 'react-i18next';
 import type { MatchHistory } from '../utils/match';
+import { isKnownLegend, normalizeLegendKey } from '../utils/helpers';
 
 interface SidebarStatsProps {
     history: MatchHistory[];
 }
 
-// ✅ 컴포넌트 외부로 이동 — 렌더마다 재생성 방지
-interface StatCardProps {
-    icon: React.ReactNode;
+const STAT_CARD_STYLE: React.CSSProperties = {
+    textAlign: 'center',
+    padding: '8px 6px',
+    background: 'rgba(255,255,255,0.03)',
+    borderRadius: '10px',
+    border: '1px solid var(--color-border)',
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 0,
+    overflow: 'hidden',
+};
+
+const StatCard = ({
+    label,
+    value,
+    color = 'var(--color-text-primary)',
+}: {
     label: string;
     value: string | number;
-    color: string;
-}
-
-const StatCard = ({ icon, label, value, color }: StatCardProps) => (
-    <div style={{
-        background: 'var(--color-bg-table-header)', borderRadius: '4px', padding: '4px 2px',
-        display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-        border: '1px solid var(--color-border)', position: 'relative', overflow: 'hidden',
-        minHeight: '0'
-    }}>
-        <div style={{ fontSize: '9px', color: 'var(--color-text-muted)', fontWeight: 'bold', textTransform: 'uppercase', marginBottom: '1px', display: 'flex', alignItems: 'center', gap: '3px' }}>
-            <span style={{ color }}>{icon}</span> {label}
+    color?: string;
+}) => (
+    <div style={STAT_CARD_STYLE}>
+        <div style={{
+            fontSize: '9px',
+            color: 'var(--color-text-muted)',
+            marginBottom: '4px',
+            fontWeight: 600,
+            lineHeight: 1.25,
+        }}>
+            {label}
         </div>
-        <div style={{ fontSize: '14px', fontWeight: '800', color: 'var(--color-text-secondary)', lineHeight: '1.1' }}>{value}</div>
+        <div style={{ fontSize: '15px', fontWeight: 'bold', color, lineHeight: 1.2 }}>{value}</div>
     </div>
 );
+
+const LegendCard = ({ label, legendName }: { label: string; legendName: string }) => (
+    <div style={{ ...STAT_CARD_STYLE, padding: '6px 6px 8px', justifyContent: 'flex-start' }}>
+        <div style={{
+            fontSize: '9px',
+            color: 'var(--color-text-muted)',
+            marginBottom: '4px',
+            fontWeight: 600,
+            lineHeight: 1.25,
+            flexShrink: 0,
+        }}>
+            {label}
+        </div>
+        <div style={{
+            flex: 1,
+            minHeight: 0,
+            width: '100%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+        }}>
+            <img
+                src={`https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/${legendName.toLowerCase()}.png`}
+                alt={legendName}
+                style={{ maxHeight: '100%', maxWidth: '78%', objectFit: 'contain' }}
+                onError={(e) => {
+                    (e.target as HTMLImageElement).src =
+                        'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/unknown.png';
+                }}
+            />
+        </div>
+        <div style={{
+            fontSize: '11px',
+            fontWeight: 'bold',
+            color: 'var(--color-text-primary)',
+            lineHeight: 1.2,
+            marginTop: '2px',
+            maxWidth: '100%',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            whiteSpace: 'nowrap',
+        }}>
+            {legendName}
+        </div>
+    </div>
+);
+
+const getAvgPlacementColor = (avgPlacement: string | number): string => {
+    const val = typeof avgPlacement === 'number' ? avgPlacement : parseFloat(avgPlacement);
+    if (isNaN(val)) return 'var(--color-text-muted)';
+    if (val <= 3) return '#fdcb6e';
+    if (val <= 5) return '#4ade80';
+    return 'var(--color-text-muted)';
+};
 
 const SidebarStats: React.FC<SidebarStatsProps> = ({ history }) => {
     const { t } = useTranslation();
 
     const stats = useMemo(() => {
-        const recentMatches = history.slice(0, 20);
+        const recentMatches = history.filter(m => isKnownLegend(m.legend)).slice(0, 20);
         const count = recentMatches.length;
         if (count === 0) return null;
 
-        let wins = 0, top5 = 0, totalKills = 0, totalAssists = 0, totalDamage = 0;
+        let wins = 0, totalKills = 0, totalAssists = 0, totalDamage = 0, totalPlacement = 0;
         const legendCounts: Record<string, number> = {};
 
         recentMatches.forEach(m => {
             if (m.placement === 1) wins++;
-            if ((m.placement ?? 20) <= 5) top5++;
             totalKills += m.kills ?? 0;
             totalAssists += m.assists ?? 0;
             totalDamage += m.damage ?? 0;
-            const legend = m.legend ?? 'unknown';
+            totalPlacement += m.placement ?? 20;
+            const legend = normalizeLegendKey(m.legend);
             legendCounts[legend] = (legendCounts[legend] || 0) + 1;
         });
 
         const sortedLegends = Object.entries(legendCounts).sort((a, b) => b[1] - a[1]);
-        const mostUsedLegend = sortedLegends[0]?.[0] ?? 'unknown';
+        const mostUsedLegend = sortedLegends[0]?.[0] ?? '-';
 
         return {
             count,
             winRate: ((wins / count) * 100).toFixed(0),
-            top5Rate: ((top5 / count) * 100).toFixed(0),
+            avgPlacement: (totalPlacement / count).toFixed(1),
             avgKills: (totalKills / count).toFixed(1),
             avgAssists: (totalAssists / count).toFixed(1),
             avgDamage: Math.round(totalDamage / count).toLocaleString(),
-            mostLegend: mostUsedLegend
+            mostLegend: mostUsedLegend,
         };
     }, [history]);
 
     if (!stats) {
         return (
-            <div style={{ fontSize: '11px', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'var(--color-text-faint)', background: 'var(--color-bg-sub-header)' }}>
-                <div style={{ fontSize: '11px' }}>{t('sidebarStats.noMatches')}</div>
+            <div style={{
+                fontSize: '11px',
+                height: '100%',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: 'var(--color-text-faint)',
+                background: 'var(--color-bg-sub-header)',
+            }}>
+                {t('sidebarStats.noMatches')}
             </div>
         );
     }
 
+    const winRateNum = parseFloat(stats.winRate);
+
     return (
-        <div style={{ width: '100%', height: '100%', padding: '10px', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', background: 'var(--color-bg-sub-header)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px', flexShrink: 0 }}>
-                <div style={{ fontSize: '10px', fontWeight: 'bold', color: 'var(--color-warning)', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                    <FaChartLine /> {t('sidebarStats.recentGames', { count: stats.count })}
-                </div>
+        <div style={{
+            width: '100%',
+            height: '100%',
+            padding: '12px 10px',
+            boxSizing: 'border-box',
+            display: 'flex',
+            flexDirection: 'column',
+            background: 'var(--color-bg-sub-header)',
+        }}>
+            <div style={{
+                fontSize: '10px',
+                fontWeight: 600,
+                color: 'var(--color-text-muted)',
+                marginBottom: '8px',
+                flexShrink: 0,
+                letterSpacing: '0.02em',
+            }}>
+                {t('sidebarStats.recentGames', { count: stats.count })}
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gridTemplateRows: 'repeat(3, 1fr)', gap: '5px', flex: 1, minHeight: 0 }}>
-                <StatCard icon={<FaTrophy size={10} />} label={t('sidebarStats.winRate')} value={`${stats.winRate}%`} color="#f1c40f" />
-                <StatCard icon={<FaMedal size={10} />} label={t('sidebarStats.top5Rate')} value={`${stats.top5Rate}%`} color="#9b59b6" />
-                <StatCard icon={<FaSkull size={10} />} label={t('sidebarStats.avgKills')} value={stats.avgKills} color="#e74c3c" />
-                <StatCard icon={<FaFire size={10} />} label={t('sidebarStats.avgDamage')} value={stats.avgDamage} color="#e67e22" />
-                <StatCard icon={<FaHandsHelping size={10} />} label={t('sidebarStats.avgAssists')} value={stats.avgAssists} color="#3498db" />
-
-                {/* 모스트 레전드 */}
-                <div style={{
-                    background: 'var(--color-bg-table-header)', borderRadius: '4px', padding: '0',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    border: '1px solid var(--color-border)', position: 'relative', overflow: 'hidden'
-                }}>
-                    <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: '12px', background: 'linear-gradient(to bottom, color-mix(in srgb, var(--color-bg-deep) 85%, transparent), transparent)', zIndex: 1 }} />
-                    <div style={{ position: 'absolute', top: '2px', width: '100%', textAlign: 'center', fontSize: '8px', color: 'var(--color-success)', fontWeight: 'bold', zIndex: 2, textShadow: '0 1px 2px rgba(0,0,0,0.8)' }}>
-                        {t('sidebarStats.mostPlayed')}
-                    </div>
-                    <img
-                        src={`https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/${stats.mostLegend.toLowerCase()}.png`}
-                        alt={stats.mostLegend}
-                        style={{ width: '100%', height: '100%', objectFit: 'contain', transform: 'scale(1.1) translateY(-10px)', filter: 'brightness(0.9)' }}
-                        onError={(e) => { (e.target as HTMLImageElement).src = 'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/unknown.png'; }}
-                    />
-                    <div style={{ position: 'absolute', bottom: 0, width: '100%', background: 'color-mix(in srgb, var(--color-bg-deep) 75%, transparent)', color: 'var(--color-text-primary)', fontSize: '9px', fontWeight: 'bold', textAlign: 'center', padding: '1px 0' }}>
-                        {stats.mostLegend.toUpperCase()}
-                    </div>
-                </div>
+            <div style={{
+                display: 'grid',
+                gridTemplateColumns: '1fr 1fr',
+                gridTemplateRows: 'repeat(3, 1fr)',
+                gap: '6px',
+                flex: 1,
+                minHeight: 0,
+            }}>
+                <StatCard
+                    label={t('sidebarStats.winRate')}
+                    value={`${stats.winRate}%`}
+                    color={winRateNum >= 10 ? '#4ade80' : 'var(--color-text-primary)'}
+                />
+                <StatCard
+                    label={t('sidebarStats.avgPlacement')}
+                    value={`#${stats.avgPlacement}`}
+                    color={getAvgPlacementColor(stats.avgPlacement)}
+                />
+                <StatCard
+                    label={t('sidebarStats.avgKills')}
+                    value={stats.avgKills}
+                    color="var(--color-warning)"
+                />
+                <StatCard
+                    label={t('sidebarStats.avgDamage')}
+                    value={stats.avgDamage}
+                    color="#ffa502"
+                />
+                <StatCard
+                    label={t('sidebarStats.avgAssists')}
+                    value={stats.avgAssists}
+                    color="#54a0ff"
+                />
+                <LegendCard label={t('sidebarStats.mostPlayed')} legendName={stats.mostLegend} />
             </div>
         </div>
     );

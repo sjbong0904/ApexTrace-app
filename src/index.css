@@ -168,13 +168,30 @@ button {
   background-color: var(--color-bg-sub-header);
   cursor: pointer;
   transition: border-color 0.25s;
+  -webkit-tap-highlight-color: transparent;
 }
 button:hover {
   border-color: var(--color-accent);
 }
 button:focus,
-button:focus-visible {
-  outline: 4px auto -webkit-focus-ring-color;
+button:focus-visible,
+button:active {
+  outline: none;
+}
+
+button.btn-tab {
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  padding: 8px 16px;
+}
+button.btn-tab:hover,
+button.btn-tab:focus,
+button.btn-tab:focus-visible,
+button.btn-tab:active {
+  border-color: transparent;
+  outline: none;
+  box-shadow: none;
 }
 
 .apex-btn {
@@ -277,4 +294,17 @@ button:focus-visible {
 @keyframes slideDown {
   from { top: -60px; opacity: 0; }
   to   { top: 20px;  opacity: 1; }
+}
+
+/* Statistics overview — display-only charts (hover ok, no click affordance) */
+.overview-trend-chart,
+.overview-trend-chart .recharts-wrapper,
+.overview-trend-chart .recharts-surface {
+  cursor: default !important;
+}
+
+.overview-radar-chart,
+.overview-radar-chart .recharts-wrapper,
+.overview-radar-chart .recharts-surface {
+  cursor: default !important;
 }

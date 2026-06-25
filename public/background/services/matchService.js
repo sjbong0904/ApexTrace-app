@@ -343,10 +343,25 @@ class MatchService {
 
     addEvent(match, newEvent) { 
         if (!newEvent || !newEvent.type) return;
+        const isSupportEvent = newEvent.type === 'revive' || newEvent.type === 'respawn';
+        const playerName = match.playerName && match.playerName !== 'Unknown' ? match.playerName : null;
+
+        let attacker = newEvent.attacker;
+        let victim = newEvent.victim;
+
+        if (isSupportEvent) {
+            if (attacker === undefined || attacker === null || attacker === 'Unknown') attacker = '';
+            if (victim === 'Me' && playerName) victim = playerName;
+        }
+
         match.events.push({
             type: newEvent.type,
-            attacker: newEvent.attacker || 'Unknown',
-            victim: newEvent.victim || 'Unknown',
+            attacker: attacker !== undefined && attacker !== null && attacker !== ''
+                ? attacker
+                : (isSupportEvent ? '' : 'Unknown'),
+            victim: victim !== undefined && victim !== null && victim !== ''
+                ? victim
+                : 'Unknown',
             weapon: newEvent.weapon || null,
             desc: newEvent.desc || undefined,
             timestamp: newEvent.timestamp || Date.now()

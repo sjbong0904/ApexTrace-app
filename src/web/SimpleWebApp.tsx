@@ -408,7 +408,7 @@ export default function SimpleWebApp() {
                                 <select value={sortBy} onChange={(e) => setSortBy(e.target.value as 'LATEST' | 'KILLS' | 'DAMAGE')} style={{ gridColumn: '1 / span 2', background: 'var(--color-bg-card)', color: 'var(--color-text-primary)', border: '1px solid var(--color-border-light)', borderRadius: 6, padding: '7px 8px', fontSize: 12, fontWeight: 700 }}>
                                     <option value="LATEST">최신순</option>
                                     <option value="KILLS">킬순</option>
-                                    <option value="DAMAGE">데미지순</option>
+                                    <option value="DAMAGE">대미지순</option>
                                 </select>
                             </div>
                         )}
@@ -585,7 +585,7 @@ export default function SimpleWebApp() {
                                     <select value={sortBy} onChange={(e) => setSortBy(e.target.value as 'LATEST' | 'KILLS' | 'DAMAGE')} style={{ background: 'var(--color-bg-card)', color: 'var(--color-text-primary)', border: '1px solid var(--color-border-light)', borderRadius: 6, padding: '6px 8px', fontSize: 12, fontWeight: 700 }}>
                                         <option value="LATEST">최신순</option>
                                         <option value="KILLS">킬순</option>
-                                        <option value="DAMAGE">데미지순</option>
+                                        <option value="DAMAGE">대미지순</option>
                                     </select>
                                 </div>
                             )}

@@ -1,6 +1,6 @@
 import React, { useState } from 'react'; // ✅ useState 추가
 import { useTranslation } from 'react-i18next'; // ✅ i18n 추가
-import { formatRelativeTime, getPlatformInfo, getRelativeTime } from '../utils/helpers';
+import { formatRelativeTime, formatFullRankName, getPlatformInfo, getRelativeTime, getRankTierColor } from '../utils/helpers';
 import { FaWindows, FaXbox, FaPlaystation, FaGamepad } from 'react-icons/fa';
 import { BsNintendoSwitch } from 'react-icons/bs';
 
@@ -10,15 +10,6 @@ interface PlayerSelectionModalProps {
     onClose: () => void;
     onSearchApi: () => Promise<void>;
 }
-
-const getRankRoman = (div: number | null | undefined) => {
-    if (!div) return '';
-    if (div === 1) return 'I';
-    if (div === 2) return 'II';
-    if (div === 3) return 'III';
-    if (div === 4) return 'IV';
-    return '';
-};
 
 const PlatformIcon = ({ hw }: { hw?: number | null }) => {
     if (hw === undefined || hw === null) return <FaGamepad color="var(--color-text-faint)" size={14} title="Unknown Platform" />;
@@ -36,16 +27,7 @@ const PlayerSelectionModal: React.FC<PlayerSelectionModalProps> = ({ candidates,
 
     if (!candidates || candidates.length === 0) return null;
 
-    const getTierColor = (rankName: any) => {
-        const tier = String(rankName || "").toLowerCase();
-        if (tier.includes('gold')) return '#f1c40f';
-        if (tier.includes('silver')) return '#bdc3c7';
-        if (tier.includes('platinum')) return '#55efc4';
-        if (tier.includes('diamond')) return '#74b9ff';
-        if (tier.includes('master')) return '#a29bfe';
-        if (tier.includes('apex') || tier.includes('predator')) return '#ff7675';
-        return 'var(--color-text-muted)';
-    };
+    const getTierColor = (rankName: unknown) => getRankTierColor(String(rankName ?? ''));
 
     return (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0, 0, 0, 0.8)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', backdropFilter: 'blur(3px)' }}>
@@ -69,16 +51,9 @@ const PlayerSelectionModal: React.FC<PlayerSelectionModalProps> = ({ candidates,
                     {candidates.map((user, idx) => {
                         const platformData = getPlatformInfo(user.hw);
                         const rawRankName = user.rank_name || user.rankName || 'Unranked';
-                        let displayRank = rawRankName;
-                        if (rawRankName === 'Apex Predator') displayRank = 'Predator';
-
-                        const isSpecialRank = ['Unranked', 'Apex Predator', 'Master'].includes(rawRankName);
-
-                        // ✅ roman 실제로 displayRank에 포함
-                        if (!isSpecialRank && user.rankDiv) {
-                            const roman = getRankRoman(user.rankDiv);
-                            if (roman) displayRank = `${rawRankName} ${roman}`;
-                        }
+                        let displayRank = rawRankName === 'Apex Predator'
+                            ? 'Predator'
+                            : formatFullRankName(rawRankName, user.rankDiv ?? user.rank_div);
 
                         const timePart = getRelativeTime(user.updated_at || user.updatedAt);
                         const lastActiveLabel = !timePart

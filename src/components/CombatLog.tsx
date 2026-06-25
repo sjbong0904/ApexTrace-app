@@ -4,14 +4,45 @@ import { formatMatchTime } from '../utils/helpers';
 import { FaCross, FaHandshake, FaCrosshairs, FaSkull } from 'react-icons/fa'; 
 import { GiCrossedSwords } from 'react-icons/gi';
 
-// 🌟 i18next 훅 임포트
 import { useTranslation } from 'react-i18next';
 
+const ME_TOKENS = new Set(['me']);
+
+const isMeToken = (name: string | undefined | null, myName: string, meLabel: string): boolean => {
+    if (!name) return false;
+    if (ME_TOKENS.has(name.trim().toLowerCase()) || name === meLabel) return true;
+    return !!myName && name === myName;
+};
+
+const isUnknownToken = (name: string | undefined | null, unknownLabel: string): boolean => {
+    if (!name || !name.trim()) return true;
+    const trimmed = name.trim();
+    if (trimmed.toLowerCase() === 'unknown') return true;
+    return trimmed === unknownLabel;
+};
+
+const formatLogName = (
+    name: string | undefined,
+    eventType: string,
+    role: 'attacker' | 'victim',
+    myName: string,
+    meLabel: string,
+    unknownLabel: string,
+): string => {
+    const isSupportEvent = eventType === 'revive' || eventType === 'respawn';
+    if (isSupportEvent && role === 'attacker' && isUnknownToken(name, unknownLabel)) return '';
+    if (isMeToken(name, myName, meLabel)) return myName.trim() || meLabel;
+    if (isUnknownToken(name, unknownLabel)) return unknownLabel;
+    return name ?? unknownLabel;
+};
+
 const CombatLog = ({ match }: { match: Match }) => {
-    const { t } = useTranslation(); // 🌟 다국어 훅 추가
+    const { t } = useTranslation();
     const events = match.events || [];
     const startTime = match.startTime;
-    const myName = match.playerName || t('combatLog.unknown');
+    const meLabel = t('combatLog.me');
+    const unknownLabel = t('combatLog.unknown');
+    const myName = match.playerName && match.playerName !== 'Unknown' ? match.playerName : '';
 
     const validEvents = events.filter((e: any) => 
         ['kill', 'death', 'knockdown', 'assist', 'revive', 'respawn'].includes(e.type)
@@ -26,7 +57,17 @@ const CombatLog = ({ match }: { match: Match }) => {
     }
 
     return (
-        <div style={{ paddingTop: '20px', width: '100%', height: '100%', display: 'flex', flexDirection: 'column', background: 'var(--color-bg-sub-header)' }}>
+        <div style={{
+            width: '100%',
+            height: '100%',
+            minHeight: 0,
+            boxSizing: 'border-box',
+            paddingTop: '20px',
+            display: 'flex',
+            flexDirection: 'column',
+            background: 'var(--color-bg-sub-header)',
+            overflow: 'hidden',
+        }}>
             
             {/* 헤더 */}
             <div style={{ 
@@ -45,13 +86,19 @@ const CombatLog = ({ match }: { match: Match }) => {
             </div>
 
             {/* 로그 리스트 */}
-            <div style={{ flex: 1, overflowY: 'auto', padding: '10px' }}>
+            <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '10px 10px 12px' }}>
                 {validEvents.map((event: any, index: number) => {
-                    // "Me"라는 텍스트 비교 부분도 사전의 값을 참조하도록 수정
-                    const isAttackerMe = event.attacker === t('combatLog.me') || event.attacker === myName;
-                    const isVictimMe = event.victim === t('combatLog.me') || event.victim === myName;
+                    const attackerDisplay = formatLogName(
+                        event.attacker, event.type, 'attacker', myName, meLabel, unknownLabel,
+                    );
+                    const victimDisplay = formatLogName(
+                        event.victim, event.type, 'victim', myName, meLabel, unknownLabel,
+                    );
+                    const isAttackerMe = isMeToken(event.attacker, myName, meLabel);
+                    const isVictimMe = isMeToken(event.victim, myName, meLabel);
                     const isMyKill = isAttackerMe && (event.type === 'kill' || event.type === 'knockdown');
                     const isMyDeath = isVictimMe || event.type === 'death';
+                    const isMySupportEvent = (event.type === 'revive' || event.type === 'respawn') && isVictimMe;
                     
                     let Icon = GiCrossedSwords;
                     let color = 'var(--color-text-dim)';
@@ -70,6 +117,9 @@ const CombatLog = ({ match }: { match: Match }) => {
                             rowBg = 'color-mix(in srgb, var(--color-success) 18%, var(--color-bg-card))';
                             borderColor = 'var(--color-success)';
                         }
+                    } else if (isMySupportEvent) {
+                        rowBg = 'color-mix(in srgb, var(--color-success) 18%, var(--color-bg-card))';
+                        borderColor = 'var(--color-success)';
                     } else if (isMyDeath) {
                         if (event.type === 'kill' || event.type === 'death') {
                             rowBg = 'color-mix(in srgb, var(--color-accent) 18%, var(--color-bg-card))';
@@ -87,7 +137,7 @@ const CombatLog = ({ match }: { match: Match }) => {
 
                     return (
                         <div key={index} style={{ 
-                            display: 'flex', alignItems: 'center', marginBottom: '8px', 
+                            display: 'flex', alignItems: 'center', marginBottom: index === validEvents.length - 1 ? 0 : '8px',
                             fontSize: '12px', padding: '8px', borderRadius: '4px',
                             background: rowBg,
                             width: '100%',
@@ -101,14 +151,14 @@ const CombatLog = ({ match }: { match: Match }) => {
                             {/* 내용 */}
                             <div style={{ flex: 1, display: 'flex', alignItems: 'center', minWidth: 0 }}>
                                 
-                                {/* 1. 공격자 */}
+                                {/* 1. 공격자 — 빈칸이어도 flex 유지로 다른 행과 정렬 통일 */}
                                 <span style={{
                                     ...nameStyle,
                                     textAlign: 'center',
-                                    fontWeight: 'normal', 
-                                    color: isAttackerMe ? 'var(--color-success)' : 'var(--color-text-dim)', 
-                                }} title={event.attacker}>
-                                    {event.attacker}
+                                    fontWeight: 'normal',
+                                    color: isAttackerMe ? 'var(--color-success)' : 'var(--color-text-dim)',
+                                }} title={attackerDisplay || undefined}>
+                                    {attackerDisplay}
                                 </span>
                                 
                                 {/* 2. 중앙 아이콘 그룹 */}
@@ -130,9 +180,13 @@ const CombatLog = ({ match }: { match: Match }) => {
                                     ...nameStyle,
                                     textAlign: 'center',
                                     fontWeight: 'normal',
-                                    color: isVictimMe ? 'var(--color-accent)' : 'var(--color-text-dim)', 
-                                }} title={event.victim}>
-                                    {event.victim}
+                                    color: isMySupportEvent
+                                        ? 'var(--color-success)'
+                                        : isVictimMe
+                                            ? 'var(--color-accent)'
+                                            : 'var(--color-text-dim)',
+                                }} title={victimDisplay}>
+                                    {victimDisplay}
                                 </span>
                             </div>
                         </div>

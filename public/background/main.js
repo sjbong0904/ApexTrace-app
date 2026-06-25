@@ -334,33 +334,61 @@ const loadPendingMatches = () => {
 };
 
 // 2. CORE CONTROLLER (비즈니스 로직)
+const mapSearchCandidate = (c) => ({
+    uid: String(c.uid),
+    name: String(c.name || c.global?.name || 'Unknown'),
+    level: (Number(c.level) || 0) + ((Number(c.prestige ?? c.levelPrestige) || 0) * 500),
+    prestige: Number(c.prestige ?? c.levelPrestige) || 0,
+    rankScore: Number(c.rank_score ?? c.rankScore ?? 0),
+    rankName: String(c.rank_name ?? c.rankName ?? 'Unranked'),
+    rankDiv: (c.rank_div ?? c.rankDiv) != null ? Number(c.rank_div ?? c.rankDiv) : null,
+    updatedAt: c.updated_at ?? c.updatedAt ?? null,
+    legend: c.legend ? String(c.legend) : null,
+    avatar: c.avatar || null,
+    role: c.role || null,
+    linked_uid: c.linked_uid ?? c.linkedUid ?? null,
+    rank_score: Number(c.rank_score ?? c.rankScore ?? 0),
+    rank_name: String(c.rank_name ?? c.rankName ?? 'Unranked'),
+    updated_at: c.updated_at ?? c.updatedAt ?? null,
+});
+
+const canUseCachedStats = (uid, cached) => {
+    if (!cached || String(cached.uid) !== String(uid)) return false;
+    if (cached.rank_score != null || cached.rankScore != null) return true;
+    if (cached.level != null && Number(cached.level) > 0) return true;
+    return !!(cached.name && cached.name !== 'Unknown');
+};
+
 const CoreController = {
     loadUserProfile: async (uid, cachedProfile = null) => {
         if (!uid) return { success: false };
         
         try {
-            // 1. API 호출 시도 (백엔드 프록시가 알아서 처리해줌)
-            const apiStats = await window.APIService.fetchUserStats(uid, 'uid');
-            
-            // 🌟 2. 히스토리 로드 (백엔드가 알아서 스팀/오리진 융합해서 반환)
-            let remoteHistory = await window.CloudRepository.fetchHistoryFile(uid);
+            const useCachedStats = canUseCachedStats(uid, cachedProfile);
+            const statsTask = useCachedStats
+                ? Promise.resolve(cachedProfile)
+                : window.APIService.fetchUserStats(uid, 'uid');
+
+            const [apiStats, remoteHistory, dbInfo] = await Promise.all([
+                statsTask,
+                window.CloudRepository.fetchHistoryFile(uid),
+                window.CloudRepository.fetchUserByUid
+                    ? window.CloudRepository.fetchUserByUid(uid)
+                    : Promise.resolve(null),
+            ]);
 
             let finalData = apiStats;
-            let source = 'API';
+            let source = useCachedStats ? 'CACHE' : 'API';
 
-            if (window.CloudRepository && window.CloudRepository.fetchUserByUid) {
-                const dbInfo = await window.CloudRepository.fetchUserByUid(uid);
-                
-                if (dbInfo) {
-                    if (!finalData) {
-                        finalData = dbInfo;
-                        source = 'DB_FETCH';
-                    } else {
-                        // 🌟 [방어 로직] ALS API 닉네임 오염 방지 (로컬 DB 우선)
-                        if (dbInfo.name && dbInfo.name !== "Unknown") finalData.name = dbInfo.name;
-                        if (dbInfo.role) finalData.role = dbInfo.role;
-                        if (dbInfo.linked_uid && !finalData.linked_uid) finalData.linked_uid = dbInfo.linked_uid;
-                    }
+            if (dbInfo) {
+                if (!finalData) {
+                    finalData = dbInfo;
+                    source = 'DB_FETCH';
+                } else {
+                    // 🌟 [방어 로직] ALS API 닉네임 오염 방지 (로컬 DB 우선)
+                    if (dbInfo.name && dbInfo.name !== "Unknown") finalData.name = dbInfo.name;
+                    if (dbInfo.role) finalData.role = dbInfo.role;
+                    if (dbInfo.linked_uid && !finalData.linked_uid) finalData.linked_uid = dbInfo.linked_uid;
                 }
             }
 
@@ -378,12 +406,10 @@ const CoreController = {
                     }
                 }
                 // 🌟 [깔끔한 정제] 흩어진 스탯 필드들을 예쁜 단일 객체로 통일
-                let fullRankName = finalData.rankName || finalData.rank_name || "Unranked";
-                const rankDiv = finalData.rankDiv ?? finalData.rank_div;
-                
-                if (rankDiv && !['Master', 'Apex Predator'].includes(fullRankName)) {
-                    fullRankName += ` ${window.Utils.getRankRoman(rankDiv)}`;
-                }
+                let fullRankName = window.Utils.formatFullRankName(
+                    finalData.rankName || finalData.rank_name || "Unranked",
+                    finalData.rankDiv ?? finalData.rank_div,
+                );
                 
                 const normalizedUser = {
                     uid: finalData.uid,
@@ -402,7 +428,7 @@ const CoreController = {
                 // DB 주소록 업데이트 시 정제된 객체 전달
                 if (window.CloudRepository) {
                     window.CloudRepository.updateAddressBook(normalizedUser.name, normalizedUser.uid, normalizedUser);
-                    if (apiStats && window.CloudRepository.upsertDailyRankSnapshot) {
+                    if (!useCachedStats && apiStats && window.CloudRepository.upsertDailyRankSnapshot) {
                         window.CloudRepository
                             .upsertDailyRankSnapshot(normalizedUser.uid, normalizedUser, 'als')
                             .catch((e) => console.warn('[Repository] Daily rank snapshot failed:', e));
@@ -463,11 +489,11 @@ const CoreController = {
             }
 
             if (totalFound === 1) {
-                return await CoreController.loadUserProfile(candidates[0].uid, candidates[0]);
+                return { success: true, data: mapSearchCandidate(candidates[0]) };
             }
             
             const apiStats = await window.APIService.fetchUserStats(query, 'player');
-            if (apiStats) return await CoreController.loadUserProfile(apiStats.uid);
+            if (apiStats) return { success: true, data: mapSearchCandidate(apiStats) };
 
             return { success: false, message: "Not found" };
 

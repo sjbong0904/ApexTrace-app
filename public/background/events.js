@@ -567,11 +567,15 @@ const EventRouter = {
                 window.EventRouter.estimatePlacementFromGep(activeMatch);
             } else if (name === 'healed_from_ko') {
                 window.CoreController.updateMatch('SET_DEAD', false);
-                window.CoreController.addEvent({ type: 'revive', desc: 'Revived', victim: 'Me', timestamp: Date.now() });
+                const selfName = activeMatch.playerName && activeMatch.playerName !== 'Unknown'
+                    ? activeMatch.playerName : 'Me';
+                window.CoreController.addEvent({ type: 'revive', desc: 'Revived', attacker: '', victim: selfName, timestamp: Date.now() });
             } else if (name === 'respawn') {
                 console.log("Respawn Event Detected!");
                 window.CoreController.updateMatch('SET_DEAD', false);
-                window.CoreController.addEvent({ type: 'respawn', desc: 'Respawned from Dropship', victim: 'Me', timestamp: Date.now() });
+                const selfName = activeMatch.playerName && activeMatch.playerName !== 'Unknown'
+                    ? activeMatch.playerName : 'Me';
+                window.CoreController.addEvent({ type: 'respawn', desc: 'Respawned from Dropship', attacker: '', victim: selfName, timestamp: Date.now() });
             } else if (name === 'match_summary') {
                 if (parsed.rank) window.CoreController.updateMatch('PLACEMENT', parsed.rank);
                 else applyMatchSummaryToMatch(activeMatch, data);

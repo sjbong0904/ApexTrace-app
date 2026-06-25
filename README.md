@@ -86,6 +86,7 @@ Target game: Apex Legends (`game_id: 21566`).
 1. React UI ([`src/App.tsx`](src/App.tsx)) loads player stats and match history through the proxy (`/apex-stats`, `/history`, `/search-candidates`).
 2. Responses are normalized by [`src/utils/matchNormalizer.ts`](src/utils/matchNormalizer.ts) so the frontend keeps a stable shape across legacy archives and v2 rows.
 3. Recent matches are cached in **IndexedDB** via [`src/utils/LocalDB.ts`](src/utils/LocalDB.ts).
+4. Large archives sync progressively: first **100 matches** render immediately, remaining rows sync in the background ([`src/utils/historySync.ts`](src/utils/historySync.ts)).
 
 ### Match Storage V2
 
@@ -122,10 +123,10 @@ apex-trace/
 ├── src/                       # React frontend (TypeScript)
 │   ├── App.tsx                # Main shell: sidebar, map, tabs, match list
 │   ├── main.tsx               # Entry — Overwolf → App, browser → SimpleWebApp
-│   ├── components/            # UI components (MapVisualizer, MatchStats, GameStatusIndicator, …)
+│   ├── components/            # UI (MapVisualizer, StatisticsTab, RankProgressChart, …)
 │   ├── theme/                 # ThemeProvider, dark/light token sets
 │   ├── hooks/                 # useWindowAutoResize, …
-│   ├── utils/                 # helpers, LocalDB, matchNormalizer, matchMode, gepStatus, tutorial
+│   ├── utils/                 # helpers, LocalDB, matchNormalizer, matchMode, gepStatus, rankSnapshots, historySync
 │   ├── lib/                   # supabase client, loadLanguages
 │   ├── constants/             # APP_LANGUAGES (BCP 47 codes)
 │   ├── web/                   # Browser-only preview (SimpleWebApp + api.ts)
@@ -230,14 +231,18 @@ Legacy table `match_archives` is managed by the proxy repo and is not recreated 
 
 ## UI features (high level)
 
-- **Match list & map** — movement path overlay per match, ring rounds (when GEP provides data)
+- **Match list & map** — movement path overlay per match, ring rounds (when GEP provides data), fullscreen map with `Esc` to exit
 - **Match detail tabs** — Stats + Loadout Timeline (weapon change history)
-- **Statistics** — aggregated performance, trends, combat log
+- **Statistics** — Overview (5-axis radar, last-20 match trends), Maps/Legends/Weapons/Teammates breakdowns, season + mode filters
+- **Rank RP trend chart** — daily snapshots from `daily_rank_snapshots` (Overview, All/Ranked); tier-colored line, hides unranked (0 RP) seasons
+- **Sidebar stats** — recent-20 summary cards (win rate, avg placement, kills, damage, assists, top legend)
+- **Combat log** — kill/knockdown/assist/revive events with improved revive/respawn display
 - **Weapons tab** — weapon / hop-up reference
 - **Settings** — theme (dark/light), in-app hotkey rebinding, tutorial, log folder
-- **Player search** — autocomplete via proxy, multi-profile local history
+- **Player search** — autocomplete via proxy, multi-profile local history, rank tier colors
 - **GEP event status** — click the colored dot next to refresh to see which recordings are affected (Game Mode, Combat Logs, Placement, Movement Path, …) via Overwolf's live status API
 - **Game mode fallback** — when GEP omits `game_mode`, real matches with map + teammates are saved as `BR` and shown only in the BR tab
+- **Progressive history sync** — initial 100-match UI load, background archive sync, flush on navigation/filter change
 
 ---
 

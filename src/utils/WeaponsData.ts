@@ -16,10 +16,10 @@ export interface LevelStats {
 }
 
 export interface WeaponStats {
-    // === [1] 기본 데미지 ===
+    // === [1] 기본 대미지 ===
     dmg: { body: number; head: number; leg: number }; 
     
-    // 특수 상황 데미지 (내부 모드 스위칭용)
+    // 특수 상황 대미지 (내부 모드 스위칭용)
     charged_dmg?: { body: number; head: number; leg: number };
     hopup_dmg?: { body: number; head: number; leg: number };
     shield_dmg?: { body: number; head: number; leg: number };

@@ -7,6 +7,86 @@ export const getRankColor = (rank: number | string) => {
     return 'var(--color-rank-other)';
 };
 
+export type RankTierKey =
+    | 'bronze'
+    | 'silver'
+    | 'gold'
+    | 'platinum'
+    | 'diamond'
+    | 'master'
+    | 'predator'
+    | 'unranked'
+    | 'unknown';
+
+/** Apex ranked tier from API rank name (division suffix ignored). */
+export const getRankTierKey = (rankName: string | null | undefined): RankTierKey => {
+    const tier = String(rankName ?? '').toLowerCase();
+    if (tier.includes('predator') || tier.includes('apex')) return 'predator';
+    if (tier.includes('master')) return 'master';
+    if (tier.includes('diamond')) return 'diamond';
+    if (tier.includes('platinum')) return 'platinum';
+    if (tier.includes('gold')) return 'gold';
+    if (tier.includes('silver')) return 'silver';
+    if (tier.includes('bronze')) return 'bronze';
+    if (tier.includes('unranked')) return 'unranked';
+    return 'unknown';
+};
+
+/** Brand-adjacent colors aligned with in-app rank UI (PlayerSelectionModal). */
+export const getRankTierColor = (rankName: string | null | undefined): string => {
+    switch (getRankTierKey(rankName)) {
+        case 'bronze': return '#cd7f32';
+        case 'silver': return '#bdc3c7';
+        case 'gold': return '#f1c40f';
+        case 'platinum': return '#55efc4';
+        case 'diamond': return '#74b9ff';
+        case 'master': return '#a29bfe';
+        case 'predator': return '#ff7675';
+        case 'unranked': return 'var(--color-text-muted)';
+        default: return 'var(--color-mode-ranked)';
+    }
+};
+
+const RANK_ROMAN_SUFFIX = /\s+(IV|III|II|I)$/i;
+
+export const getRankRoman = (div: number | null | undefined): string => {
+    if (!div) return '';
+    return ['', 'I', 'II', 'III', 'IV'][div] ?? '';
+};
+
+export const stripRankRomanSuffix = (rankName: string): string =>
+    rankName.trim().replace(RANK_ROMAN_SUFFIX, '').trim();
+
+export const stripAllRankRomanSuffixes = (rankName: string): string => {
+    let result = rankName.trim();
+    let prev = '';
+    while (prev !== result) {
+        prev = result;
+        result = stripRankRomanSuffix(result);
+    }
+    return result;
+};
+
+/** Normalize tier + division; prevents duplicate suffixes like "Diamond II II". */
+export const formatFullRankName = (
+    rankName: string | null | undefined,
+    rankDiv?: number | null,
+): string => {
+    const trimmed = (rankName ?? 'Unranked').trim() || 'Unranked';
+    if (['Unranked', 'Master', 'Apex Predator', '-', 'Waiting...'].includes(trimmed)) {
+        return trimmed;
+    }
+
+    const roman = getRankRoman(rankDiv);
+    if (!roman) {
+        return trimmed.replace(/\s+(IV|III|II|I)(\s+\1)+$/i, ' $1');
+    }
+
+    const base = stripAllRankRomanSuffixes(trimmed);
+    if (['Master', 'Apex Predator'].includes(base)) return base;
+    return `${base} ${roman}`;
+};
+
 export const formatMatchTime = (ms: number, style: 'digital' | 'text' = 'digital') => {
     if (ms < 0) ms = 0;
     
@@ -105,6 +185,22 @@ export const getCssPos = (x: number, y: number, mapName: string) => {
         x: 50 + (x / scale) + xOff, 
         y: 50 - (y / scale) + yOff 
     };
+};
+
+/** Clan tags and whitespace ignored — matches background isSamePlayer(). */
+export const isSamePlayer = (name1?: string | null, name2?: string | null): boolean => {
+    if (!name1 || !name2) return false;
+    const clean = (value: string) => value.replace(/\[.*?\]/g, '').replace(/\s+/g, '').toLowerCase();
+    return clean(name1) === clean(name2);
+};
+
+export const normalizeLegendKey = (legend?: string | null): string =>
+    (legend || 'unknown').toLowerCase().trim();
+
+/** Matches with missing/unknown legend are excluded from statistics aggregation. */
+export const isKnownLegend = (legend?: string | null): boolean => {
+    const key = normalizeLegendKey(legend);
+    return key !== '' && key !== 'unknown' && key !== 'none';
 };
 
 export const getPlatformInfo = (hw?: number | null) => {

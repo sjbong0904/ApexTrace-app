@@ -248,7 +248,43 @@ const Utils = {
 
     checkPrestigeUp: (oldLevel, newLevel) => (oldLevel > 450 && newLevel < 100),
 
-    getRankRoman: (div) => ["", "I", "II", "III", "IV"][div] || ""
+    getRankRoman: (div) => ["", "I", "II", "III", "IV"][div] || "",
+
+    /** Strip division suffix (IV → I order) from rank tier names. */
+    stripRankRomanSuffix: (rankName) => {
+        if (!rankName) return "";
+        return String(rankName).trim().replace(/\s+(IV|III|II|I)$/i, "").trim();
+    },
+
+    stripAllRankRomanSuffixes: (rankName) => {
+        let result = String(rankName ?? "").trim();
+        let prev = "";
+        while (prev !== result) {
+            prev = result;
+            result = Utils.stripRankRomanSuffix(result);
+        }
+        return result;
+    },
+
+    /**
+     * Build a single "Tier Division" label. ALS/API may already include the roman
+     * numeral while rankDiv is still set — appending blindly causes "Diamond II II".
+     */
+    formatFullRankName: (rankName, rankDiv) => {
+        const trimmed = String(rankName ?? "Unranked").trim() || "Unranked";
+        if (["Unranked", "Master", "Apex Predator", "-", "Waiting..."].includes(trimmed)) {
+            return trimmed;
+        }
+
+        const roman = Utils.getRankRoman(rankDiv);
+        if (!roman) {
+            return trimmed.replace(/\s+(IV|III|II|I)(\s+\1)+$/i, " $1");
+        }
+
+        const base = Utils.stripAllRankRomanSuffixes(trimmed);
+        if (["Master", "Apex Predator"].includes(base)) return base;
+        return `${base} ${roman}`;
+    },
 };
 
 window.Utils = Utils;

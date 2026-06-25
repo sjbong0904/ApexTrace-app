@@ -10,7 +10,8 @@
     "error": "오류가 발생했습니다",
     "failedToLoad": "유저 데이터를 불러오지 못했습니다",
     "serverError": "서버 오류. 데이터를 가져올 수 없습니다",
-    "notFoundApi": "유저를 찾을 수 없습니다"
+    "notFoundApi": "유저를 찾을 수 없습니다",
+    "loadingProfile": "프로필 및 매치 기록 불러오는 중..."
   },
   "sync": {
     "archiveComplete": "동기화 완료: {{count}}개 매치 다운로드",
@@ -243,9 +244,9 @@
     "noMatches": "기록된 매치 없음",
     "recentGames": "최근 {{count}}게임",
     "winRate": "승률",
-    "top5Rate": "TOP 5 비율",
+    "avgPlacement": "평균 #",
     "avgKills": "평균 킬",
-    "avgDamage": "평균 데미지",
+    "avgDamage": "평균 대미지",
     "avgAssists": "평균 어시스트",
     "mostPlayed": "최다 픽"
   },
@@ -258,7 +259,7 @@
   },
   "gameStatus": {
     "good": "상태: 정상\n모든 게임 이벤트가 정상 작동 중입니다.",
-    "partial": "상태: 부분 장애\n게임 패치로 인해 일부 이벤트(킬, 데미지, 순위 등)가 누락될 수 있습니다.",
+    "partial": "상태: 부분 장애\n게임 패치로 인해 일부 이벤트(킬, 대미지, 순위 등)가 누락될 수 있습니다.",
     "unavailable": "상태: 사용 불가\nApex Legends API가 현재 다운되었습니다. 추적이 비활성화됩니다.",
     "unknown": "상태: 알 수 없음",
     "overall": {
@@ -501,9 +502,9 @@
     "knockToKill": "녹다운/킬 전환율",
     "knockToKillTooltip1": "녹다운시킨 적 중에서",
     "knockToKillTooltip2": "실제 킬로 전환된 비율",
-    "damagePerKill": "킬당 데미지",
+    "damagePerKill": "킬당 대미지",
     "dmgKillSuffix": " dmg/kill",
-    "damagePerMin": "분당 데미지",
+    "damagePerMin": "분당 대미지",
     "dmgMinSuffix": " dmg/min",
     "travelDistance": "이동 거리",
     "mSuffix": " m",
@@ -522,13 +523,19 @@
       "overview": "개요",
       "maps": "맵",
       "legends": "레전드",
-      "weapons": "무기"
+      "weapons": "무기",
+      "teammates": "팀원"
     },
     "modes": {
       "all": "전체",
+      "br": "BR",
       "ranked": "랭크",
       "trio": "트리오",
       "duo": "듀오"
+    },
+    "common": {
+      "avgPlacement": "평균 순위",
+      "avgPlacementShort": "평균 #"
     },
     "showingStatsFor": "통계 기준:",
     "allBrModes": "전체 BR 모드",
@@ -537,44 +544,120 @@
     "overview": {
       "analytics": "분석",
       "tier": "TIER",
-      "kdRatio": "K/D 비율",
+      "kdRatio": "K/D",
       "totalKills": "총 {{count}} 킬",
-      "avgDamage": "평균 데미지",
-      "totalDamage": "총 {{count}} 데미지",
+      "avgDamage": "평균 대미지",
+      "totalDamage": "총 {{count}} 대미지",
       "avgSurvival": "평균 생존 시간",
       "avgSurvivedTime": "평균 {{m}}분 {{s}}초 생존",
       "performance": "퍼포먼스",
       "peakKills": "최대 킬 수: {{count}}",
       "killContribute": "평균 {{rate}}% 킬 관여",
       "performanceChartTitle": "퍼포먼스 (최근 20게임)",
-      "performanceChartLegend": "● 데미지 & 킬 ━ 순위"
+      "performanceChartLegend": "● 대미지 & 킬 ━ 순위",
+      "radarCombat": "교전",
+      "radarDamage": "화력",
+      "radarMacro": "운영",
+      "radarTeam": "팀 기여",
+      "radarPeak": "피크",
+      "radarSurvival": "생존",
+      "radarPotential": "잠재력",
+      "radarCarry": "캐리",
+      "mainLegend": "주력: {{legend}}",
+      "peakKillsShort": "최대 킬",
+      "killContributeShort": "킬 관여율",
+      "premiumHint": "프리미엄에서 맵·레전드·무기·팀원별 상세 분석, 랭크/트리오/듀오 필터, 최근 20경기 트렌드 차트를 확인할 수 있습니다.",
+      "chartDamage": "대미지",
+      "chartKills": "킬",
+      "chartPlacement": "등수",
+      "tooltipMatch": "매치 {{n}}",
+      "chartHoverHint": "차트에 마우스를 올려 매치 정보를 확인하세요",
+      "rankProgressTitle": "일별 RP 추이",
+      "rankProgressSubtitle": "계정 스냅샷 · UTC 기준",
+      "rankProgressNoData": "이 시즌 일별 랭크 스냅샷이 없습니다.",
+      "rankProgressLoading": "랭크 기록 불러오는 중…",
+      "rankProgressLatest": "최신",
+      "rankProgressPeak": "시즌 최고",
+      "rankProgressChange": "순 변화",
+      "rankProgressTooltipRp": "{{score}} RP",
+      "rankProgressTooltipRank": "{{rank}}",
+      "rankProgressTooltipDelta": "전일 대비 {{delta}}",
+      "radarTooltipScore": "점수: {{score}} / 100",
+      "radarTooltipCombatAvgKills": "평균 킬",
+      "radarTooltipCombatAssists": "어시스트",
+      "radarTooltipCombatTop5": "TOP 5 비율",
+      "radarTooltipPotentialDesc": "단일 경기 최대 킬·대미지 기준 (로그 스케일, 20킬/4000대미지 만점).",
+      "radarTooltipCarryDesc": "최고 캐리 경기: 순위·킬·대미지·생존 로그 스케일 (#20/0킬/0대미지/2분↓ → 0, #1/20킬/4000대미지/15분↑ → 100).",
+      "radarTooltipPeakDamage": "최대 대미지",
+      "radarTooltipCarryMap": "맵",
+      "radarTooltipCarryNoData": "킬 데이터가 없습니다",
+      "radarHoverModeVertex": "스탯 꼭짓점",
+      "radarHoverModeLabel": "카테고리",
+      "radarHoverHintVertex": "차트 위 스탯 꼭짓점에 마우스를 올리세요",
+      "radarHoverHintLabel": "차트 주변 카테고리 라벨에 마우스를 올리세요"
     },
     "maps": {
       "statistics": "통계",
       "totalMatches": "총 매치 수",
       "winRate": "승률",
-      "kdRatio": "K/D 비율",
-      "avgDamage": "평균 데미지",
+      "kdRatio": "K/D",
+      "avgDamage": "평균 대미지",
       "avgSurvival": "평균 생존 시간",
       "totalKills": "총 킬",
       "playstyle": "플레이 스타일",
       "mostPlayedLegend": "가장 많이 사용한 레전드",
       "favoriteWeapon": "주 사용 무기",
-      "noMatchesFound": "{{map}}에서 기록된 매치가 없습니다"
+      "noMatchesFound": "{{map}}에서 기록된 매치가 없습니다",
+      "legendBreakdownTitle": "레전드별 통계",
+      "legendBreakdownSubtitle": "{{map}}에서 레전드별 성적",
+      "legendMostPlayed": "가장 많이 플레이",
+      "legendPick": "#{{rank}}",
+      "legendMatches": "매치",
+      "legendKd": "K/D",
+      "legendKad": "KA/D",
+      "legendWinPercent": "승률%",
+      "legendWinRate": "승률",
+      "legendAvgDamage": "평균 대미지",
+      "legendAvgDamageShort": "DMG",
+      "legendDetailedTitle": "레전드 상세 통계",
+      "legendRank4Plus": "4위 이상",
+      "legendRank": "순위",
+      "legendColumn": "레전드",
+      "legendKadTooltip": "이 맵에서 해당 레전드로 플레이한 (킬 + 어시스트) / 데스 비율",
+      "myLegendStats": "내 레전드 통계",
+      "myLegendStatsHint": "{{map}}에서 레전드별 내 성적",
+      "teammateLegendPicks": "팀원 레전드 픽",
+      "teammateLegendPicksHint": "{{map}}에서 팀원 레전드 픽",
+      "teammatePicks": "픽 수",
+      "pickRate": "픽률",
+      "overview": "오버뷰",
+      "topLegends": "레전드 TOP 3",
+      "topWeapons": "무기 TOP 3",
+      "noMyLegendData": "이 맵의 레전드 통계가 없습니다.",
+      "noTeammatePickData": "이 맵의 팀원 픽 데이터가 없습니다."
     },
     "legends": {
       "top5PickRates": "픽률 상위 5",
+      "overview": "오버뷰",
+      "topTeammateLegends": "팀원 레전드 TOP 3",
       "matches": "매치",
       "winRate": "승률",
       "kd": "K/D",
-      "avgDamage": "평균 데미지",
+      "avgDamage": "평균 대미지",
       "avgSurvival": "평균 생존 시간",
       "totalKills": "총 킬 수",
       "avgKillsMatch": "매치당 평균 킬",
       "mostUsedWeapon": "가장 많이 사용한 무기",
       "wins": "승리",
       "noMatchesFound": "{{legend}}로 기록된 매치가 없습니다",
-      "noData": "데이터 없음"
+      "noData": "데이터 없음",
+      "topWeapons": "무기 사용 순위",
+      "mapDistribution": "맵 비율",
+      "breakdownSubtitle": "{{legend}} 플레이 시",
+      "noWeaponRankData": "이 레전드의 무기 데이터가 없습니다.",
+      "noMapRankData": "이 레전드의 맵 데이터가 없습니다.",
+      "mapShareLabel": "{{count}} 매치 · {{percent}}% 플레이",
+      "mapWinRateBadge": "승률 {{percent}}%"
     },
     "weapons": {
       "kadTooltip": "이 무기의 (킬 + 어시스트) / 데스 비율",
@@ -591,6 +674,30 @@
       "weapon": "무기",
       "winRate": "승률",
       "noMoreWeapons": "더 이상 사용한 무기가 없습니다."
+    },
+    "teammates": {
+      "kadTooltip": "해당 팀원과 함께한 매치에서의 (킬 + 어시스트) / 데스 비율입니다.",
+      "mostPlayed": "🏆 가장 많이 함께한",
+      "pick": "#{{rank}}",
+      "matches": "판수",
+      "kd": "K/D",
+      "kad": "KA/D",
+      "winPercent": "승률",
+      "avgDamage": "평균 DMG",
+      "avgDamageShort": "DMG",
+      "noTeammateData": "팀원 데이터가 아직 없습니다.",
+      "detailedStatsTitle": "팀원 상세 통계",
+      "rank4Plus": "4위 이상",
+      "rank": "순위",
+      "teammate": "팀원",
+      "winRate": "승률",
+      "noMoreTeammates": "더 이상 기록된 팀원이 없습니다.",
+      "unknownTeammate": "알 수 없음",
+      "statsDisclaimer": "레전드 초상화는 팀원의 픽, 숫자는 함께한 매치에서의 내 기록입니다.",
+      "teammatePicks": "팀원 픽",
+      "myStatsWhenTogether": "함께했을 때 내 기록",
+      "teammatePicksHint": "아이콘은 팀원의 주력 레전드입니다.",
+      "whenPlayingWith": "이 팀원과 함께했을 때:"
     },
     "premiumLock": {
       "unlockAnalytics": "{{title}} 분석 잠금 해제",
@@ -629,7 +736,7 @@
       "playstyle": {
         "grimReaper": {
           "label": "사신",
-          "desc": "압도적인 킬/데미지 괴물 (평균 6킬 이상 또는 2000딜 이상)"
+          "desc": "압도적인 킬/대미지 괴물 (평균 6킬 이상 또는 2000딜 이상)"
         },
         "champion": {
           "label": "우승 후보",
@@ -649,7 +756,7 @@
         },
         "bruiser": {
           "label": "브루저",
-          "desc": "꾸준한 데미지 기여 (평균 700딜 이상)"
+          "desc": "꾸준한 대미지 기여 (평균 700딜 이상)"
         },
         "teamPlayer": {
           "label": "팀 플레이어",
@@ -665,11 +772,11 @@
         },
         "hotDropper": {
           "label": "핫 드롭",
-          "desc": "데미지는 높으나 생존력이 낮음 (초반 교전 특화)"
+          "desc": "대미지는 높으나 생존력이 낮음 (초반 교전 특화)"
         },
         "survivor": {
           "label": "생존 전문가",
-          "desc": "데미지는 낮으나 생존력이 매우 높음 (존버 장인)"
+          "desc": "대미지는 낮으나 생존력이 매우 높음 (존버 장인)"
         }
       },
       "suffix": {
