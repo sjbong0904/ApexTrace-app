@@ -671,6 +671,8 @@ const CoreController = {
         }
         if (match.mode === 'Unknown' && window.Store.game.mode !== 'Unknown') match.mode = window.Store.game.mode;
 
+        window.EventRouter?.ensureDeathCombatLogForPlayer?.(match);
+
         const result = await window.MatchService.finalizeDetached(match);
         CoreController._applySaveResult(result, match);
     }),

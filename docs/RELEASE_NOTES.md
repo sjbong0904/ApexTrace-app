@@ -8,6 +8,10 @@
 - **설정: 앱 데이터 초기화** — 로컬 캐시(IndexedDB, localStorage)를 삭제하고 앱을 재시작합니다. 고정 프로필·즐겨찾기 등 로컬 데이터가 제거됩니다.
 - **전투기록 아이콘** — Supabase Storage `images/events/` PNG 아이콘 사용 (kill, knockdown, death1, revive, respawn). 화살표 제거, 툴팁 첫 글자 대문자.
 
+### 버그 수정
+
+- **전투기록 death 누락** — 녹다운 후 확킬 없이 스쿼드 전멸 시 `kill_feed` death가 오지 않아 combat log에 death가 빠지던 문제를 수정합니다. `your_squad_is_eliminated` 및 매치 저장 직전에 knockdown 기준으로 death를 보충 기록합니다 (부활 케이스는 제외).
+
 ### 개선
 
 - **매치 저장 즉시 UI 반영** — 같은 UID 조회 중 새 매치가 저장되면 background → UI 메시지로 동기화하고, 원격 히스토리 로드 시 로컬 매치가 지워지지 않도록 병합합니다.

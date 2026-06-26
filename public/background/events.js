@@ -208,6 +208,37 @@ const recordCombatLog = (match, eventPayload, statAction) => {
     return true;
 };
 
+/** Knockdown without finisher, or squad wipe — GEP may never emit kill_feed death for the local player. */
+const ensureDeathCombatLogForPlayer = (match) => {
+    if (!match?.playerName || match.playerName === 'Unknown') return false;
+    if (!(match.isDead || match._squadEliminated)) return false;
+
+    const playerName = match.playerName;
+    const events = match.events || [];
+
+    const alreadyLogged = events.some(
+        (e) => e.type === 'death' && isSamePlayer(e.victim, playerName),
+    );
+    if (alreadyLogged) return false;
+
+    const lastKnock = [...events].reverse().find(
+        (e) => e.type === 'knockdown' && isSamePlayer(e.victim, playerName),
+    );
+
+    const logged = recordCombatLog(match, {
+        type: 'death',
+        attacker: lastKnock?.attacker || '',
+        victim: playerName,
+        weapon: lastKnock?.weapon || null,
+        desc: match._squadEliminated ? 'Squad eliminated' : undefined,
+    }, null);
+
+    if (logged) {
+        console.log('[Combat] Inferred death after knockdown (no finisher / squad wipe)');
+    }
+    return logged;
+};
+
 // 1. COMBAT LOG HANDLER
 const handleCombatEvent = (parsed, activeMatch) => {
     const localRaw = parsed.local_player_name;
@@ -564,6 +595,7 @@ const EventRouter = {
                 activeMatch.teamStats?.forEach((teammate) => {
                     if (teammate.state !== 'death') teammate.state = 'death';
                 });
+                ensureDeathCombatLogForPlayer(activeMatch);
                 window.EventRouter.estimatePlacementFromGep(activeMatch);
             } else if (name === 'healed_from_ko') {
                 window.CoreController.updateMatch('SET_DEAD', false);
@@ -584,6 +616,8 @@ const EventRouter = {
     },
 
     applyInfoToMatch,
+
+    ensureDeathCombatLogForPlayer,
 
     estimatePlacementFromGep: (match) => {
         if (!match) return Promise.resolve(null);
