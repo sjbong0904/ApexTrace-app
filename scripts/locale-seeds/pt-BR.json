@@ -138,10 +138,11 @@
       "spitfire": "M600 Spitfire",
       "rampage": "Rampage LMG",
       "lstar": "L-STAR EMG",
+      "lstarCp": "L-STAR EMG (Season 29)",
       "tripletake": "Triple Take",
       "bocek": "Bocek Compound Bow",
       "g7scout": "G7 Scout",
-      "g7scoutCp": "G7 Scout (Season 28)",
+      "g7scoutCp": "G7 Scout (Season 28-29)",
       "repeater3030": "30-30 Repeater",
       "chargerifle": "Charge Rifle",
       "kraber": "Kraber .50-Cal Sniper",
@@ -169,6 +170,7 @@
     },
     "attachments": {
       "barrel": "Estabilizador de cano",
+      "suppressor": "Silenciador",
       "mag": "Pente estendido",
       "lightMag": "Pente leve estendido",
       "heavyMag": "Pente pesado estendido",
@@ -218,6 +220,7 @@
       "spitfire": "Metralhadora leve de grande capacidade.",
       "rampage": "Metralhadora pesada impactante, muito dano por tiro.",
       "lstar": "Metralhadora leve alimentada por plasma.",
+      "lstarCp": "L-STAR EMG mítica com mod Graffiti.",
       "tripletake": "Fuzil de atirador de energia.",
       "bocek": "Arco composto de precisão.",
       "g7scout": "Fuzil de atirador semiautomático.",
@@ -309,6 +312,7 @@
     "sections": {
       "community": "Comunidade e suporte",
       "tools": "Ferramentas e utilitários",
+      "data": "Dados",
       "appInfo": "Informações do app",
       "theme": "Tema"
     },
@@ -335,8 +339,16 @@
       "inGameHotkeyDesc": "Altere o atalho que mostra ou oculta a sobreposição no jogo.",
       "logsTitle": "Abrir pasta de logs",
       "logsDesc": "Abre a pasta local com os logs do aplicativo.",
+      "resetTitle": "Redefinir app",
+      "resetDesc": "Apaga todo o cache salvo e reinicia o app. O perfil fixado e os favoritos serão removidos.",
       "versionTitle": "Versão do app",
       "versionDesc": "Versão instalada atualmente"
+    },
+    "reset": {
+      "button": "Redefinir",
+      "confirmMessage": "Todos os dados em cache serão apagados e o app será reiniciado.\n\nO perfil fixado e os favoritos serão removidos. Continuar?",
+      "inProgress": "Redefinindo...",
+      "failed": "Não foi possível redefinir os dados. Tente novamente."
     },
     "footer": {
       "copyright": "© 2026 ApexTrace. Todos os direitos reservados.",

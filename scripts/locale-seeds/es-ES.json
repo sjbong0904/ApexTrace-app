@@ -138,10 +138,11 @@
       "spitfire": "M600 Spitfire",
       "rampage": "Rampage LMG",
       "lstar": "L-STAR EMG",
+      "lstarCp": "L-STAR EMG (Season 29)",
       "tripletake": "Triple Take",
       "bocek": "Bocek Compound Bow",
       "g7scout": "G7 Scout",
-      "g7scoutCp": "G7 Scout (Season 28)",
+      "g7scoutCp": "G7 Scout (Season 28-29)",
       "repeater3030": "30-30 Repeater",
       "chargerifle": "Charge Rifle",
       "kraber": "Kraber .50-Cal Sniper",
@@ -169,6 +170,7 @@
     },
     "attachments": {
       "barrel": "Estabilizador de cañón",
+      "suppressor": "Silenciador",
       "mag": "Cargador ampliado",
       "lightMag": "Cargador ligero ampliado",
       "heavyMag": "Cargador pesado ampliado",
@@ -218,6 +220,7 @@
       "spitfire": "Ametralladora ligera de gran capacidad.",
       "rampage": "Ametralladora pesada contundente, muy dañina por disparo.",
       "lstar": "Ametralladora ligera alimentada por plasma.",
+      "lstarCp": "L-STAR EMG mítica con mod Graffiti.",
       "tripletake": "Fusil de tirador de energía.",
       "bocek": "Arco compuesto de precisión.",
       "g7scout": "Fusil de tirador semiautomático.",
@@ -309,6 +312,7 @@
     "sections": {
       "community": "Comunidad y soporte",
       "tools": "Herramientas y utilidades",
+      "data": "Datos",
       "appInfo": "Información de la app",
       "theme": "Tema"
     },
@@ -335,8 +339,16 @@
       "inGameHotkeyDesc": "Cambia el atajo que muestra u oculta la superposición en juego.",
       "logsTitle": "Abrir carpeta de registros",
       "logsDesc": "Abre la carpeta local con los registros de la aplicación.",
+      "resetTitle": "Restablecer la app",
+      "resetDesc": "Elimina toda la caché guardada y reinicia la app. Se eliminarán el perfil fijado y los favoritos.",
       "versionTitle": "Versión de la app",
       "versionDesc": "Versión instalada actualmente"
+    },
+    "reset": {
+      "button": "Restablecer",
+      "confirmMessage": "Se eliminarán todos los datos en caché y la app se reiniciará.\n\nSe eliminarán el perfil fijado y los favoritos. ¿Continuar?",
+      "inProgress": "Restableciendo...",
+      "failed": "No se pudieron restablecer los datos. Inténtalo de nuevo."
     },
     "footer": {
       "copyright": "© 2026 ApexTrace. Todos los derechos reservados.",

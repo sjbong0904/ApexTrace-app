@@ -11,6 +11,7 @@ const CATEGORIES: WeaponCategory[] = ['AR', 'SMG', 'LMG', 'MARKSMAN', 'SNIPER', 
 
 const ATTACHMENT_ICONS: Record<string, string> = {
     'Barrel':        'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/attachments/Barrel_Stabilizer.svg',
+    'Suppressor':    'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/attachments/Barrel_Stabilizer.svg',
     'Mag':           'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/attachments/Extended_Heavy_Mag.svg',
     'Light-Mag':     'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/attachments/Extended_Light_Mag.svg',
     'Heavy-Mag':     'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/attachments/Extended_Heavy_Mag.svg',
@@ -77,6 +78,7 @@ const CATEGORY_IMG_SCALE: Record<string, number> = {
 const getTranslatedAttachment = (part: string, t: TFunction): string => {
     const map: Record<string, string> = {
         'Barrel':       t('weaponDb.attachments.barrel'),
+        'Suppressor':   t('weaponDb.attachments.suppressor'),
         'Mag':          t('weaponDb.attachments.mag'),
         'Light-Mag':    t('weaponDb.attachments.lightMag'),
         'Heavy-Mag':    t('weaponDb.attachments.heavyMag'),

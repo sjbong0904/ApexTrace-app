@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { FaDiscord, FaInfoCircle, FaFolderOpen, FaQuestionCircle, FaChevronRight, FaKeyboard, FaPalette } from 'react-icons/fa';
+import { FaDiscord, FaInfoCircle, FaFolderOpen, FaQuestionCircle, FaChevronRight, FaKeyboard, FaPalette, FaRedo } from 'react-icons/fa';
 import { startTutorial } from '../utils/tutorial';
+import { resetAppCache } from '../utils/resetApp';
 import { useTranslation } from 'react-i18next';
 import { useTheme, c } from '../theme';
 
@@ -435,6 +436,7 @@ const HotkeySettingsRows = () => {
 const SettingsTab = (_props: { isPremium?: boolean }) => {
     const { t } = useTranslation();
     const [appVersion, setAppVersion] = useState('...');
+    const [isResetting, setIsResetting] = useState(false);
 
     useEffect(() => {
         overwolf.extensions.current.getManifest((manifest: any) => {
@@ -459,6 +461,20 @@ const SettingsTab = (_props: { isPremium?: boolean }) => {
                 prompt(t('settings.alerts.openFolderFailed'), logPath);
             }
         });
+    };
+
+    const handleResetApp = async () => {
+        if (isResetting) return;
+        if (!window.confirm(t('settings.reset.confirmMessage'))) return;
+
+        setIsResetting(true);
+        try {
+            await resetAppCache();
+        } catch (error) {
+            console.error('[Settings] App reset failed:', error);
+            alert(t('settings.reset.failed'));
+            setIsResetting(false);
+        }
     };
 
     return (
@@ -535,7 +551,44 @@ const SettingsTab = (_props: { isPremium?: boolean }) => {
                 </div>
             </div>
 
-            {/* 4. 앱 정보 섹션 */}
+            {/* 4. 데이터 섹션 */}
+            <div style={{ marginBottom: '30px' }}>
+                <h3 style={styles.sectionTitle}>{t('settings.sections.data')}</h3>
+                <div style={styles.card}>
+                    <ActionRow
+                        icon={<FaRedo color="var(--color-danger)" />}
+                        title={t('settings.items.resetTitle')}
+                        desc={t('settings.items.resetDesc')}
+                        isLast
+                        actionElement={
+                            <button
+                                type="button"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    void handleResetApp();
+                                }}
+                                disabled={isResetting}
+                                style={{
+                                    background: isResetting ? 'var(--color-bg-card-hover)' : 'var(--color-danger)',
+                                    color: '#ffffff',
+                                    border: 'none',
+                                    borderRadius: '6px',
+                                    padding: '8px 14px',
+                                    fontSize: '12px',
+                                    fontWeight: 800,
+                                    cursor: isResetting ? 'wait' : 'pointer',
+                                    whiteSpace: 'nowrap',
+                                    opacity: isResetting ? 0.7 : 1,
+                                }}
+                            >
+                                {isResetting ? t('settings.reset.inProgress') : t('settings.reset.button')}
+                            </button>
+                        }
+                    />
+                </div>
+            </div>
+
+            {/* 5. 앱 정보 섹션 */}
             <div style={{ marginBottom: '30px' }}>
                 <h3 style={styles.sectionTitle}>{t('settings.sections.appInfo')}</h3>
                 <div style={styles.card}>

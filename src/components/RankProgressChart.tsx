@@ -4,11 +4,11 @@ import {
     CartesianGrid,
     Line,
     LineChart,
-    ResponsiveContainer,
     Tooltip,
     XAxis,
     YAxis,
 } from 'recharts';
+import ChartContainer from './ChartContainer';
 import type { Season } from '../utils/match';
 import { getRankTierColor, getRankTierKey, type RankTierKey } from '../utils/helpers';
 import {
@@ -253,9 +253,18 @@ const RankProgressChart = ({ uid, selectedSeasonId, seasons }: RankProgressChart
                         {t('statistics.overview.rankProgressNoData')}
                     </div>
                 ) : (
-                    <div style={{ width: '100%', height: '188px', minWidth: 0 }}>
-                        <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
-                            <LineChart data={plotData} margin={{ top: 8, right: 12, left: 0, bottom: 0 }}>
+                    <ChartContainer
+                        className="rank-progress-chart"
+                        height={188}
+                        minHeight={188}
+                        style={{ minWidth: 0, cursor: 'default', userSelect: 'none' }}
+                        onMouseDown={(e) => e.preventDefault()}
+                    >
+                        <LineChart
+                                data={plotData}
+                                margin={{ top: 8, right: 12, left: 0, bottom: 0 }}
+                                onClick={() => {}}
+                            >
                                 <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" vertical={false} />
                                 <XAxis
                                     dataKey="idx"
@@ -320,6 +329,7 @@ const RankProgressChart = ({ uid, selectedSeasonId, seasons }: RankProgressChart
                                         strokeWidth={2.5}
                                         connectNulls
                                         isAnimationActive={false}
+                                        onClick={() => {}}
                                         dot={(props) => {
                                             const { cx, cy, payload } = props;
                                             if (cx == null || cy == null || !payload) return null;
@@ -336,6 +346,7 @@ const RankProgressChart = ({ uid, selectedSeasonId, seasons }: RankProgressChart
                                                     fill={seg.color}
                                                     stroke="var(--color-bg-sub-header)"
                                                     strokeWidth={1}
+                                                    style={{ pointerEvents: 'none' }}
                                                 />
                                             );
                                         }}
@@ -343,8 +354,7 @@ const RankProgressChart = ({ uid, selectedSeasonId, seasons }: RankProgressChart
                                     />
                                 ))}
                             </LineChart>
-                        </ResponsiveContainer>
-                    </div>
+                    </ChartContainer>
                 )}
             </div>
         </div>

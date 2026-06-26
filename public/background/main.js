@@ -435,9 +435,9 @@ const CoreController = {
                     }
                 }
                 
-                // Store 업데이트
+                // Store 업데이트 (라이브 prepend 매치 보존)
                 window.Store.user = normalizedUser;
-                window.Store.history = remoteHistory || [];
+                window.Store.history = CoreController._mergeHistoryLists(window.Store.history, remoteHistory);
                 window.Store.system.candidates = null;
 
                 if (window.Store.activeMatch) {
@@ -544,7 +544,7 @@ const CoreController = {
                 persistPendingMatches();
                 const h = await window.CloudRepository.fetchHistoryFile(identity.uid);
                 if (CoreController._shouldUpdateStoreHistory(identity.uid)) {
-                    window.Store.history = h;
+                    window.Store.history = CoreController._mergeHistoryLists(window.Store.history, h);
                 }
             }
         }
@@ -578,11 +578,37 @@ const CoreController = {
             || (localUid && String(localUid) === String(savedUid) && String(viewingUid) === String(localUid));
     },
 
+    _mergeHistoryLists: (localList, remoteList) => {
+        const map = new Map();
+        for (const m of (remoteList || [])) {
+            if (m?.matchId) map.set(m.matchId, m);
+        }
+        for (const m of (localList || [])) {
+            if (!m?.matchId) continue;
+            const existing = map.get(m.matchId);
+            if (!existing || (m.endTime || 0) >= (existing.endTime || 0)) {
+                map.set(m.matchId, m);
+            }
+        }
+        return Array.from(map.values()).sort(
+            (a, b) => (b.startTime || b.endTime || 0) - (a.startTime || a.endTime || 0),
+        );
+    },
+
+    _notifyMatchSaved: (uid, match) => {
+        if (!uid || !match?.matchId) return;
+        const payload = { uid: String(uid), matchId: String(match.matchId) };
+        if (window.Utils?.broadcastToUiWindows) {
+            window.Utils.broadcastToUiWindows('apex_trace_match_saved', payload);
+        }
+    },
+
     _prependHistory: (match, savedUid) => {
         if (!CoreController._shouldUpdateStoreHistory(savedUid)) return;
         const currentHistory = window.Store.history || [];
         if (currentHistory.some(h => h.matchId === match.matchId)) return;
         window.Store.history = [match, ...currentHistory];
+        CoreController._notifyMatchSaved(savedUid, match);
     },
 
     _applySaveResult: (result, match) => {

@@ -138,10 +138,11 @@
       "spitfire": "M600スピットファイア",
       "rampage": "ランページLMG",
       "lstar": "L-STAR EMG",
+      "lstarCp": "L-STAR EMG (シーズン29)",
       "tripletake": "トリプルテイク",
       "bocek": "ボセックコンパウンドボウ",
       "g7scout": "G7スカウト",
-      "g7scoutCp": "G7スカウト (シーズン28)",
+      "g7scoutCp": "G7スカウト (シーズン28-29)",
       "repeater3030": "30-30リピーター",
       "chargerifle": "チャージライフル",
       "kraber": "クレーバー.50口径スナイパー",
@@ -169,6 +170,7 @@
     },
     "attachments": {
       "barrel": "バレルスタビライザー",
+      "suppressor": "サプレッサー",
       "mag": "拡張マガジン",
       "lightMag": "拡張軽量マガジン",
       "heavyMag": "拡張重量マガジン",
@@ -218,6 +220,7 @@
       "spitfire": "大容量の軽量LMG。",
       "rampage": "一発一発が強力な重量LMG。",
       "lstar": "プラズマ駆動のLMG。",
+      "lstarCp": "グラフィティモッド付きミシック L-STAR EMG。",
       "tripletake": "エネルギーマークスマンライフル。",
       "bocek": "精密なコンパウンドボウ。",
       "g7scout": "半自動マークスマンライフル。",
@@ -313,6 +316,7 @@
     "sections": {
       "community": "コミュニティ＆サポート",
       "tools": "ツール＆ユーティリティ",
+      "data": "データ",
       "appInfo": "アプリ情報",
       "theme": "テーマ"
     },
@@ -339,8 +343,16 @@
       "inGameHotkeyDesc": "ゲーム内オーバーレイを切り替えるホットキーを変更します。",
       "logsTitle": "ログフォルダを開く",
       "logsDesc": "アプリのログが保存されているローカルフォルダを開きます。",
+      "resetTitle": "アプリを初期化",
+      "resetDesc": "保存されたキャッシュをすべて削除してアプリを再起動します。ピン留めしたプロフィールとお気に入りリストが削除されます。",
       "versionTitle": "アプリバージョン",
       "versionDesc": "現在インストール済みのバージョン"
+    },
+    "reset": {
+      "button": "初期化",
+      "confirmMessage": "保存されたキャッシュがすべて削除され、アプリが再起動します。\n\nピン留めしたプロフィールとお気に入りリストが削除されます。続行しますか？",
+      "inProgress": "初期化中...",
+      "failed": "アプリデータを初期化できませんでした。もう一度お試しください。"
     },
     "footer": {
       "copyright": "© 2026 ApexTrace. All rights reserved.",

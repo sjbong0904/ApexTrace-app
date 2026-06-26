@@ -1,5 +1,13 @@
 export const INITIAL_ARCHIVE_SYNC_TARGET = 100;
 
+/** Overwolf window message id — background sends after a match is saved + prepended. */
+export const MATCH_SAVED_MESSAGE = 'apex_trace_match_saved';
+
+export interface MatchSavedPayload {
+    uid: string;
+    matchId: string;
+}
+
 export const isArchiveFullySynced = (uid: string): boolean =>
     localStorage.getItem(`ARCHIVE_FULL_SYNC_${uid}`) === 'true';
 

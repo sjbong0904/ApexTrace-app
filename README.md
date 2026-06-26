@@ -1,7 +1,7 @@
 # ApexTrace
 
 **Repository:** https://github.com/sjbong0904/ApexTrace-app  
-**Current version:** `0.0.5` — see [docs/RELEASE_NOTES.md](docs/RELEASE_NOTES.md)
+**Current version:** `0.0.5b` — see [docs/RELEASE_NOTES.md](docs/RELEASE_NOTES.md)
 
 Apex Legends match tracking, movement path visualization, and stats overlay built as an [Overwolf](https://www.overwolf.com/) desktop app. ApexTrace listens to in-game events (GEP), records match data locally, syncs history to the cloud, and presents analytics across a second-screen desktop window and an in-game overlay.
 
@@ -233,16 +233,17 @@ Legacy table `match_archives` is managed by the proxy repo and is not recreated 
 
 - **Match list & map** — movement path overlay per match, ring rounds (when GEP provides data), fullscreen map with `Esc` to exit
 - **Match detail tabs** — Stats + Loadout Timeline (weapon change history)
-- **Statistics** — Overview (5-axis radar, last-20 match trends), Maps/Legends/Weapons/Teammates breakdowns, season + mode filters
+- **Statistics** — Overview (5-axis radar, last-20 match trends, free full preview); Maps/Legends/Weapons/Teammates show blurred premium preview with upgrade CTA; season + mode filters
 - **Rank RP trend chart** — daily snapshots from `daily_rank_snapshots` (Overview, All/Ranked); tier-colored line, hides unranked (0 RP) seasons
 - **Sidebar stats** — recent-20 summary cards (win rate, avg placement, kills, damage, assists, top legend)
-- **Combat log** — kill/knockdown/assist/revive events with improved revive/respawn display
+- **Combat log** — Supabase-hosted event icons (kill, knockdown, death, revive, respawn); kill/knockdown/assist/revive events with improved revive/respawn display
 - **Weapons tab** — weapon / hop-up reference
-- **Settings** — theme (dark/light), in-app hotkey rebinding, tutorial, log folder
+- **Settings** — theme (dark/light), in-app hotkey rebinding, tutorial, log folder, **app data reset** (clears local cache and relaunches)
 - **Player search** — autocomplete via proxy, multi-profile local history, rank tier colors
 - **GEP event status** — click the colored dot next to refresh to see which recordings are affected (Game Mode, Combat Logs, Placement, Movement Path, …) via Overwolf's live status API
 - **Game mode fallback** — when GEP omits `game_mode`, real matches with map + teammates are saved as `BR` and shown only in the BR tab
 - **Progressive history sync** — initial 100-match UI load, background archive sync, flush on navigation/filter change
+- **Live match sync** — newly saved matches merge into the UI without flicker when viewing the same player
 
 ---
 

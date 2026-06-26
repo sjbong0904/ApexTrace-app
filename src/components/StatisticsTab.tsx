@@ -1,10 +1,11 @@
-import React, { useState, useMemo, useRef, useEffect, useLayoutEffect } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import {
-    CartesianGrid, Tooltip, ResponsiveContainer,
+    CartesianGrid, Tooltip,
     Cell, PieChart, Pie, Legend as RechartsLegend,
     Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
     Line, Bar, BarChart, LineChart, XAxis, YAxis, ReferenceLine
 } from 'recharts';
+import ChartContainer from './ChartContainer';
 import { FaLock, FaCrown, FaHistory, FaInfoCircle } from 'react-icons/fa';
 import { COLORS, TARGET_MAPS, MAP_THUMBNAILS, LEGENDS_LIST, SHORT_WEAPON_NAMES } from '../utils/gameData';
 import { useTranslation } from 'react-i18next';
@@ -12,6 +13,7 @@ import type { MatchHistory, Season } from '../utils/match';
 import { matchesStatisticsMode } from '../utils/matchMode';
 import { isSamePlayer, isKnownLegend, normalizeLegendKey } from '../utils/helpers';
 import RankProgressChart from './RankProgressChart';
+import PremiumBlurGate from './PremiumBlurGate';
 
 const formatDuration = (ms: number): string => {
     if (!ms) return "0m 0s";
@@ -919,54 +921,6 @@ const EmptyState = ({ msg }: EmptyStateProps) => {
     );
 };
 
-const PremiumLockView = ({ title }: { title: string }) => {
-    const { t } = useTranslation();
-    return (
-        <div style={{ animation: 'fadeIn 0.3s', padding: '40px 0' }}>
-            <div
-                onClick={() => { alert(t('premium.redirecting')); }}
-                style={{
-                    background: `repeating-linear-gradient(45deg, var(--color-bg-sub-header), var(--color-bg-sub-header) 10px, var(--color-bg-table-header) 10px, var(--color-bg-table-header) 20px)`,
-                    border: '2px dashed var(--color-border-light)', borderRadius: '12px', padding: '60px 20px',
-                    textAlign: 'center', cursor: 'pointer', display: 'flex', flexDirection: 'column',
-                    alignItems: 'center', gap: '15px', transition: 'all 0.2s',
-                    maxWidth: '600px', margin: '0 auto'
-                }}
-                onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--color-warning)'; }}
-                onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--color-border-light)'; }}
-            >
-                <div style={{
-                    background: 'var(--color-bg-card-hover)', width: '60px', height: '60px', borderRadius: '50%',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center',
-                    boxShadow: '0 4px 15px rgba(0,0,0,0.5)'
-                }}>
-                    <FaLock size={24} color="var(--color-text-dim)" />
-                </div>
-                <div>
-                    <div style={{ fontSize: '20px', fontWeight: 'bold', color: 'var(--color-text-primary)', marginBottom: '5px' }}>
-                        {t('statistics.premiumLock.unlockAnalytics', { title })}
-                    </div>
-                    {/* ✅ 하드코딩 제거 */}
-                    <div style={{ fontSize: '14px', color: 'var(--color-text-muted)', lineHeight: '1.5' }}>
-                        {t('statistics.premiumLock.goBeyond')}<br />
-                        {t('statistics.premiumLock.getDetailedInsights')}
-                    </div>
-                </div>
-                <button style={{
-                    marginTop: '10px', padding: '12px 30px',
-                    background: 'linear-gradient(90deg, var(--color-warning) 0%, var(--color-warning-hover) 100%)',
-                    border: 'none', borderRadius: '6px', color: 'var(--color-text-primary)',
-                    fontWeight: 'bold', fontSize: '14px', cursor: 'pointer',
-                    display: 'flex', alignItems: 'center', gap: '8px',
-                    boxShadow: '0 4px 6px rgba(230, 126, 34, 0.3)'
-                }}>
-                    <FaCrown /> {t('statistics.premiumLock.upgradeToPremium')}
-                </button>
-            </div>
-        </div>
-    );
-};
-
 const MapOverviewStat = ({ label, value, color = 'var(--color-text-primary)' }: { label: string; value: string | number; color?: string }) => (
     <div style={{
         textAlign: 'center',
@@ -1054,23 +1008,9 @@ const OverviewRadarChart = ({
     isPremium: boolean;
 }) => {
     const { t } = useTranslation();
-    const chartWrapRef = useRef<HTMLDivElement>(null);
     const [chartSize, setChartSize] = useState({ w: 0, h: 0 });
     const [hoveredKey, setHoveredKey] = useState<RadarAxisKey | null>(null);
     const hoverSubject = hoveredKey ? radarData.find(d => d.key === hoveredKey)?.subject : null;
-
-    useLayoutEffect(() => {
-        const el = chartWrapRef.current;
-        if (!el) return;
-        const update = () => {
-            const { width, height } = el.getBoundingClientRect();
-            setChartSize({ w: width, h: height });
-        };
-        update();
-        const ro = new ResizeObserver(update);
-        ro.observe(el);
-        return () => ro.disconnect();
-    }, []);
 
     const wedgeLayers = useMemo(() => {
         if (chartSize.w <= 0 || chartSize.h <= 0) return [];
@@ -1204,8 +1144,13 @@ const OverviewRadarChart = ({
                     {tooltipBody}
                 </div>
             )}
-            <div ref={chartWrapRef} style={{ width: '100%', height: '100%', position: 'relative' }}>
-                <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={240}>
+            <div style={{ width: '100%', height: '100%', position: 'relative' }}>
+            <ChartContainer
+                height="100%"
+                minHeight={240}
+                style={{ width: '100%', height: '100%' }}
+                onSizeChange={({ width, height }) => setChartSize({ w: width, h: height })}
+            >
                     <RadarChart
                         cx="50%"
                         cy="50%"
@@ -1227,7 +1172,7 @@ const OverviewRadarChart = ({
                             dot={false}
                         />
                     </RadarChart>
-                </ResponsiveContainer>
+            </ChartContainer>
                 {wedgeLayers.length > 0 && (
                     <svg
                         viewBox={`0 0 ${chartSize.w} ${chartSize.h}`}
@@ -1331,12 +1276,13 @@ const OverviewTrendChart = ({
     );
 
     return (
-        <div
+        <ChartContainer
             className="overview-trend-chart"
-            style={{ width: '100%', height: '110px', minWidth: 0, cursor: 'default', userSelect: 'none' }}
+            height={110}
+            minHeight={110}
+            style={{ minWidth: 0, cursor: 'default', userSelect: 'none' }}
             onMouseDown={(e) => e.preventDefault()}
         >
-            <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
                     {type === 'bar' ? (
                         <BarChart data={data} margin={OVERVIEW_CHART_MARGIN} barGap={0} {...chartHandlers}>
                             <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" vertical={false} />
@@ -1388,8 +1334,7 @@ const OverviewTrendChart = ({
                             />
                         </LineChart>
                     )}
-                </ResponsiveContainer>
-        </div>
+        </ChartContainer>
     );
 };
 
@@ -1528,14 +1473,12 @@ const OverviewPerformanceCharts = ({
 
 const OverviewView = ({
     data,
-    isPremium,
     showRankProgress,
     profileUid,
     selectedSeasonId,
     seasons,
 }: {
     data: MatchHistory[];
-    isPremium: boolean;
     showRankProgress: boolean;
     profileUid?: string | null;
     selectedSeasonId: number;
@@ -1627,18 +1570,14 @@ const OverviewView = ({
                     <MapOverviewStat label={t('statistics.maps.winRate')} value={`${stats.winRate}%`} color={parseFloat(stats.winRate) >= 10 ? '#4ade80' : 'var(--color-text-primary)'} />
                     <MapOverviewStat label={t('statistics.common.avgPlacementShort')} value={`#${stats.avgPlacement}`} color={getAvgPlacementColor(stats.avgPlacement)} />
                     <MapOverviewStat label={t('statistics.maps.kdRatio')} value={stats.kd} color="var(--color-warning)" />
-                    {isPremium && (
-                        <MapOverviewStat label={t('statistics.weapons.kad')} value={stats.kda} color="#54a0ff" />
-                    )}
                     <MapOverviewStat label={t('statistics.maps.avgDamage')} value={stats.avgDamage} color="#e056fd" />
-                    {isPremium && (
-                        <MapOverviewStat label={t('statistics.maps.avgSurvival')} value={stats.avgTime} color="#54a0ff" />
-                    )}
+                    <MapOverviewStat label={t('statistics.weapons.kad')} value={stats.kda} color="#54a0ff" />
+                    <MapOverviewStat label={t('statistics.maps.avgSurvival')} value={stats.avgTime} color="#54a0ff" />
                 </div>
 
                 <div style={{
                     display: 'grid',
-                    gridTemplateColumns: isPremium ? 'minmax(0, 1.45fr) minmax(168px, 0.55fr)' : '1fr',
+                    gridTemplateColumns: 'minmax(0, 1.45fr) minmax(168px, 0.55fr)',
                     alignItems: 'stretch',
                     minHeight: '268px',
                 }}>
@@ -1648,7 +1587,7 @@ const OverviewView = ({
                             position: 'relative',
                             minHeight: '268px',
                             padding: '10px 12px 14px',
-                            borderRight: isPremium ? '1px solid var(--color-border)' : undefined,
+                            borderRight: '1px solid var(--color-border)',
                             userSelect: 'none',
                             cursor: 'default',
                         }}
@@ -1659,7 +1598,7 @@ const OverviewView = ({
                             stats={stats}
                             radarScores={analytics.radarScores}
                             bestPeakMatch={analytics.bestPeakMatch}
-                            isPremium={isPremium}
+                            isPremium
                         />
                         <div style={{
                             position: 'absolute',
@@ -1684,62 +1623,60 @@ const OverviewView = ({
                         </div>
                     </div>
 
-                    {isPremium && (
-                        <div style={{
-                            padding: '16px 18px',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            justifyContent: 'center',
-                            minWidth: 0,
-                            gap: '0',
-                        }}>
-                            {mostLegendName && (
+                    <div style={{
+                        padding: '16px 18px',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        justifyContent: 'center',
+                        minWidth: 0,
+                        gap: '0',
+                    }}>
+                        {mostLegendName && (
+                            <div style={{
+                                display: 'flex',
+                                flexDirection: 'column',
+                                alignItems: 'center',
+                                textAlign: 'center',
+                                paddingBottom: '14px',
+                                marginBottom: '6px',
+                                borderBottom: '1px solid var(--color-border)',
+                            }}>
                                 <div style={{
-                                    display: 'flex',
-                                    flexDirection: 'column',
-                                    alignItems: 'center',
-                                    textAlign: 'center',
-                                    paddingBottom: '14px',
-                                    marginBottom: '6px',
-                                    borderBottom: '1px solid var(--color-border)',
+                                    width: '52px',
+                                    height: '52px',
+                                    borderRadius: '50%',
+                                    overflow: 'hidden',
+                                    border: '2px solid #e17055',
+                                    background: 'rgba(255,255,255,0.05)',
+                                    marginBottom: '8px',
+                                    flexShrink: 0,
                                 }}>
-                                    <div style={{
-                                        width: '52px',
-                                        height: '52px',
-                                        borderRadius: '50%',
-                                        overflow: 'hidden',
-                                        border: '2px solid #e17055',
-                                        background: 'rgba(255,255,255,0.05)',
-                                        marginBottom: '8px',
-                                        flexShrink: 0,
-                                    }}>
-                                        <img
-                                            src={`${MAP_IMAGE_BASE}${stats.mostLegend}.png`}
-                                            alt={mostLegendName}
-                                            style={{ width: '100%', height: '100%', objectFit: 'cover', transform: 'scale(1.12)' }}
-                                            onError={(e) => { e.currentTarget.src = `${MAP_IMAGE_BASE}unknown.png`; }}
-                                        />
-                                    </div>
-                                    <div style={{ fontSize: '10px', color: 'var(--color-text-muted)', fontWeight: 600, marginBottom: '3px' }}>
-                                        {t('statistics.maps.mostPlayedLegend')}
-                                    </div>
-                                    <div style={{ fontSize: '13px', fontWeight: 'bold', color: 'var(--color-text-dim)', lineHeight: 1.25, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%' }} title={mostLegendName}>
-                                        {mostLegendName}
-                                    </div>
+                                    <img
+                                        src={`${MAP_IMAGE_BASE}${stats.mostLegend}.png`}
+                                        alt={mostLegendName}
+                                        style={{ width: '100%', height: '100%', objectFit: 'cover', transform: 'scale(1.12)' }}
+                                        onError={(e) => { e.currentTarget.src = `${MAP_IMAGE_BASE}unknown.png`; }}
+                                    />
                                 </div>
-                            )}
-                            <OverviewSideStatRow label={t('statistics.overview.peakKillsShort')} value={stats.maxKills} color="#ff9ff3" />
-                            <OverviewSideStatRow label={t('statistics.legends.totalKills')} value={stats.kills} />
-                            <OverviewSideStatRow label={t('statistics.overview.killContributeShort')} value={`${stats.lograte}%`} color="#54a0ff" noBorder />
-                            <div style={{ paddingTop: '10px', fontSize: '10px', color: 'var(--color-text-faint)', lineHeight: 1.4, textAlign: 'center' }}>
-                                {t('statistics.overview.totalDamage', { count: stats.totalDamage })}
+                                <div style={{ fontSize: '10px', color: 'var(--color-text-muted)', fontWeight: 600, marginBottom: '3px' }}>
+                                    {t('statistics.maps.mostPlayedLegend')}
+                                </div>
+                                <div style={{ fontSize: '13px', fontWeight: 'bold', color: 'var(--color-text-dim)', lineHeight: 1.25, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%' }} title={mostLegendName}>
+                                    {mostLegendName}
+                                </div>
                             </div>
+                        )}
+                        <OverviewSideStatRow label={t('statistics.overview.peakKillsShort')} value={stats.maxKills} color="#ff9ff3" />
+                        <OverviewSideStatRow label={t('statistics.legends.totalKills')} value={stats.kills} />
+                        <OverviewSideStatRow label={t('statistics.overview.killContributeShort')} value={`${stats.lograte}%`} color="#54a0ff" noBorder />
+                        <div style={{ paddingTop: '10px', fontSize: '10px', color: 'var(--color-text-faint)', lineHeight: 1.4, textAlign: 'center' }}>
+                            {t('statistics.overview.totalDamage', { count: stats.totalDamage })}
                         </div>
-                    )}
+                    </div>
                 </div>
             </div>
 
-            {isPremium && showRankProgress && profileUid && (
+            {showRankProgress && profileUid && (
                 <div style={{ marginBottom: '20px' }}>
                     <RankProgressChart
                         uid={profileUid}
@@ -1749,27 +1686,12 @@ const OverviewView = ({
                 </div>
             )}
 
-            {isPremium ? (
-                <div style={{ background: 'var(--color-bg-sub-header)', borderRadius: '12px', border: '1px solid var(--color-border)', overflow: 'hidden' }}>
-                    <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--color-border)', background: 'var(--color-bg-table-header)' }}>
-                        <h4 style={{ margin: 0, color: 'var(--color-text-primary)', fontSize: '14px' }}>{t('statistics.overview.performanceChartTitle')}</h4>
-                    </div>
-                    <OverviewPerformanceCharts data={trendData} />
+            <div style={{ background: 'var(--color-bg-sub-header)', borderRadius: '12px', border: '1px solid var(--color-border)', overflow: 'hidden' }}>
+                <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--color-border)', background: 'var(--color-bg-table-header)' }}>
+                    <h4 style={{ margin: 0, color: 'var(--color-text-primary)', fontSize: '14px' }}>{t('statistics.overview.performanceChartTitle')}</h4>
                 </div>
-            ) : (
-                <div style={{
-                    padding: '14px 18px',
-                    borderRadius: '10px',
-                    border: '1px solid var(--color-border)',
-                    background: 'var(--color-bg-sub-header)',
-                    textAlign: 'center',
-                    fontSize: '12px',
-                    color: 'var(--color-text-muted)',
-                    lineHeight: 1.5,
-                }}>
-                    {t('statistics.overview.premiumHint')}
-                </div>
-            )}
+                <OverviewPerformanceCharts data={trendData} />
+            </div>
         </div>
     );
 };
@@ -2252,7 +2174,7 @@ const LegendsView = ({ data, profileUid, profileName }: { data: MatchHistory[]; 
                     <h5 style={{ margin: '0 0 10px 0', color: 'var(--color-text-dim)' }}>{t('statistics.legends.top5PickRates')}</h5>
                     {pieData.length > 0 ? (
                         <div style={{ width: '100%', height: '200px' }}>
-                            <ResponsiveContainer width="100%" height="100%" minWidth={1} minHeight={1}>
+                            <ChartContainer height={200} minHeight={200}>
                                 <PieChart>
                                     <Pie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={40} outerRadius={60} paddingAngle={2}>
                                         {pieData.map((_, index) => <Cell key={`cell-${index}`} fill={COLORS.CHART[index % COLORS.CHART.length]} />)}
@@ -2260,7 +2182,7 @@ const LegendsView = ({ data, profileUid, profileName }: { data: MatchHistory[]; 
                                     <Tooltip contentStyle={{ backgroundColor: 'var(--color-bg-deep)', border: '1px solid var(--color-border-light)', fontSize: '12px' }} itemStyle={{ color: 'var(--color-text-primary)' }} />
                                     <RechartsLegend layout="vertical" verticalAlign="middle" align="right" wrapperStyle={{ fontSize: '10px' }} />
                                 </PieChart>
-                            </ResponsiveContainer>
+                            </ChartContainer>
                         </div>
                     ) : (
                         <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--color-text-faint)', fontSize: '12px' }}>{t('statistics.legends.noData')}</div>
@@ -2767,33 +2689,38 @@ const StatisticsTab: React.FC<StatisticsTabProps> = ({ history, isPremium, selec
     );
 
     const renderContent = () => {
-        if (!isPremium && (activeSubTab !== 'OVERVIEW' || selectedMode !== 'ALL')) {
-            const titles: Record<string, string> = {
-                OVERVIEW: `${t('statistics.tabs.overview')} (${MODE_LABELS[selectedMode]})`,
-                MAPS: t('statistics.tabs.maps'),
-                LEGENDS: t('statistics.tabs.legends'),
-                WEAPONS: t('statistics.tabs.weapons'),
-                TEAMMATES: t('statistics.tabs.teammates'),
-            };
-            return <PremiumLockView title={titles[activeSubTab]} />;
-        }
+        const isContentLocked = !isPremium && activeSubTab !== 'OVERVIEW';
+
+        const lockTitles: Record<string, string> = {
+            MAPS: t('statistics.tabs.maps'),
+            LEGENDS: t('statistics.tabs.legends'),
+            WEAPONS: t('statistics.tabs.weapons'),
+            TEAMMATES: t('statistics.tabs.teammates'),
+        };
+
+        let content: React.ReactNode;
         switch (activeSubTab) {
-            case 'OVERVIEW': return (
+            case 'OVERVIEW': content = (
                 <OverviewView
                     data={statsHistory}
-                    isPremium={isPremium}
                     showRankProgress={selectedMode === 'ALL' || selectedMode === 'RANKED'}
                     profileUid={profileUid}
                     selectedSeasonId={selectedSeasonId}
                     seasons={seasons}
                 />
-            );
-            case 'MAPS': return <MapsView data={statsHistory} profileUid={profileUid} profileName={profileName} />;
-            case 'LEGENDS': return <LegendsView data={statsHistory} profileUid={profileUid} profileName={profileName} />;
-            case 'WEAPONS': return <WeaponsView data={statsHistory} />;
-            case 'TEAMMATES': return <TeammatesView data={statsHistory} profileUid={profileUid} profileName={profileName} />;
-            default: return null;
+            ); break;
+            case 'MAPS': content = <MapsView data={statsHistory} profileUid={profileUid} profileName={profileName} />; break;
+            case 'LEGENDS': content = <LegendsView data={statsHistory} profileUid={profileUid} profileName={profileName} />; break;
+            case 'WEAPONS': content = <WeaponsView data={statsHistory} />; break;
+            case 'TEAMMATES': content = <TeammatesView data={statsHistory} profileUid={profileUid} profileName={profileName} />; break;
+            default: content = null;
         }
+
+        return (
+            <PremiumBlurGate locked={isContentLocked} title={lockTitles[activeSubTab] ?? ''}>
+                {content}
+            </PremiumBlurGate>
+        );
     };
 
     return (
@@ -2828,30 +2755,26 @@ const StatisticsTab: React.FC<StatisticsTabProps> = ({ history, isPremium, selec
 
                 <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
                     <div style={{ display: 'flex', gap: '5px', background: 'var(--color-bg-deep)', padding: '4px', borderRadius: '6px' }}>
-                        {(['ALL', 'RANKED', 'TRIO', 'DUO'] as const).map(mode => {
-                            const isLocked = !isPremium && mode !== 'ALL';
-                            return (
-                                <button
-                                    key={mode}
-                                    className="btn-tab"
-                                    onMouseDown={(e) => e.preventDefault()}
-                                    onClick={() => setSelectedMode(mode)}
-                                    style={{
-                                        padding: '6px 12px', fontSize: '11px', fontWeight: 'bold',
-                                        border: 'none', borderRadius: '4px', cursor: 'pointer',
-                                        background: selectedMode === mode ? 'var(--color-bg-card-hover)' : 'transparent',
-                                        color: selectedMode === mode ? 'var(--color-text-primary)' : (isLocked ? 'var(--color-text-subtle)' : 'var(--color-text-faint)'),
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        gap: '5px',
-                                        outline: 'none', boxShadow: 'none',
-                                    }}
-                                >
-                                    {MODE_LABELS[mode]}
-                                    {isLocked && <FaLock size={9} color="var(--color-text-subtle)" />}
-                                </button>
-                            );
-                        })}
+                        {(['ALL', 'RANKED', 'TRIO', 'DUO'] as const).map(mode => (
+                            <button
+                                key={mode}
+                                className="btn-tab"
+                                onMouseDown={(e) => e.preventDefault()}
+                                onClick={() => setSelectedMode(mode)}
+                                style={{
+                                    padding: '6px 12px', fontSize: '11px', fontWeight: 'bold',
+                                    border: 'none', borderRadius: '4px', cursor: 'pointer',
+                                    background: selectedMode === mode ? 'var(--color-bg-card-hover)' : 'transparent',
+                                    color: selectedMode === mode ? 'var(--color-text-primary)' : 'var(--color-text-faint)',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '5px',
+                                    outline: 'none', boxShadow: 'none',
+                                }}
+                            >
+                                {MODE_LABELS[mode]}
+                            </button>
+                        ))}
                     </div>
                 </div>
             </div>

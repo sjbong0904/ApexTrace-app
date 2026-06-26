@@ -42,8 +42,8 @@ export const startTutorial = () => {
                 popover: {
                     title: i18n.t('tutorial.searchTitle'),
                     description: i18n.t('tutorial.searchDesc'),
-                    side: "bottom",
-                    align: 'end',
+                    side: 'bottom',
+                    align: 'center',
                 },
             },
             {

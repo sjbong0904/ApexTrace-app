@@ -1,10 +1,29 @@
 import React from 'react';
 import type { Match } from '../types';
 import { formatMatchTime } from '../utils/helpers';
-import { FaCross, FaHandshake, FaCrosshairs, FaSkull } from 'react-icons/fa'; 
+import { FaHandshake } from 'react-icons/fa';
 import { GiCrossedSwords } from 'react-icons/gi';
 
 import { useTranslation } from 'react-i18next';
+
+const EVENT_ICON_BASE =
+    'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/events';
+
+const EVENT_ICON_FILES: Record<string, string> = {
+    death: 'death1',
+    kill: 'kill',
+    knockdown: 'knockdown',
+    respawn: 'respawn',
+    revive: 'revive',
+};
+
+const getEventIconUrl = (type: string) => {
+    const file = EVENT_ICON_FILES[type];
+    return file ? `${EVENT_ICON_BASE}/${file}.png` : null;
+};
+
+const formatEventTypeLabel = (type: string) =>
+    type.length > 0 ? type.charAt(0).toUpperCase() + type.slice(1) : type;
 
 const ME_TOKENS = new Set(['me']);
 
@@ -100,17 +119,17 @@ const CombatLog = ({ match }: { match: Match }) => {
                     const isMyDeath = isVictimMe || event.type === 'death';
                     const isMySupportEvent = (event.type === 'revive' || event.type === 'respawn') && isVictimMe;
                     
-                    let Icon = GiCrossedSwords;
-                    let color = 'var(--color-text-dim)';
+                    let FallbackIcon = GiCrossedSwords;
+                    let fallbackColor = 'var(--color-text-dim)';
                     let rowBg = 'var(--color-bg-card)';
                     let borderColor = 'var(--color-border-light)';
                     const timeLabel = formatMatchTime(event.timestamp - startTime, 'digital');
+                    const eventIconUrl = getEventIconUrl(event.type);
 
-                    if (event.type === 'kill') { Icon = FaSkull; color = 'var(--color-text-muted)'; }
-                    else if (event.type === 'death') { Icon = FaCross; color = 'var(--color-text-muted)'; }
-                    else if (event.type === 'knockdown') { Icon = FaCrosshairs; color = 'var(--color-warning)'; }
-                    else if (event.type === 'assist') { Icon = FaHandshake; color = 'var(--color-mode-trio)'; }
-                    else if (event.type === 'revive' || event.type === 'respawn') { Icon = FaHandshake; color = 'var(--color-success)'; }
+                    if (event.type === 'assist') {
+                        FallbackIcon = FaHandshake;
+                        fallbackColor = 'var(--color-mode-trio)';
+                    }
 
                     if (isMyKill) {
                         if (event.type === 'kill') {
@@ -170,9 +189,18 @@ const CombatLog = ({ match }: { match: Match }) => {
                                     justifyContent: 'center',
                                     gap: '4px',
                                     color: 'var(--color-text-subtle)',
-                                }} title={event.type}>
-                                    <span style={{ fontSize: '10px' }}>▶</span>
-                                    <Icon size={10} color={color} />
+                                }} title={formatEventTypeLabel(event.type)}>
+                                    {eventIconUrl ? (
+                                        <img
+                                            src={eventIconUrl}
+                                            alt=""
+                                            width={20}
+                                            height={20}
+                                            style={{ display: 'block', objectFit: 'contain', flexShrink: 0 }}
+                                        />
+                                    ) : (
+                                        <FallbackIcon size={10} color={fallbackColor} />
+                                    )}
                                 </div>
     
                                 {/* 3. 피해자 */}

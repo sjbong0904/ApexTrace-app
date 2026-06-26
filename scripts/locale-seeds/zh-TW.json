@@ -138,10 +138,11 @@
       "spitfire": "M600 Spitfire",
       "rampage": "Rampage LMG",
       "lstar": "L-STAR EMG",
+      "lstarCp": "L-STAR EMG (Season 29)",
       "tripletake": "Triple Take",
       "bocek": "Bocek Compound Bow",
       "g7scout": "G7 Scout",
-      "g7scoutCp": "G7 Scout (Season 28)",
+      "g7scoutCp": "G7 Scout (Season 28-29)",
       "repeater3030": "30-30 Repeater",
       "chargerifle": "Charge Rifle",
       "kraber": "Kraber .50-Cal Sniper",
@@ -169,6 +170,7 @@
     },
     "attachments": {
       "barrel": "槍管穩定器",
+      "suppressor": "消音器",
       "mag": "擴容彈匣",
       "lightMag": "輕型擴容彈匣",
       "heavyMag": "重型擴容彈匣",
@@ -218,6 +220,7 @@
       "spitfire": "大容量輕型輕機槍。",
       "rampage": "單發傷害高的重型輕機槍。",
       "lstar": "等離子輕機槍。",
+      "lstarCp": "內建塗鴉模組的神話 L-STAR EMG。",
       "tripletake": "能量神射手步槍。",
       "bocek": "精準複合弓。",
       "g7scout": "半自動神射手步槍。",
@@ -309,6 +312,7 @@
     "sections": {
       "community": "社區與支持",
       "tools": "工具與實用功能",
+      "data": "資料",
       "appInfo": "應用資訊",
       "theme": "主題"
     },
@@ -335,8 +339,16 @@
       "inGameHotkeyDesc": "更改用於顯示/隱藏遊戲內覆蓋層的快捷鍵。",
       "logsTitle": "打開日誌檔案夾",
       "logsDesc": "打開存放應用日誌的本地檔案夾。",
+      "resetTitle": "重置應用",
+      "resetDesc": "清除所有已儲存的快取並重新啟動應用。固定的個人資料和收藏列表將被刪除。",
       "versionTitle": "應用版本",
       "versionDesc": "當前安裝的版本"
+    },
+    "reset": {
+      "button": "重置",
+      "confirmMessage": "所有快取資料將被刪除，應用將重新啟動。\n\n固定的個人資料和收藏列表將被刪除。是否繼續？",
+      "inProgress": "正在重置...",
+      "failed": "無法重置應用資料，請重試。"
     },
     "footer": {
       "copyright": "© 2026 ApexTrace. 保留所有權利。",

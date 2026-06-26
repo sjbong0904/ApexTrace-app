@@ -194,6 +194,68 @@ button.btn-tab:active {
   box-shadow: none;
 }
 
+.app-select-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  max-width: 100%;
+}
+
+.app-select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  margin: 0;
+  width: 100%;
+  max-width: 100%;
+  background: var(--color-bg-card);
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border-light);
+  border-radius: 6px;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  outline: none;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.app-select:hover {
+  background: var(--color-bg-card-hover);
+  color: var(--color-text-primary);
+  border-color: var(--color-border);
+}
+
+.app-select:focus-visible {
+  border-color: var(--color-accent-dark);
+}
+
+.app-select--sm {
+  height: 28px;
+  padding: 0 26px 0 10px;
+  font-size: 11px;
+  min-width: 72px;
+}
+
+.app-select--md {
+  height: 32px;
+  padding: 0 28px 0 12px;
+  font-size: 13px;
+  min-width: 120px;
+}
+
+.app-select-wrap__icon {
+  position: absolute;
+  right: 9px;
+  pointer-events: none;
+  color: var(--color-text-muted);
+  flex-shrink: 0;
+}
+
+.app-select option {
+  background: var(--color-bg-card);
+  color: var(--color-text-primary);
+}
+
 .apex-btn {
   background: linear-gradient(135deg, var(--color-bg-card) 0%, var(--color-bg-sub-header) 100%);
   color: var(--color-text-primary);

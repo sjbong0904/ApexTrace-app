@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { FaKeyboard } from 'react-icons/fa';
 
 const HOTKEYS = [
     {
@@ -56,6 +57,8 @@ const findBindingByName = (result: HotkeyGetResult, hotkeyName: HotkeyName): str
 
 const HotkeyReminder = () => {
     const { t } = useTranslation();
+    const [open, setOpen] = useState(false);
+    const containerRef = useRef<HTMLDivElement>(null);
     const [hotkeys, setHotkeys] = useState<HotkeyState>(() => {
         return HOTKEYS.reduce((acc, config) => {
             acc[config.name] = localStorage.getItem(config.cacheKey) || config.defaultBinding;
@@ -96,49 +99,99 @@ const HotkeyReminder = () => {
         };
     }, [applyHotkey]);
 
+    useEffect(() => {
+        if (!open) return;
+        const onDocMouseDown = (event: MouseEvent) => {
+            if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+                setOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', onDocMouseDown);
+        return () => document.removeEventListener('mousedown', onDocMouseDown);
+    }, [open]);
+
     return (
-        <div
-            className="hotkey-reminder"
-            style={{
-            position: 'fixed',
-            bottom: '20px',
-            right: '20px',
-            background: 'color-mix(in srgb, var(--color-bg-card) 92%, transparent)',
-            backdropFilter: 'blur(4px)',
-            color: 'var(--color-text-muted)',
-            padding: '8px 14px',
-            borderRadius: '8px',
-            fontSize: '12px',
-            pointerEvents: 'none',
-            zIndex: 9999,
-            border: '1px solid var(--color-border-light)',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'stretch',
-            gap: '6px',
-        }}>
-            {HOTKEYS.map((config) => (
-                <div key={config.name} style={{
+        <div ref={containerRef} style={{ position: 'relative', flexShrink: 0 }}>
+            <button
+                type="button"
+                onClick={() => setOpen((prev) => !prev)}
+                title={t('settings.items.hotkeyTitle')}
+                aria-expanded={open}
+                aria-haspopup="true"
+                style={{
                     display: 'flex',
-            alignItems: 'center',
-                    justifyContent: 'space-between',
-                    gap: '10px',
-                }}>
-                    <span>{t(config.labelKey)}</span>
-                    <kbd style={{ 
-                        background: 'var(--color-border)', 
-                        padding: '4px 8px', 
-                        borderRadius: '4px', 
-                        color: 'var(--color-text-primary)',
-                        fontWeight: 'bold',
-                        fontFamily: 'monospace',
-                        border: '1px solid var(--color-text-subtle)',
-                        whiteSpace: 'nowrap',
-                    }}>
-                        {hotkeys[config.name]}
-                    </kbd>
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: '28px',
+                    height: '28px',
+                    padding: 0,
+                    border: 'none',
+                    borderRadius: '6px',
+                    background: open ? 'var(--color-bg-card-hover)' : 'transparent',
+                    color: open ? 'var(--color-text-primary)' : 'var(--color-text-muted)',
+                    cursor: 'pointer',
+                    transition: 'background 0.15s, color 0.15s',
+                }}
+                onMouseEnter={(e) => {
+                    if (!open) e.currentTarget.style.color = 'var(--color-text-primary)';
+                }}
+                onMouseLeave={(e) => {
+                    if (!open) e.currentTarget.style.color = 'var(--color-text-muted)';
+                }}
+            >
+                <FaKeyboard size={14} />
+            </button>
+
+            {open && (
+                <div
+                    className="hotkey-reminder"
+                    style={{
+                        position: 'absolute',
+                        top: 'calc(100% + 8px)',
+                        right: 0,
+                        minWidth: '240px',
+                        background: 'color-mix(in srgb, var(--color-bg-card) 96%, transparent)',
+                        backdropFilter: 'blur(6px)',
+                        color: 'var(--color-text-muted)',
+                        padding: '10px 14px',
+                        borderRadius: '8px',
+                        fontSize: '12px',
+                        zIndex: 10000,
+                        border: '1px solid var(--color-border-light)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'stretch',
+                        gap: '8px',
+                        boxShadow: '0 8px 24px rgba(0,0,0,0.35)',
+                    }}
+                >
+                    {HOTKEYS.map((config) => (
+                        <div
+                            key={config.name}
+                            style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
+                                gap: '12px',
+                            }}
+                        >
+                            <span style={{ whiteSpace: 'nowrap' }}>{t(config.labelKey)}</span>
+                            <kbd style={{
+                                background: 'var(--color-border)',
+                                padding: '4px 8px',
+                                borderRadius: '4px',
+                                color: 'var(--color-text-primary)',
+                                fontWeight: 'bold',
+                                fontFamily: 'monospace',
+                                border: '1px solid var(--color-text-subtle)',
+                                whiteSpace: 'nowrap',
+                            }}>
+                                {hotkeys[config.name]}
+                            </kbd>
+                        </div>
+                    ))}
                 </div>
-            ))}
+            )}
         </div>
     );
 };

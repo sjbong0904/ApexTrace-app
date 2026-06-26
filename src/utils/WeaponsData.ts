@@ -125,7 +125,7 @@ export const WEAPONS_DB: WeaponInfo[] = [
             charged_dmg: { body: 38, head: 38, leg: 29 },
             magSize: { lv0: 18, lv1: 21, lv2: 24, lv3: 27, lv4: 27 }
         },
-        attachments: ['Barrel', 'Heavy-Mag', 'Optic', 'Stock']
+        attachments: ['Suppressor', 'Heavy-Mag', 'Optic', 'Stock']
     },
     {
         id: 'havoc',
@@ -334,6 +334,24 @@ export const WEAPONS_DB: WeaponInfo[] = [
         attachments: ['Energy-Mag', 'Optic', 'Stock'],
         hopup: ['Graffiti Mod'],
         hopup_point: 400
+    },
+    {
+        id: 'l-star_cp',
+        baseId: 'l-star',
+        variant: 'CARE_PACKAGE',
+        name: () => i18n.t('weaponDb.names.lstarCp'),
+        category: 'LMG',
+        ammoType: ['Mythic'],
+        FireMods: ['Auto'],
+        image: 'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/l-star.png',
+        description: () => i18n.t('weaponDb.desc.lstarCp'),
+        stats: {
+            dmg: { body: 17, head: 28, leg: 14 },
+            magSize: { lv0: 28 },
+            hopup_magSize: { lv0: 32 },
+        },
+        attachments: [],
+        care_hopup: ['Graffiti Mod'],
     },
 
     // MARKSMAN

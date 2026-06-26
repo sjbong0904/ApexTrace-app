@@ -138,10 +138,11 @@
       "spitfire": "M600 Spitfire",
       "rampage": "Rampage LMG",
       "lstar": "L-STAR EMG",
+      "lstarCp": "L-STAR EMG (Season 29)",
       "tripletake": "Triple Take",
       "bocek": "Bocek Compound Bow",
       "g7scout": "G7 Scout",
-      "g7scoutCp": "G7 Scout (Season 28)",
+      "g7scoutCp": "G7 Scout (Season 28-29)",
       "repeater3030": "30-30 Repeater",
       "chargerifle": "Charge Rifle",
       "kraber": "Kraber .50-Cal Sniper",
@@ -169,6 +170,7 @@
     },
     "attachments": {
       "barrel": "Stabilisateur de canon",
+      "suppressor": "Silencieux",
       "mag": "Chargeur étendu",
       "lightMag": "Chargeur léger étendu",
       "heavyMag": "Chargeur lourd étendu",
@@ -218,6 +220,7 @@
       "spitfire": "Mitrailleuse légère à grande capacité.",
       "rampage": "Mitrailleuse lourde percutante, puissante par tir.",
       "lstar": "Mitrailleuse légère alimentée au plasma.",
+      "lstarCp": "L-STAR EMG mythique avec mod Graffiti.",
       "tripletake": "Fusil de tireur d'élite énergétique.",
       "bocek": "Arc composé de précision.",
       "g7scout": "Fusil de tireur d'élite semi-automatique.",
@@ -309,6 +312,7 @@
     "sections": {
       "community": "Communauté et support",
       "tools": "Outils et utilitaires",
+      "data": "Données",
       "appInfo": "Infos sur l'app",
       "theme": "Thème"
     },
@@ -335,8 +339,16 @@
       "inGameHotkeyDesc": "Modifier le raccourci qui affiche ou masque l'overlay en jeu.",
       "logsTitle": "Ouvrir le dossier des logs",
       "logsDesc": "Ouvre le dossier local contenant les logs de l'application.",
+      "resetTitle": "Réinitialiser l'app",
+      "resetDesc": "Supprime toutes les données en cache et redémarre l'app. Le profil épinglé et les favoris seront supprimés.",
       "versionTitle": "Version de l'app",
       "versionDesc": "Version actuellement installée"
+    },
+    "reset": {
+      "button": "Réinitialiser",
+      "confirmMessage": "Toutes les données en cache seront supprimées et l'app redémarrera.\n\nLe profil épinglé et les favoris seront supprimés. Continuer ?",
+      "inProgress": "Réinitialisation...",
+      "failed": "Impossible de réinitialiser les données. Veuillez réessayer."
     },
     "footer": {
       "copyright": "© 2026 ApexTrace. Tous droits réservés.",

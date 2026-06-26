@@ -52,6 +52,16 @@ const Utils = {
         });
     },
 
+    broadcastToUiWindows: (messageId, content = {}) => {
+        ['desktop', 'in_game'].forEach((windowName) => {
+            overwolf.windows.obtainDeclaredWindow(windowName, (res) => {
+                if (res.status === 'success' && res.window?.id) {
+                    overwolf.windows.sendMessage(res.window.id, messageId, content, () => {});
+                }
+            });
+        });
+    },
+
     normalizeLegend: (rawName) => {
         if (!rawName) return "unknown";
         const clean = rawName.replace("#character_", "").replace("_NAME", "").toLowerCase();

@@ -138,10 +138,11 @@
       "spitfire": "M600 Spitfire",
       "rampage": "Rampage LMG",
       "lstar": "L-STAR EMG",
+      "lstarCp": "L-STAR EMG (Season 29)",
       "tripletake": "Triple Take",
       "bocek": "Bocek Compound Bow",
       "g7scout": "G7 Scout",
-      "g7scoutCp": "G7 Scout (Season 28)",
+      "g7scoutCp": "G7 Scout (Season 28-29)",
       "repeater3030": "30-30 Repeater",
       "chargerifle": "Charge Rifle",
       "kraber": "Kraber .50-Cal Sniper",
@@ -169,6 +170,7 @@
     },
     "attachments": {
       "barrel": "Barrel Stabilizer",
+      "suppressor": "Suppressor",
       "mag": "Extended Mag",
       "lightMag": "Extended Light Mag",
       "heavyMag": "Extended Heavy Mag",
@@ -218,6 +220,7 @@
       "spitfire": "High-capacity light LMG.",
       "rampage": "Hard-hitting heavy LMG, powerful per shot.",
       "lstar": "Plasma-fueled LMG.",
+      "lstarCp": "Mythic L-STAR EMG with Graffiti Mod.",
       "tripletake": "Energy marksman rifle.",
       "bocek": "Precision compound bow.",
       "g7scout": "Semi-auto marksman rifle.",
@@ -343,6 +346,7 @@
     "sections": {
       "community": "Community & Support",
       "tools": "Tools & Utilities",
+      "data": "Data",
       "appInfo": "App Info",
       "theme": "Theme"
     },
@@ -369,6 +373,8 @@
       "inGameHotkeyDesc": "Change the hotkey that toggles the in-game overlay.",
       "logsTitle": "Open Log Folder",
       "logsDesc": "Opens the local folder containing app logs.",
+      "resetTitle": "Reset App Data",
+      "resetDesc": "Clears all cached data and restarts the app. Pinned profile and favorites will be deleted.",
       "versionTitle": "App Version",
       "versionDesc": "Currently installed version"
     },
@@ -382,6 +388,12 @@
       "failedShort": "Failed",
       "failed": "Could not assign this hotkey. It may be used by another app.",
       "cancelled": "Hotkey change cancelled."
+    },
+    "reset": {
+      "button": "Reset",
+      "confirmMessage": "All cached data will be deleted and the app will restart.\n\nPinned profile and favorites will be removed. Continue?",
+      "inProgress": "Resetting...",
+      "failed": "Could not reset app data. Please try again."
     },
     "footer": {
       "copyright": "© 2026 ApexTrace. All rights reserved.",

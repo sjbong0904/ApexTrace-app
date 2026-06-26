@@ -27,13 +27,16 @@ import {
     INITIAL_ARCHIVE_SYNC_TARGET,
     isArchiveFullySynced,
     markArchiveFullySynced,
+    MATCH_SAVED_MESSAGE,
     mergeAndSortHistory,
+    type MatchSavedPayload,
     withLiveMatchProtection,
 } from './utils/historySync';
 import { getModeColor, getModeDisplayLabel, isSupportedMode, matchesHistoryTab } from './utils/matchMode';
 import NetworkStatus from './components/NetworkStatus';
 import GameStatusIndicator from './components/GameStatusIndicator';
 import HotkeyReminder from './components/HotkeyReminder';
+import AppSelect from './components/AppSelect';
 import { useTranslation } from 'react-i18next';
 import { APP_LANGUAGES } from './constants/languages';
 
@@ -83,7 +86,7 @@ const SearchBar = memo(({ onSearch, isSearching, resetKey }: { onSearch: (query:
     };
 
     return (
-        <form onSubmit={handleSubmit} style={{ display: 'flex', alignItems: 'center', background: 'var(--color-bg-card)', borderRadius: '6px', border: '1px solid var(--color-border-light)', padding: '0 10px', height: '40px', boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.2)' }}>
+        <form id="search-bar" onSubmit={handleSubmit} style={{ display: 'flex', alignItems: 'center', background: 'var(--color-bg-card)', borderRadius: '6px', border: '1px solid var(--color-border-light)', padding: '0 10px', height: '40px', boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.2)' }}>
             <FaSearch color="var(--color-text-faint)" style={{ marginRight: '8px' }} />
             <input
                 type="text"
@@ -676,6 +679,26 @@ const App = () => {
         } catch (e) { console.error(e); }
     }, [user.uid]);
 
+    const syncMatchFromStore = useCallback(async (payload: MatchSavedPayload) => {
+        const viewingUid = userRef.current?.uid;
+        if (!viewingUid || String(viewingUid) !== String(payload.uid)) return;
+
+        const bg = window.overwolf?.windows?.getMainWindow() as {
+            apexData?: { getHistory?: () => unknown[] };
+        } | undefined;
+        const storeMatches = normalizeHistoryForFrontend(bg?.apexData?.getHistory?.() ?? []);
+        const incoming = storeMatches.filter((m) => m.matchId === payload.matchId);
+        if (incoming.length === 0) return;
+
+        const validMatches = incoming.filter((m) => isSupportedMode(m.mode));
+        if (validMatches.length === 0) return;
+
+        await LocalDB.saveMatches(payload.uid, validMatches);
+
+        setHistory((prev) => mergeAndSortHistory(prev, validMatches));
+        setCurrentPage(1);
+    }, []);
+
     const flushHistoryFromLocal = useCallback(async () => {
         if (!user.uid) return;
         try {
@@ -806,6 +829,31 @@ const App = () => {
     }, [syncHistory]);
 
     useEffect(() => {
+        if (typeof overwolf === 'undefined') return;
+
+        const onMessageReceived = (message: { id?: string; content?: MatchSavedPayload | string }) => {
+            if (message.id !== MATCH_SAVED_MESSAGE) return;
+
+            let payload: MatchSavedPayload | null = null;
+            if (typeof message.content === 'string') {
+                try {
+                    payload = JSON.parse(message.content) as MatchSavedPayload;
+                } catch {
+                    return;
+                }
+            } else if (message.content && typeof message.content === 'object') {
+                payload = message.content as MatchSavedPayload;
+            }
+            if (!payload?.uid || !payload?.matchId) return;
+
+            void syncMatchFromStore(payload);
+        };
+
+        overwolf.windows.onMessageReceived.addListener(onMessageReceived);
+        return () => overwolf.windows.onMessageReceived.removeListener(onMessageReceived);
+    }, [syncMatchFromStore]);
+
+    useEffect(() => {
         if (!user.uid) return;
 
         historyFlushEnabledRef.current = false;
@@ -852,7 +900,6 @@ const App = () => {
             `}</style>
             
             {!isMaximized && <ResizeHandles />}
-            <HotkeyReminder />
 
             {/* 🌟 상단 드래그 바 (Top Bar) + 언어 선택 드롭다운 */}
             <div 
@@ -872,32 +919,23 @@ const App = () => {
                     {t('app.title')}
                 </div>
                 
-                {/* 오른쪽: 언어 선택 & 창 컨트롤 */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: '15px', paddingRight: '0px' }}>
-                    <select 
+                {/* 오른쪽: 단축키 · 언어 선택 & 창 컨트롤 */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', paddingRight: '0px' }}>
+                    <HotkeyReminder />
+                    <AppSelect
+                        sizeVariant="sm"
                         value={i18n.language}
                         onChange={(e) => {
                             const newLang = e.target.value;
-                            i18n.changeLanguage(newLang); // 언어 즉시 변경
-                            localStorage.setItem('app_language', newLang); // 🌟 변경된 언어를 로컬 스토리지에 저장
-                        }}
-                        style={{ 
-                            background: 'transparent', 
-                            color: 'var(--color-text-muted)', 
-                            border: 'none', 
-                            fontSize: '12px', 
-                            outline: 'none', 
-                            cursor: 'pointer',
-                            fontWeight: 'bold',
-                            WebkitAppearance: 'none',
-                            MozAppearance: 'none',
+                            i18n.changeLanguage(newLang);
+                            localStorage.setItem('app_language', newLang);
                         }}
                         title="Select Language"
                     >
                         {APP_LANGUAGES.map(({ code, label }) => (
                             <option key={code} value={code}>{label}</option>
                         ))}
-                    </select>
+                    </AppSelect>
 
                     <WindowControls />
                 </div>
@@ -962,22 +1000,20 @@ const App = () => {
                             )}
 
                             {(mainTab === "DASHBOARD" || mainTab === "STATISTICS") && (
-                                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: 'var(--color-bg-card)', padding: '5px 10px', borderRadius: '6px', border: '1px solid var(--color-border-light)' }}>
-                                    <select 
-                                        value={selectedSeasonId} 
-                                        onChange={(e) => {
-                                            setSelectedSeasonId(Number(e.target.value));
-                                            if (mainScrollRef.current) {
-                                                mainScrollRef.current.scrollTo({ top: 0, behavior: 'smooth' });
-                                            }
-                                        }}
-                                        style={{ background: 'transparent', color: 'var(--color-text-muted)', border: 'none', fontSize: '13px', outline: 'none', cursor: 'pointer', fontWeight: 'bold' }}
-                                    >
-                                        {SEASONS.map(season => (
-                                            <option key={season.id} value={season.id}>{season.name}</option>
-                                        ))}
-                                    </select>
-                                 </div>
+                                <AppSelect
+                                    sizeVariant="md"
+                                    value={selectedSeasonId}
+                                    onChange={(e) => {
+                                        setSelectedSeasonId(Number(e.target.value));
+                                        if (mainScrollRef.current) {
+                                            mainScrollRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+                                        }
+                                    }}
+                                >
+                                    {SEASONS.map(season => (
+                                        <option key={season.id} value={season.id}>{season.name}</option>
+                                    ))}
+                                </AppSelect>
                             )}
 
                             <button 
@@ -1174,22 +1210,11 @@ const App = () => {
                                                 </button>
                                             </div>
                                         )}
-                                        {filteredHistory.length > 0 && (
+                                        {filteredHistory.length > 0 && isPremium && (
                                             <div style={{ marginTop: '10px', paddingBottom: '20px' }}>
-                                                {isPremium && (
-                                                    <div style={{ background: 'linear-gradient(90deg, var(--color-success) 0%, var(--color-success-dark) 100%)', color: 'var(--color-text-primary)', fontSize: '12px', fontWeight: 'bold', textAlign: 'center', padding: '8px', borderRadius: '6px', marginBottom: '20px', boxShadow: '0 4px 10px rgba(0,0,0,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', animation: 'fadeIn 0.5s' }}>
-                                                        <FaCrown /><span>{t('premium.betaUsers')} <b>{t('premium.allUnlocked')}</b></span>
-                                                    </div>
-                                                )}
-                                                {!isPremium ? (
-                                                    <div onClick={() => { alert(t('premium.redirecting')); }} style={{ background: `repeating-linear-gradient(45deg, var(--color-bg-sub-header), var(--color-bg-sub-header) 10px, var(--color-bg-table-header) 10px, var(--color-bg-table-header) 20px)`, border: '2px dashed var(--color-border-light)', borderRadius: '8px', padding: '25px', textAlign: 'center', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', transition: 'all 0.2s' }} onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--color-warning)'; }} onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--color-border-light)'; }}>
-                                                        <div style={{ background: 'var(--color-bg-card-hover)', width: '40px', height: '40px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><span style={{ fontSize: '20px' }}>🔒</span></div>
-                                                        <div style={{ fontSize: '15px', fontWeight: 'bold', color: 'var(--color-text-primary)' }}>{t('premium.archiveTitle')}</div>
-                                                        <div style={{ fontSize: '12px', color: 'var(--color-text-muted)' }}>{t('premium.archiveDesc1')} <b>{t('premium.archiveDescBold')}</b>.<br/><span style={{ color: 'var(--color-warning)', fontWeight: 'bold' }}>{t('premium.subscribe')}</span></div>
-                                                    </div>
-                                                ) : (
-                                                    <span></span>
-                                                )}
+                                                <div style={{ background: 'linear-gradient(90deg, var(--color-success) 0%, var(--color-success-dark) 100%)', color: 'var(--color-text-primary)', fontSize: '12px', fontWeight: 'bold', textAlign: 'center', padding: '8px', borderRadius: '6px', marginBottom: '20px', boxShadow: '0 4px 10px rgba(0,0,0,0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', animation: 'fadeIn 0.5s' }}>
+                                                    <FaCrown /><span>{t('premium.betaUsers')} <b>{t('premium.allUnlocked')}</b></span>
+                                                </div>
                                             </div>
                                         )}
                                     </div>
