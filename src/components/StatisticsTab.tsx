@@ -6,12 +6,13 @@ import {
     Line, Bar, BarChart, LineChart, XAxis, YAxis, ReferenceLine
 } from 'recharts';
 import ChartContainer from './ChartContainer';
-import { FaLock, FaCrown, FaHistory, FaInfoCircle } from 'react-icons/fa';
+import { FaLock, FaCrown, FaHistory, FaInfoCircle, FaSync } from 'react-icons/fa';
 import { COLORS, TARGET_MAPS, MAP_THUMBNAILS, LEGENDS_LIST, SHORT_WEAPON_NAMES } from '../utils/gameData';
 import { useTranslation } from 'react-i18next';
 import type { MatchHistory, Season } from '../utils/match';
-import { matchesStatisticsMode } from '../utils/matchMode';
-import { isSamePlayer, isKnownLegend, normalizeLegendKey, getTeammateSortKey } from '../utils/helpers';
+import { normalizeHistoryForFrontend } from '../utils/matchNormalizer';
+import { fetchPlayerStats, type StatisticsMode } from '../utils/playerStatsApi';
+import { isSamePlayer, isKnownLegend, normalizeLegendKey, getTeammateSortKey, toGameElapsedMs } from '../utils/helpers';
 import { WEAPONS_DB, type WeaponCategory } from '../utils/WeaponsData';
 import { findWeaponByLoadoutId } from '../utils/weaponTheme';
 import RankProgressChart from './RankProgressChart';
@@ -427,7 +428,22 @@ const mapBreakdownLegendInnerStyle: React.CSSProperties = {
     fontWeight: 'bold',
 };
 
-const MarqueeLegendName = ({ name }: { name: string }) => {
+const MARQUEE_OVERFLOW_KEYFRAMES = `
+@keyframes marqueeOverflowPan {
+    from { transform: translateX(0); }
+    to { transform: translateX(calc(-1 * var(--marquee-overflow-distance, 0px))); }
+}
+`;
+
+const MarqueeOverflowText = ({
+    text,
+    textStyle,
+    containerStyle,
+}: {
+    text: string;
+    textStyle?: React.CSSProperties;
+    containerStyle?: React.CSSProperties;
+}) => {
     const containerRef = useRef<HTMLDivElement>(null);
     const textRef = useRef<HTMLSpanElement>(null);
     const [shouldMarquee, setShouldMarquee] = useState(false);
@@ -436,9 +452,9 @@ const MarqueeLegendName = ({ name }: { name: string }) => {
     useEffect(() => {
         const updateOverflow = () => {
             const container = containerRef.current;
-            const text = textRef.current;
-            if (!container || !text) return;
-            const distance = Math.max(0, text.scrollWidth - container.clientWidth);
+            const textEl = textRef.current;
+            if (!container || !textEl) return;
+            const distance = Math.max(0, textEl.scrollWidth - container.clientWidth);
             setOverflowDistance(distance);
             setShouldMarquee(distance > 1);
         };
@@ -447,16 +463,17 @@ const MarqueeLegendName = ({ name }: { name: string }) => {
         const observer = new ResizeObserver(updateOverflow);
         if (containerRef.current) observer.observe(containerRef.current);
         return () => observer.disconnect();
-    }, [name]);
+    }, [text]);
 
     return (
         <div
             ref={containerRef}
-            title={shouldMarquee ? name : undefined}
+            title={shouldMarquee ? text : undefined}
             style={{
-                flex: 1,
+                width: '100%',
                 minWidth: 0,
                 overflow: 'hidden',
+                ...containerStyle,
             }}
         >
             <span
@@ -468,15 +485,26 @@ const MarqueeLegendName = ({ name }: { name: string }) => {
                     minWidth: shouldMarquee ? 'max-content' : undefined,
                     paddingRight: shouldMarquee ? '12px' : 0,
                     animation: shouldMarquee
-                        ? `mapLegendNamePan ${Math.max(3, Math.min(7, overflowDistance / 18))}s ease-in-out infinite alternate`
+                        ? `marqueeOverflowPan ${Math.max(3, Math.min(7, overflowDistance / 18))}s ease-in-out infinite alternate`
                         : undefined,
                     willChange: shouldMarquee ? 'transform' : undefined,
-                    ['--map-legend-name-distance' as string]: `${overflowDistance}px`,
+                    ['--marquee-overflow-distance' as string]: `${overflowDistance}px`,
+                    ...textStyle,
                 } as React.CSSProperties}
             >
-                {name}
+                {text}
             </span>
         </div>
+    );
+};
+
+const MarqueeLegendName = ({ name }: { name: string }) => {
+    return (
+        <MarqueeOverflowText
+            text={name}
+            containerStyle={{ flex: 1, minWidth: 0 }}
+            textStyle={{ lineHeight: 1.3 }}
+        />
     );
 };
 
@@ -801,12 +829,7 @@ const MapLegendBreakdown = ({
 
     return (
         <div style={{ marginTop: '28px' }}>
-            <style>{`
-                @keyframes mapLegendNamePan {
-                    from { transform: translateX(0); }
-                    to { transform: translateX(calc(-1 * var(--map-legend-name-distance, 0px))); }
-                }
-            `}</style>
+            <style>{MARQUEE_OVERFLOW_KEYFRAMES}</style>
             <div style={{ marginBottom: '18px' }}>
                 <h3 style={{ margin: '0 0 4px 0', color: 'var(--color-text-primary)', fontSize: '16px' }}>
                     {t('statistics.maps.legendBreakdownTitle')}
@@ -950,7 +973,10 @@ const calculateStats = (matches: MatchHistory[]) => {
     const totalWins = matches.filter(m => m.placement === 1).length;
     const totalTop5 = matches.filter(m => (m.placement ?? 20) <= 5).length;
     const totalDeaths = totalMatches - totalWins;
-    const totalTime = matches.reduce((sum, m: any) => sum + ((m.endTime || Date.now()) - m.startTime), 0);
+    const totalTime = matches.reduce(
+        (sum, m: any) => sum + toGameElapsedMs((m.endTime || Date.now()) - m.startTime),
+        0,
+    );
     const totalPlacement = matches.reduce((sum, m) => sum + (m.placement ?? 20), 0);
     const maxKills = Math.max(...matches.map(m => m.kills || 0));
     const totalsquadKills = matches.reduce((sum, m: any) => sum + (m.squadKills || 0), 0);
@@ -1029,7 +1055,7 @@ const logScore = (value: number, floor: number, ceiling: number): number => {
 
 const getMatchSurvivalSec = (m: MatchWithMeta): number => {
     if (!m.startTime) return 0;
-    return Math.max(0, Math.round(((m.endTime || Date.now()) - m.startTime) / 1000));
+    return Math.max(0, Math.round(toGameElapsedMs((m.endTime || Date.now()) - m.startTime) / 1000));
 };
 
 /** 1 kill ≈ 200 damage — 피크 대미지 ceiling 기준. */
@@ -2615,6 +2641,81 @@ const resolveTeammateKey = (
     return nameKey ? `name:${nameKey}` : null;
 };
 
+type PlayerPerformanceBaseline = {
+    games: number;
+    kd: number;
+    kda: number;
+    winRate: number;
+    avgPlacement: number;
+    avgDamage: number;
+};
+
+const MIN_GAMES_FOR_TEAMMATE_DELTA = 5;
+
+const computePlayerPerformanceBaseline = (matches: MatchHistory[]): PlayerPerformanceBaseline | null => {
+    if (matches.length === 0) return null;
+
+    let wins = 0;
+    let kills = 0;
+    let assists = 0;
+    let deaths = 0;
+    let damage = 0;
+    let placement = 0;
+
+    matches.forEach((match) => {
+        const isWin = match.placement === 1;
+        wins += isWin ? 1 : 0;
+        kills += match.kills || 0;
+        assists += match.assists || 0;
+        deaths += isWin ? 0 : 1;
+        damage += match.damage || 0;
+        placement += getMatchPlacement(match);
+    });
+
+    const games = matches.length;
+    const kd = deaths === 0 ? kills : kills / deaths;
+    const kda = deaths === 0 ? kills + assists : (kills + assists) / deaths;
+
+    return {
+        games,
+        kd,
+        kda,
+        winRate: (wins / games) * 100,
+        avgPlacement: placement / games,
+        avgDamage: Math.round(damage / games),
+    };
+};
+
+const formatSignedDelta = (delta: number, fractionDigits: number, suffix = ''): string => {
+    const fixed = delta.toFixed(fractionDigits);
+    if (delta > 0) return `+${fixed}${suffix}`;
+    return `${fixed}${suffix}`;
+};
+
+const getPerformanceDeltaColor = (delta: number, higherIsBetter: boolean): string => {
+    if (Math.abs(delta) < 0.001) return 'var(--color-text-faint)';
+    const improved = higherIsBetter ? delta > 0 : delta < 0;
+    return improved ? '#4ade80' : '#f87171';
+};
+
+const formatVsAverageBadge = (
+    delta: number,
+    fractionDigits: number,
+    higherIsBetter: boolean,
+    suffix = '',
+): { label: string; color: string } => {
+    const threshold = fractionDigits === 0 ? 0.5 : 0.05;
+    if (Math.abs(delta) < threshold) {
+        return { label: '-', color: 'var(--color-text-faint)' };
+    }
+    const improved = higherIsBetter ? delta > 0 : delta < 0;
+    const magnitude = Math.abs(delta).toFixed(fractionDigits);
+    return {
+        label: `${improved ? '▲' : '▼'}${magnitude}${suffix}`,
+        color: improved ? '#4ade80' : '#f87171',
+    };
+};
+
 const TeammatesView = ({ data, profileUid, profileName }: { data: MatchHistory[]; profileUid?: string | null; profileName?: string | null }) => {
     const { t } = useTranslation();
     type TeammateSortCol = 'name' | 'games' | 'winRate' | 'kd' | 'kda' | 'avgPlacement' | 'avgDamage';
@@ -2734,6 +2835,8 @@ const TeammatesView = ({ data, profileUid, profileName }: { data: MatchHistory[]
     );
 
     const top3 = teammateStats.slice(0, 3);
+    const overallBaseline = useMemo(() => computePlayerPerformanceBaseline(data), [data]);
+    const deltaTooltip = t('statistics.teammates.deltaVsAverage');
 
     const renderAvatar = (legend: string, size: number) => (
         <img
@@ -2759,6 +2862,51 @@ const TeammatesView = ({ data, profileUid, profileName }: { data: MatchHistory[]
     const renderStatLabel = (label: string, title?: string) => (
         <div style={statLabelStyle} title={title ?? label}>{label}</div>
     );
+
+    const renderStatCell = (
+        label: string,
+        value: React.ReactNode,
+        options?: {
+            valueStyle?: React.CSSProperties;
+            labelTitle?: string;
+            delta?: number;
+            deltaDigits?: number;
+            deltaSuffix?: string;
+            higherIsBetter?: boolean;
+            showDelta?: boolean;
+        },
+    ) => {
+        const {
+            valueStyle,
+            labelTitle,
+            delta,
+            deltaDigits = 1,
+            deltaSuffix = '',
+            higherIsBetter = true,
+            showDelta = false,
+        } = options ?? {};
+
+        return (
+            <div style={{ textAlign: 'center', minWidth: 0 }}>
+                {renderStatLabel(label, labelTitle)}
+                <div style={{ fontWeight: 'bold', ...valueStyle }}>{value}</div>
+                {showDelta && overallBaseline && delta != null && Number.isFinite(delta) && (
+                    <div
+                        title={deltaTooltip}
+                        style={{
+                            fontSize: '9px',
+                            fontWeight: 'bold',
+                            color: getPerformanceDeltaColor(delta, higherIsBetter),
+                            marginTop: '2px',
+                            lineHeight: 1.2,
+                        }}
+                    >
+                        {formatSignedDelta(delta, deltaDigits, deltaSuffix)}
+                    </div>
+                )}
+            </div>
+        );
+    };
 
     const renderLegendPodium = (legends: string[]) => {
         if (!legends.length) return null;
@@ -2822,24 +2970,89 @@ const TeammatesView = ({ data, profileUid, profileName }: { data: MatchHistory[]
         );
     };
 
+    const renderTableStatWithComparison = (
+        value: React.ReactNode,
+        options: {
+            padding?: string;
+            valueStyle?: React.CSSProperties;
+            showDelta: boolean;
+            delta?: number;
+            deltaDigits: number;
+            higherIsBetter?: boolean;
+            deltaSuffix?: string;
+            borderLeft?: boolean;
+        },
+    ) => {
+        const {
+            padding = '12px 20px',
+            valueStyle,
+            showDelta,
+            delta,
+            deltaDigits,
+            higherIsBetter = true,
+            deltaSuffix = '',
+            borderLeft = false,
+        } = options;
+
+        const badge = showDelta && overallBaseline && delta != null && Number.isFinite(delta)
+            ? formatVsAverageBadge(delta, deltaDigits, higherIsBetter, deltaSuffix)
+            : null;
+
+        return (
+            <td style={{
+                padding,
+                textAlign: 'center',
+                borderLeft: borderLeft ? '2px solid var(--color-border)' : undefined,
+            }}>
+                <div style={{ fontWeight: 'bold', ...valueStyle }}>{value}</div>
+                {badge && (
+                    <div
+                        title={deltaTooltip}
+                        style={{
+                            fontSize: '10px',
+                            fontWeight: 'bold',
+                            marginTop: '2px',
+                            lineHeight: 1.2,
+                            color: badge.color,
+                        }}
+                    >
+                        {badge.label}
+                    </div>
+                )}
+            </td>
+        );
+    };
+
     return (
         <div style={{ animation: 'fadeIn 0.5s' }}>
+            <style>{MARQUEE_OVERFLOW_KEYFRAMES}</style>
             <div style={{ marginBottom: '20px', padding: '10px 14px', borderRadius: '8px', background: 'rgba(255,255,255,0.03)', border: '1px solid var(--color-border)', fontSize: '12px', color: 'var(--color-text-muted)', lineHeight: 1.5 }}>
                 {t('statistics.teammates.statsDisclaimer')}
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '20px', marginBottom: '30px' }}>
-                {top3.map((tm, i) => (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: '20px', marginBottom: '30px', alignItems: 'stretch' }}>
+                {top3.map((tm, i) => {
+                    const showDelta = tm.games >= MIN_GAMES_FOR_TEAMMATE_DELTA;
+                    const tmWinRate = parseFloat(tm.winRate);
+
+                    return (
                     <div key={tm.id} style={{
                         background: i === 0 ? `linear-gradient(135deg, var(--color-warning-hover) 0%, var(--color-bg-card) 100%)` : 'var(--color-bg-card)',
                         borderRadius: '12px', border: `1px solid ${i === 0 ? 'var(--color-warning)' : 'var(--color-border)'}`,
-                        padding: '20px', position: 'relative', overflow: 'hidden',
+                        padding: '20px', position: 'relative', minWidth: 0, overflow: 'hidden',
                         boxShadow: i === 0 ? '0 0 15px rgba(230, 126, 34, 0.3)' : 'none'
                     }}>
-                        <div style={{ fontSize: '12px', color: 'var(--color-text-dim)', marginBottom: '5px' }}>
+                        <div style={{ fontSize: '12px', color: 'var(--color-text-dim)', marginBottom: '5px', lineHeight: 1.35, wordBreak: 'keep-all', minHeight: '32px' }}>
                             {i === 0 ? t('statistics.teammates.mostPlayed') : t('statistics.teammates.pick', { rank: i + 1 })}
                         </div>
-                        <div style={{ fontSize: '18px', fontWeight: '900', color: 'var(--color-text-primary)', marginBottom: '4px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={tm.name}>
-                            {tm.name}
+                        <div style={{ height: '24px', marginBottom: '4px', minWidth: 0 }}>
+                            <MarqueeOverflowText
+                                text={tm.name}
+                                textStyle={{
+                                    fontSize: '18px',
+                                    fontWeight: 900,
+                                    color: 'var(--color-text-primary)',
+                                }}
+                            />
                         </div>
                         {tm.uid && (
                             <div style={{ fontSize: '10px', color: 'var(--color-text-faint)', marginBottom: '8px', fontFamily: 'monospace' }} title={tm.uid}>
@@ -2857,33 +3070,83 @@ const TeammatesView = ({ data, profileUid, profileName }: { data: MatchHistory[]
                                 {t('statistics.teammates.myStatsWhenTogether')}
                             </div>
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, minmax(0, 1fr))', gap: '4px', fontSize: '12px' }}>
-                            <div style={{ textAlign: 'center', minWidth: 0 }}>{renderStatLabel(t('statistics.teammates.matches'))}<div style={{ fontWeight: 'bold' }}>{tm.games}</div></div>
-                            <div style={{ textAlign: 'center', minWidth: 0 }}>{renderStatLabel(t('statistics.teammates.kd'))}<div style={{ fontWeight: 'bold', color: 'var(--color-warning)' }}>{tm.kd}</div></div>
-                            <div style={{ textAlign: 'center', minWidth: 0 }}>{renderStatLabel(t('statistics.teammates.kad'))}<div style={{ fontWeight: 'bold', color: '#54a0ff' }}>{tm.kda}</div></div>
-                            <div style={{ textAlign: 'center', minWidth: 0 }}>{renderStatLabel(t('statistics.teammates.winPercent'))}<div style={{ fontWeight: 'bold', color: 'var(--color-text-primary)' }}>{tm.winRate}</div></div>
-                            <div style={{ textAlign: 'center', minWidth: 0 }}>{renderStatLabel(t('statistics.teammates.avgDamageShort'), t('statistics.teammates.avgDamage'))}<div style={{ fontWeight: 'bold', color: '#e056fd' }}>{tm.avgDamage}</div></div>
+                            {renderStatCell(t('statistics.teammates.matches'), tm.games)}
+                            {renderStatCell(t('statistics.teammates.kd'), tm.kd, {
+                                valueStyle: { color: 'var(--color-warning)' },
+                                showDelta,
+                                delta: overallBaseline ? tm.kd - overallBaseline.kd : undefined,
+                                deltaDigits: 2,
+                            })}
+                            {renderStatCell(t('statistics.teammates.kad'), tm.kda, {
+                                valueStyle: { color: '#54a0ff' },
+                                showDelta,
+                                delta: overallBaseline ? tm.kda - overallBaseline.kda : undefined,
+                                deltaDigits: 2,
+                            })}
+                            {renderStatCell(t('statistics.teammates.winPercent'), `${tm.winRate}%`, {
+                                valueStyle: { color: 'var(--color-text-primary)' },
+                                showDelta,
+                                delta: overallBaseline ? tmWinRate - overallBaseline.winRate : undefined,
+                                deltaDigits: 1,
+                                deltaSuffix: '%p',
+                            })}
+                            {renderStatCell(t('statistics.teammates.avgDamageShort'), tm.avgDamage, {
+                                valueStyle: { color: '#e056fd' },
+                                labelTitle: t('statistics.teammates.avgDamage'),
+                                showDelta,
+                                delta: overallBaseline ? tm.avgDamage - overallBaseline.avgDamage : undefined,
+                                deltaDigits: 0,
+                            })}
                             </div>
                         </div>
                     </div>
-                ))}
+                    );
+                })}
                 {top3.length === 0 && <div style={{ gridColumn: 'span 3' }}><EmptyState msg={t('statistics.teammates.noTeammateData')} /></div>}
             </div>
 
             <div style={{ background: 'var(--color-bg-sub-header)', borderRadius: '12px', overflow: 'hidden', border: '1px solid var(--color-border)' }}>
                 <div style={{ padding: '15px 20px', borderBottom: '1px solid var(--color-border)', background: 'var(--color-bg-table-header)' }}>
                     <h4 style={{ margin: 0, color: 'var(--color-text-secondary)', fontSize: '14px' }}>{t('statistics.teammates.detailedStatsTitle')}</h4>
-                    <div style={{ fontSize: '11px', color: 'var(--color-text-primary)', marginTop: '4px', fontWeight: 'bold' }}>{t('statistics.teammates.myStatsWhenTogether')}</div>
-                    <div style={{ fontSize: '10px', color: 'var(--color-text-faint)', marginTop: '2px' }}>{t('statistics.teammates.teammatePicksHint')}</div>
+                    <div style={{ fontSize: '10px', color: 'var(--color-text-faint)', marginTop: '4px' }}>{t('statistics.teammates.teammatePicksHint')}</div>
                 </div>
                 <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
                     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }}>
                         <thead style={{ position: 'sticky', top: 0, background: 'var(--color-bg-table-header)', zIndex: 1 }}>
+                            <tr style={{ color: 'var(--color-text-primary)', fontSize: '10px', borderBottom: '1px solid var(--color-border)' }}>
+                                <th
+                                    colSpan={2}
+                                    style={{
+                                        padding: '8px 20px',
+                                        fontWeight: 'bold',
+                                        letterSpacing: '0.05em',
+                                        textTransform: 'uppercase',
+                                        textAlign: 'center',
+                                    }}
+                                >
+                                    {t('statistics.teammates.teammateColumnGroup')}
+                                </th>
+                                <th
+                                    colSpan={6}
+                                    style={{
+                                        padding: '8px 20px',
+                                        fontWeight: 'bold',
+                                        letterSpacing: '0.05em',
+                                        textTransform: 'uppercase',
+                                        textAlign: 'center',
+                                        borderLeft: '2px solid var(--color-border)',
+                                        background: 'rgba(255,255,255,0.02)',
+                                    }}
+                                >
+                                    {t('statistics.teammates.myStatsColumnGroup')}
+                                </th>
+                            </tr>
                             <tr style={{ color: 'var(--color-text-muted)', fontSize: '11px', borderBottom: '1px solid var(--color-border)' }}>
                                 <th style={{ ...mainTableHeadCellStyle, width: '50px' }}>{t('statistics.teammates.rank')}</th>
                                 <SortableTh column="name" sortState={teammateSort} onSort={(col) => setTeammateSort((prev) => toggleTableSort(prev, col))} style={mainTableHeadCellStyle}>
                                     {t('statistics.teammates.teammate')}
                                 </SortableTh>
-                                <SortableTh column="games" sortState={teammateSort} onSort={(col) => setTeammateSort((prev) => toggleTableSort(prev, col))} style={{ ...mainTableHeadCellStyle, textAlign: 'center' }}>
+                                <SortableTh column="games" sortState={teammateSort} onSort={(col) => setTeammateSort((prev) => toggleTableSort(prev, col))} style={{ ...mainTableHeadCellStyle, textAlign: 'center', borderLeft: '2px solid var(--color-border)' }}>
                                     {t('statistics.teammates.matches')}
                                 </SortableTh>
                                 <SortableTh column="winRate" sortState={teammateSort} onSort={(col) => setTeammateSort((prev) => toggleTableSort(prev, col))} style={{ ...mainTableHeadCellStyle, textAlign: 'center' }}>
@@ -2911,26 +3174,102 @@ const TeammatesView = ({ data, profileUid, profileName }: { data: MatchHistory[]
                             </tr>
                         </thead>
                         <tbody>
-                            {sortedTeammateStats.map((tm, i) => (
+                            {overallBaseline && (
+                                <tr style={{ background: 'rgba(84, 160, 255, 0.06)', borderBottom: '2px solid var(--color-border)' }}>
+                                    <td style={{ padding: '12px 20px', textAlign: 'center', color: 'var(--color-text-faint)', fontWeight: 'bold' }}>—</td>
+                                    <td style={{ padding: '12px 20px', fontWeight: 'bold', color: 'var(--color-text-secondary)', fontSize: '12px' }}>
+                                        {t('statistics.teammates.overallBaselineRowLabel')}
+                                    </td>
+                                    <td style={{ padding: '12px 20px', textAlign: 'center', color: 'var(--color-text-dim)', fontWeight: 'bold', borderLeft: '2px solid var(--color-border)' }}>
+                                        {overallBaseline.games}
+                                    </td>
+                                    <td style={{ padding: '12px 20px', textAlign: 'center', fontWeight: 'bold', color: 'var(--color-text-muted)' }}>
+                                        {overallBaseline.winRate.toFixed(1)}%
+                                    </td>
+                                    <td style={{ padding: '12px 20px', textAlign: 'center', fontWeight: 'bold', color: 'var(--color-warning)' }}>
+                                        {overallBaseline.kd.toFixed(2)}
+                                    </td>
+                                    <td style={{ padding: '12px 20px', textAlign: 'center', fontWeight: 'bold', color: '#54a0ff' }}>
+                                        {overallBaseline.kda.toFixed(2)}
+                                    </td>
+                                    <td style={{ padding: '12px 20px', textAlign: 'center', fontWeight: 'bold', color: getAvgPlacementColor(overallBaseline.avgPlacement) }}>
+                                        #{overallBaseline.avgPlacement.toFixed(1)}
+                                    </td>
+                                    <td style={{ padding: '12px 20px', textAlign: 'center', fontWeight: 'bold', color: '#e056fd' }}>
+                                        {overallBaseline.avgDamage}
+                                    </td>
+                                </tr>
+                            )}
+                            {sortedTeammateStats.map((tm, i) => {
+                                const showDelta = tm.games >= MIN_GAMES_FOR_TEAMMATE_DELTA;
+                                const tmWinRate = parseFloat(tm.winRate);
+                                const tmKd = parseFloat(String(tm.kd));
+                                const tmKda = parseFloat(String(tm.kda));
+                                const tmAvgPlacement = parseFloat(tm.avgPlacement);
+
+                                return (
                                 <tr key={tm.id} style={{ borderBottom: '1px solid var(--color-bg-card-hover)' }} onMouseEnter={e => e.currentTarget.style.background = 'var(--color-bg-card-hover)'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
                                     <td style={{ padding: '12px 20px', color: 'var(--color-text-faint)', fontWeight: 'bold' }}>#{i + 1}</td>
-                                    <td style={{ padding: '12px 20px', display: 'flex', alignItems: 'center', color: 'var(--color-text-dim)', fontWeight: 'bold' }}>
-                                        <div style={{ width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,255,255,0.05)', borderRadius: '50%', marginRight: '12px', overflow: 'hidden' }}>
-                                            {renderAvatar(tm.legend, 32)}
-                                        </div>
-                                        <div>
-                                            <div>{tm.name}</div>
-                                            {tm.uid && <div style={{ fontSize: '10px', color: 'var(--color-text-faint)', fontWeight: 'normal', fontFamily: 'monospace' }}>{tm.uid.length > 20 ? `${tm.uid.slice(0, 20)}…` : tm.uid}</div>}
+                                    <td style={{ padding: '12px 20px', maxWidth: '200px' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
+                                            <div style={{ width: '36px', height: '36px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,255,255,0.05)', borderRadius: '50%', overflow: 'hidden' }}>
+                                                {renderAvatar(tm.legend, 32)}
+                                            </div>
+                                            <div style={{ minWidth: 0, flex: 1 }}>
+                                                <div style={{ height: '18px' }}>
+                                                    <MarqueeOverflowText
+                                                        text={tm.name}
+                                                        textStyle={{ fontWeight: 'bold', color: 'var(--color-text-dim)' }}
+                                                    />
+                                                </div>
+                                                {tm.uid && (
+                                                    <div style={{ fontSize: '10px', color: 'var(--color-text-faint)', fontWeight: 'normal', fontFamily: 'monospace' }}>
+                                                        {tm.uid.length > 20 ? `${tm.uid.slice(0, 20)}…` : tm.uid}
+                                                    </div>
+                                                )}
+                                            </div>
                                         </div>
                                     </td>
-                                    <td style={{ padding: '12px 20px', textAlign: 'center', color: 'var(--color-text-dim)' }}>{tm.games}</td>
-                                    <td style={{ padding: '12px 20px', textAlign: 'center', fontWeight: 'bold', color: parseFloat(tm.winRate) >= 10 ? '#4ade80' : 'var(--color-text-muted)' }}>{tm.winRate}%</td>
-                                    <td style={{ padding: '12px 20px', textAlign: 'center', fontWeight: 'bold', color: 'var(--color-warning)' }}>{tm.kd}</td>
-                                    <td style={{ padding: '12px 20px', textAlign: 'center', fontWeight: 'bold', color: '#54a0ff' }}>{tm.kda}</td>
-                                    <AvgPlacementCell value={tm.avgPlacement} padding="12px 20px" />
-                                    <td style={{ padding: '12px 20px', textAlign: 'center', fontWeight: 'bold', color: '#e056fd' }}>{tm.avgDamage}</td>
+                                    {renderTableStatWithComparison(tm.games, {
+                                        showDelta: false,
+                                        deltaDigits: 0,
+                                        borderLeft: true,
+                                        valueStyle: { color: 'var(--color-text-dim)' },
+                                    })}
+                                    {renderTableStatWithComparison(`${tm.winRate}%`, {
+                                        showDelta,
+                                        delta: overallBaseline ? tmWinRate - overallBaseline.winRate : undefined,
+                                        deltaDigits: 1,
+                                        valueStyle: { color: tmWinRate >= 10 ? '#4ade80' : 'var(--color-text-muted)' },
+                                    })}
+                                    {renderTableStatWithComparison(tm.kd, {
+                                        showDelta,
+                                        delta: overallBaseline ? tmKd - overallBaseline.kd : undefined,
+                                        deltaDigits: 2,
+                                        valueStyle: { color: 'var(--color-warning)' },
+                                    })}
+                                    {renderTableStatWithComparison(tm.kda, {
+                                        showDelta,
+                                        delta: overallBaseline ? tmKda - overallBaseline.kda : undefined,
+                                        deltaDigits: 2,
+                                        valueStyle: { color: '#54a0ff' },
+                                    })}
+                                    {renderTableStatWithComparison(`#${tm.avgPlacement}`, {
+                                        showDelta,
+                                        delta: overallBaseline ? tmAvgPlacement - overallBaseline.avgPlacement : undefined,
+                                        deltaDigits: 1,
+                                        higherIsBetter: false,
+                                        valueStyle: { color: getAvgPlacementColor(tm.avgPlacement) },
+                                    })}
+                                    {renderTableStatWithComparison(tm.avgDamage, {
+                                        showDelta,
+                                        delta: overallBaseline ? tm.avgDamage - overallBaseline.avgDamage : undefined,
+                                        deltaDigits: 0,
+                                        valueStyle: { color: '#e056fd' },
+                                    })}
                                 </tr>
-                            ))}
+                                );
+                            })}
                         </tbody>
                     </table>
                     {teammateStats.length === 0 && <div style={{ padding: '40px', textAlign: 'center', color: 'var(--color-text-faint)', fontSize: '12px' }}>{t('statistics.teammates.noTeammateData')}</div>}
@@ -2941,18 +3280,28 @@ const TeammatesView = ({ data, profileUid, profileName }: { data: MatchHistory[]
 };
 
 interface StatisticsTabProps {
-    history: MatchHistory[];
     isPremium: boolean;
     selectedSeasonId: number;
     seasons: Season[];
     profileUid?: string | null;
     profileName?: string | null;
+    statsRefreshToken?: number;
 }
 
-const StatisticsTab: React.FC<StatisticsTabProps> = ({ history, isPremium, selectedSeasonId, seasons, profileUid, profileName }) => {
+const StatisticsTab: React.FC<StatisticsTabProps> = ({
+    isPremium,
+    selectedSeasonId,
+    seasons,
+    profileUid,
+    profileName,
+    statsRefreshToken = 0,
+}) => {
     const { t } = useTranslation();
     const [activeSubTab, setActiveSubTab] = useState<'OVERVIEW' | 'MAPS' | 'LEGENDS' | 'WEAPONS' | 'TEAMMATES'>('OVERVIEW');
-    const [selectedMode, setSelectedMode] = useState<'ALL' | 'RANKED' | 'TRIO' | 'DUO'>('ALL');
+    const [selectedMode, setSelectedMode] = useState<StatisticsMode>('ALL');
+    const [serverMatches, setServerMatches] = useState<MatchHistory[]>([]);
+    const [serverMatchCount, setServerMatchCount] = useState(0);
+    const [serverStatsLoading, setServerStatsLoading] = useState(false);
 
     // ✅ 객체 맵으로 정리
     const TAB_LABELS: Record<string, string> = {
@@ -2970,29 +3319,59 @@ const StatisticsTab: React.FC<StatisticsTabProps> = ({ history, isPremium, selec
         DUO: t('statistics.modes.duo'),
     };
 
-    const filteredHistory = useMemo(() => {
-        const currentSeason = seasons.find((s: Season) => s.id === selectedSeasonId);
-        const nextSeason = seasons.find((s: Season) => s.id === selectedSeasonId + 1);
-        if (!currentSeason) return [];
-        const seasonStart = currentSeason.startTime ?? 0;
-        const seasonEnd = nextSeason?.startTime ?? Infinity;
-        let result = history.filter(match => {
-            const matchTime = (match as any).startTime || (match as any).endTime || 0;
-            if (matchTime === 0) return true;
-            return matchTime >= seasonStart && matchTime < seasonEnd;
-        });
-        result = result.filter(match => {
-            return matchesStatisticsMode((match as any).mode, selectedMode);
-        });
-        return result;
-    }, [history, selectedMode, selectedSeasonId]);
+    useEffect(() => {
+        if (!profileUid) {
+            setServerMatches([]);
+            setServerMatchCount(0);
+            return;
+        }
+
+        let cancelled = false;
+        setServerStatsLoading(true);
+        fetchPlayerStats(profileUid, selectedSeasonId, selectedMode)
+            .then((response) => {
+                if (cancelled) return;
+                if (!response) {
+                    setServerMatchCount(0);
+                    setServerMatches([]);
+                    return;
+                }
+                setServerMatchCount(response.match_count ?? 0);
+                setServerMatches(normalizeHistoryForFrontend(response.payload?.matches ?? []) as MatchHistory[]);
+            })
+            .finally(() => {
+                if (!cancelled) setServerStatsLoading(false);
+            });
+
+        return () => {
+            cancelled = true;
+        };
+    }, [profileUid, selectedSeasonId, selectedMode, statsRefreshToken]);
 
     const statsHistory = useMemo(
-        () => filteredHistory.filter(m => isKnownLegend(m.legend)),
-        [filteredHistory]
+        () => serverMatches.filter(m => isKnownLegend(m.legend)),
+        [serverMatches],
     );
 
     const renderContent = () => {
+        if (serverStatsLoading) {
+            return (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '60px 20px', color: 'var(--color-text-muted)', gap: '12px' }}>
+                    <FaSync className="spin-animation" size={22} />
+                    <span style={{ fontSize: '13px', fontWeight: 'bold' }}>{t('statistics.loadingServerStats', { defaultValue: 'Loading season statistics…' })}</span>
+                </div>
+            );
+        }
+
+        if (statsHistory.length === 0) {
+            return (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '60px 20px', color: 'var(--color-text-faint)', gap: '8px', border: '2px dashed var(--color-border)', borderRadius: '10px' }}>
+                    <FaInfoCircle size={18} />
+                    <span style={{ fontSize: '13px' }}>{t('statistics.noServerStats', { defaultValue: 'No ranked statistics for this season yet.' })}</span>
+                </div>
+            );
+        }
+
         const isContentLocked = !isPremium && activeSubTab !== 'OVERVIEW';
 
         const lockTitles: Record<string, string> = {
@@ -3085,6 +3464,12 @@ const StatisticsTab: React.FC<StatisticsTabProps> = ({ history, isPremium, selec
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '15px', color: 'var(--color-text-faint)', fontSize: '11px', fontStyle: 'italic', gap: '5px', alignItems: 'center' }}>
                 <FaHistory /> {t('statistics.showingStatsFor')} <span style={{ color: COLORS.NEON_ORANGE, fontWeight: 'bold' }}>{seasons.find(s => s.id === selectedSeasonId)?.name}</span> ({selectedMode === 'ALL' ? t('statistics.allBrModes') : selectedMode})
+                {serverStatsLoading && <FaSync className="spin-animation" size={10} />}
+                {!serverStatsLoading && serverMatchCount > 0 && (
+                    <span style={{ color: 'var(--color-text-muted)', fontStyle: 'normal' }}>
+                        · {serverMatchCount.toLocaleString()} {t('statistics.serverMatchCount', { defaultValue: 'matches' })}
+                    </span>
+                )}
             </div>
 
             {isPremium && (

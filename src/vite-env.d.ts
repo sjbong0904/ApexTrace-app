@@ -28,7 +28,11 @@ declare global {
             getIdentityState: () => { state: string; candidates: any[] | null };
             activeMatch?: Match | null;
             searchUser: (query: string, skipDb?: boolean) => Promise<any>;
-            getUserDetail: (uid: string) => Promise<any>;
+            getUserDetail: (
+                uid: string,
+                cachedProfile?: User | null,
+                options?: { preloadedHistory?: unknown[] | Promise<unknown[]> },
+            ) => Promise<any>;
             lockProfile: (uid: string) => void;
             resetIdentity: () => void;
             processWorkerResult: (result: any) => Promise<void>;

@@ -1,5 +1,7 @@
 # Match Storage V2
 
+> **Note:** For the target architecture (summary/detail split, server-side season stats, seasons SSOT), see **[match-data-architecture-v3.md](./match-data-architecture-v3.md)**. This document remains the reference for the v2 `public.matches` column layout and legacy frontend contract.
+
 This document describes the normalized match storage rollout for ApexTrace.
 
 ## Goals

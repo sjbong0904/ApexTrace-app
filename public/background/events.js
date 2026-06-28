@@ -54,13 +54,12 @@ const applyTabsToMatch = (match, tabsRaw) => {
     const tabs = parseTabsPayload(tabsRaw);
     if (!match || !tabs) return;
     if (tabs.teams) {
-        const teams = parseInt(tabs.teams, 10);
-        if (!isNaN(teams) && teams > 0) {
-            match._lastTeamsAlive = teams;
-            if (teams < (match._guessedRank || 20)) match._guessedRank = teams;
-            if (match._squadEliminated && (match.placement === 20 || match.placement === 0)) {
-                match.placement = Math.min(20, teams + 1);
-                match._estimatedPlacement = match.placement;
+        const teams = window.Utils?.trackMinTeamsAlive?.(match, tabs.teams);
+        if (teams && canEstimatePlacementFromTabs(match) && (match.placement === 20 || match.placement === 0)) {
+            const estimate = estimatePlacementFromTabs(match, teams);
+            if (estimate) {
+                match.placement = estimate;
+                match._estimatedPlacement = estimate;
             }
         }
     }
@@ -76,7 +75,7 @@ const applyMatchSummaryToMatch = (match, raw) => {
     const summary = parseTabsPayload(raw);
     if (!match || !summary) return false;
     const rank = parseInt(summary.rank, 10);
-    if (!isNaN(rank) && rank > 0 && rank <= 20) {
+    if (!isNaN(rank) && rank > 0) {
         match.placement = rank;
         match._guessedRank = rank;
         match._matchSummaryRank = rank;
@@ -86,58 +85,63 @@ const applyMatchSummaryToMatch = (match, raw) => {
     return !!match._matchSummaryRank;
 };
 
-const syncTeamRosterFromInfo = (matchInfo, match) => {
-    if (!matchInfo || !match) return;
-    if (!match._teamStates) match._teamStates = {};
-
-    Object.keys(matchInfo).forEach((key) => {
-        if (!key.startsWith('roster_')) return;
-        const raw = matchInfo[key];
-        if (!raw || raw === 'null') return;
-        try {
-            const player = typeof raw === 'string' ? JSON.parse(raw) : raw;
-            if (!player || player.team_id == null) return;
-            const teamId = String(player.team_id);
-            const isMine = player.isTeammate === true || player.isTeammate === '1'
-                || player.is_local === true || player.is_local === '1';
-            const state = String(player.state || 'alive').toLowerCase();
-            const isAlive = state !== 'death';
-            if (!match._teamStates[teamId]) match._teamStates[teamId] = { alive: false, isMine: false };
-            if (isMine) match._teamStates[teamId].isMine = true;
-            if (isAlive) match._teamStates[teamId].alive = true;
-        } catch (e) {}
-    });
+/** tabs.teams 최솟값(_guessedRank) 우선; 없으면 전멸 시점 teams alive + 1 */
+const canEstimatePlacementFromTabs = (match) => {
+    if (!match || match._isVictory || match._matchSummaryRank) return false;
+    if (match._squadEliminated) return true;
+    return isEliminated(match);
 };
 
-const estimatePlacementFromTeamStates = (match) => {
-    if (!match?._teamStates) return null;
-    let aliveOtherTeams = 0;
-    Object.values(match._teamStates).forEach((team) => {
-        if (!team.isMine && team.alive) aliveOtherTeams++;
-    });
-    if (aliveOtherTeams <= 0) return null;
-    return Math.min(20, aliveOtherTeams + 1);
+const estimatePlacementFromTabs = (match, teamsAlive = match?._lastTeamsAlive) => {
+    if (!canEstimatePlacementFromTabs(match)) return null;
+    return window.Utils?.estimatePlacementFromTeamsAlive?.(match, teamsAlive) ?? null;
 };
 
 const applyPlacementEstimate = (match) => {
     if (!match || match._isVictory || match._matchSummaryRank) return null;
     if (match.placement > 0 && match.placement < 20) return match.placement;
 
-    const rosterEstimate = estimatePlacementFromTeamStates(match);
-    if (rosterEstimate) {
-        match._estimatedPlacement = rosterEstimate;
-        match.placement = rosterEstimate;
-        return rosterEstimate;
-    }
-
-    if (match._squadEliminated && match._lastTeamsAlive) {
-        const teamsEstimate = Math.min(20, match._lastTeamsAlive + 1);
-        match._estimatedPlacement = teamsEstimate;
-        match.placement = teamsEstimate;
-        return teamsEstimate;
+    const estimate = estimatePlacementFromTabs(match);
+    if (estimate) {
+        match._estimatedPlacement = estimate;
+        match.placement = estimate;
+        return estimate;
     }
 
     return null;
+};
+
+const parseTeamInfoState = (raw) => {
+    const info = parseTabsPayload(raw);
+    if (!info?.team_state) return null;
+    return String(info.team_state).toLowerCase();
+};
+
+const markSquadEliminated = (match, { refreshGep = true } = {}) => {
+    if (!match) return;
+
+    if (!match._squadEliminated) {
+        match._squadEliminated = true;
+        window.CoreController.updateMatch('SET_DEAD', true);
+        match.teamStats?.forEach((teammate) => {
+            if (teammate.state !== 'death') teammate.state = 'death';
+        });
+        ensureDeathCombatLogForPlayer(match);
+    }
+
+    const estimate = applyPlacementEstimate(match);
+
+    if (refreshGep && window.EventRouter?.estimatePlacementFromGep && !match._matchSummaryRank) {
+        window.EventRouter.estimatePlacementFromGep(match);
+    } else if (estimate) {
+        console.log(`[Match] Estimated placement ${estimate} at squad elimination`);
+    }
+};
+
+const handleTeamInfoUpdate = (match, raw) => {
+    if (parseTeamInfoState(raw) === 'eliminated') {
+        markSquadEliminated(match);
+    }
 };
 
 const applyInfoToMatch = (infoRoot, match) => {
@@ -154,7 +158,8 @@ const applyInfoToMatch = (infoRoot, match) => {
 
     applyTabsToMatch(match, info.match_info?.tabs || data.tabs);
     applyMatchSummaryToMatch(match, info.match_info?.match_summary || data.match_summary);
-    syncTeamRosterFromInfo(info.match_info, match);
+
+    if (data.team_info) handleTeamInfoUpdate(match, data.team_info);
 
     if (data.victory === 'true' || data.victory === true) {
         match._isVictory = true;
@@ -162,7 +167,7 @@ const applyInfoToMatch = (infoRoot, match) => {
         match._guessedRank = 1;
     }
 
-    if (match._squadEliminated) {
+    if (match._squadEliminated || isEliminated(match)) {
         applyPlacementEstimate(match);
     }
 
@@ -349,6 +354,14 @@ const EventRouter = {
 
             if (activeMatch && (newPhase === 'loading' || newPhase === 'lobby')) {
                 const duration = Date.now() - activeMatch.startTime;
+                if (isEliminated(activeMatch) && !activeMatch._squadEliminated) {
+                    markSquadEliminated(activeMatch, { refreshGep: false });
+                } else if (
+                    (activeMatch.placement === 20 || activeMatch.placement === 0)
+                    && (activeMatch._squadEliminated || isEliminated(activeMatch))
+                ) {
+                    applyPlacementEstimate(activeMatch);
+                }
                 if (isMatchConcluded(activeMatch) || duration > 120000) {
                     window.CoreController.endMatch();
                 }
@@ -425,12 +438,15 @@ const EventRouter = {
             }
         }
 
+        if (data.team_info) {
+            handleTeamInfoUpdate(activeMatch, data.team_info);
+        }
+
         if (data.totalDamageDealt !== undefined) {
             window.CoreController.updateMatch('DAMAGE_TOTAL', data.totalDamageDealt);
         }
 
         if (activeMatch) {
-            syncTeamRosterFromInfo(info.info?.match_info, activeMatch);
             if (data.match_summary) applyMatchSummaryToMatch(activeMatch, data.match_summary);
             if (data.victory === 'true' || data.victory === true) {
                 window.CoreController.updateMatch('VICTORY', true);
@@ -590,13 +606,7 @@ const EventRouter = {
             } else if (name === 'death') {
                 window.CoreController.updateMatch('SET_DEAD', true);
             } else if (name === 'your_squad_is_eliminated') {
-                window.CoreController.updateMatch('SET_DEAD', true);
-                activeMatch._squadEliminated = true;
-                activeMatch.teamStats?.forEach((teammate) => {
-                    if (teammate.state !== 'death') teammate.state = 'death';
-                });
-                ensureDeathCombatLogForPlayer(activeMatch);
-                window.EventRouter.estimatePlacementFromGep(activeMatch);
+                markSquadEliminated(activeMatch);
             } else if (name === 'healed_from_ko') {
                 window.CoreController.updateMatch('SET_DEAD', false);
                 const selfName = activeMatch.playerName && activeMatch.playerName !== 'Unknown'
@@ -653,7 +663,9 @@ const EventRouter = {
                 }
             }
             if (!match._matchSummaryRank && (match.placement === 20 || match.placement === 0)) {
-                applyPlacementEstimate(match);
+                if (canEstimatePlacementFromTabs(match)) {
+                    applyPlacementEstimate(match);
+                }
             }
         })();
     }

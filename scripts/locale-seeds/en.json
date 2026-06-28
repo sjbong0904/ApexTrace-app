@@ -40,7 +40,18 @@
     "minimize": "Minimize",
     "maximize": "Maximize",
     "restore": "Restore",
-    "close": "Close"
+    "close": "Close",
+    "closeDialog": {
+      "title": "Close ApexTrace?",
+      "description": "Choose whether to hide the window or quit the app completely.",
+      "hideOption": "Hide window (keep background running)",
+      "hideHint": "Match tracking continues. Right-click the ApexTrace icon in the notification area (hidden icons) to reopen.",
+      "quitOption": "Quit completely",
+      "quitHint": "Stops the background process and match tracking.",
+      "dontAskAgain": "Don't ask again",
+      "cancel": "Cancel",
+      "confirm": "Confirm"
+    }
   },
   "favorites": {
     "empty": "No favorite players yet.",
@@ -61,6 +72,7 @@
   },
   "matchDetails": {
     "stats": "Stats",
+    "loadout": "Loadout",
     "loadoutTimeline": "Loadout Timeline",
     "loadoutTimelineDesc": "Weapon changes detected during this match.",
     "noLoadoutTimeline": "No weapon changes recorded for this match.",
@@ -560,7 +572,7 @@
       "maps": "Maps",
       "legends": "Legends",
       "weapons": "Weapons",
-      "teammates": "Teammates"
+      "teammates": "My Stats by Teammate"
     },
     "modes": {
       "all": "All",
@@ -715,25 +727,31 @@
       "kadTooltip": "Your (Kills + Assists) / Deaths ratio in matches played with this teammate.",
       "mostPlayed": "🏆 Most Played With",
       "pick": "#{{rank}}",
-      "matches": "Matches",
-      "kd": "K/D",
-      "kad": "KA/D",
-      "winPercent": "Win%",
-      "avgDamage": "Avg DMG",
-      "avgDamageShort": "DMG",
+      "matches": "My games",
+      "kd": "My K/D",
+      "kad": "My KA/D",
+      "winPercent": "My win%",
+      "avgDamage": "My avg DMG",
+      "avgDamageShort": "My DMG",
       "noTeammateData": "No teammate data yet.",
-      "detailedStatsTitle": "Detailed Teammate Stats",
+      "detailedStatsTitle": "My performance by teammate",
       "rank4Plus": "Top 4+",
       "rank": "Rank",
       "teammate": "Teammate",
-      "winRate": "Win Rate",
+      "winRate": "My win rate",
       "noMoreTeammates": "No more teammates recorded.",
       "unknownTeammate": "Unknown",
-      "statsDisclaimer": "Legend icons show each teammate's picks. All numbers are your personal stats from matches played together.",
+      "statsDisclaimer": "Legend icons show each teammate's picks. All numbers in the table are your personal stats from matches you played together.",
       "teammatePicks": "Teammate's picks",
       "myStatsWhenTogether": "My stats when playing together",
       "teammatePicksHint": "Avatar shows the teammate's most-used legend.",
-      "whenPlayingWith": "When playing with this teammate:"
+      "whenPlayingWith": "When playing with this teammate:",
+      "teammateColumnGroup": "Teammate (picks)",
+      "myStatsColumnGroup": "My stats",
+      "overallBaselineLabel": "Overall average",
+      "overallBaselineSummary": "K/D {{kd}} · {{winRate}}% wins · #{{avgPlacement}} · {{avgDamage}} DMG · {{games}} games",
+      "overallBaselineRowLabel": "My season average",
+      "deltaVsAverage": "Compared to your overall average for this season and mode"
     },
     "premiumLock": {
       "unlockAnalytics": "Unlock {{title}} Analytics",

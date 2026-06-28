@@ -79,6 +79,8 @@ export interface Match {
     }[];
     teammateKills?: Record<string, number>;
     isKillLeader?: boolean;
+    /** Client-only flag: Tier-2 detail fetched and merged */
+    _detailLoaded?: boolean;
 }
 
 export interface User {

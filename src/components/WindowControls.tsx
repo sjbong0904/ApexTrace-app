@@ -2,14 +2,21 @@ import React, { useState, useEffect } from 'react';
 import { FaWindowMinimize, FaWindowMaximize, FaWindowRestore, FaTimes } from 'react-icons/fa';
 import { useTranslation } from 'react-i18next';
 import { c } from '../theme';
+import CloseConfirmDialog from './CloseConfirmDialog';
+import {
+    getClosePreference,
+    requestDesktopClose,
+    saveClosePreference,
+    type CloseAction,
+} from '../utils/closePreference';
 
-// ✅ 공통 유틸로 분리 권장: utils/overwolf.ts
 const getCurrentWindow = (): Promise<any> =>
     new Promise((resolve) => overwolf.windows.getCurrentWindow((r) => resolve(r.window)));
 
 const WindowControls = () => {
-    const { t } = useTranslation(); // ✅ 번역 훅 추가
+    const { t } = useTranslation();
     const [isMaximized, setIsMaximized] = useState(false);
+    const [showCloseDialog, setShowCloseDialog] = useState(false);
 
     useEffect(() => {
         overwolf.windows.getCurrentWindow((result) => {
@@ -40,13 +47,23 @@ const WindowControls = () => {
         isMaximized ? overwolf.windows.restore(win.id) : overwolf.windows.maximize(win.id);
     };
 
-    const handleClose = async () => {
-        const win = await getCurrentWindow();
-        const bg = overwolf.windows.getMainWindow() as typeof window & {
-            WindowController?: { closeWorker?: () => void };
-        };
-        bg?.WindowController?.closeWorker?.();
-        overwolf.windows.close(win.id);
+    const performClose = (action: CloseAction) => {
+        requestDesktopClose(action);
+    };
+
+    const handleClose = () => {
+        const { dontAsk, action } = getClosePreference();
+        if (dontAsk) {
+            performClose(action);
+            return;
+        }
+        setShowCloseDialog(true);
+    };
+
+    const handleCloseConfirm = (action: CloseAction, dontAskAgain: boolean) => {
+        if (dontAskAgain) saveClosePreference(action, true);
+        setShowCloseDialog(false);
+        performClose(action);
     };
 
     const btnStyle: React.CSSProperties = {
@@ -57,39 +74,46 @@ const WindowControls = () => {
     };
 
     return (
-        <div style={{ display: 'flex', height: '100%', WebkitAppRegion: 'no-drag', zIndex: 9999 } as any}>
+        <>
+            <div style={{ display: 'flex', height: '100%', WebkitAppRegion: 'no-drag', zIndex: 9999 } as any}>
+                <button
+                    onClick={handleMinimize}
+                    style={btnStyle}
+                    title={t('controls.minimize')}
+                    onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--color-border)'; e.currentTarget.style.color = 'var(--color-text-primary)'; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--color-text-muted)'; }}
+                >
+                    <FaWindowMinimize size={10} style={{ marginBottom: '5px' }} />
+                </button>
 
-            <button
-                onClick={handleMinimize}
-                style={btnStyle}
-                // ✅ 번역 키 적용
-                title={t('controls.minimize')}
-                onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--color-border)'; e.currentTarget.style.color = 'var(--color-text-primary)'; }}
-                onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--color-text-muted)'; }}
-            >
-                <FaWindowMinimize size={10} style={{ marginBottom: '5px' }} />
-            </button>
+                <button
+                    onClick={handleToggleMaximize}
+                    style={btnStyle}
+                    title={isMaximized ? t('controls.restore') : t('controls.maximize')}
+                    onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--color-border)'; e.currentTarget.style.color = 'var(--color-text-primary)'; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--color-text-muted)'; }}
+                >
+                    {isMaximized ? <FaWindowRestore size={11} /> : <FaWindowMaximize size={11} />}
+                </button>
 
-            <button
-                onClick={handleToggleMaximize}
-                style={btnStyle}
-                title={isMaximized ? t('controls.restore') : t('controls.maximize')}
-                onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--color-border)'; e.currentTarget.style.color = 'var(--color-text-primary)'; }}
-                onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--color-text-muted)'; }}
-            >
-                {isMaximized ? <FaWindowRestore size={11} /> : <FaWindowMaximize size={11} />}
-            </button>
+                <button
+                    onClick={handleClose}
+                    style={btnStyle}
+                    title={t('controls.close')}
+                    onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--color-accent)'; e.currentTarget.style.color = 'var(--color-text-primary)'; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--color-text-muted)'; }}
+                >
+                    <FaTimes size={15} />
+                </button>
+            </div>
 
-            <button
-                onClick={handleClose}
-                style={btnStyle}
-                title={t('controls.close')}
-                onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--color-accent)'; e.currentTarget.style.color = 'var(--color-text-primary)'; }}
-                onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = 'var(--color-text-muted)'; }}
-            >
-                <FaTimes size={15} />
-            </button>
-        </div>
+            {showCloseDialog && (
+                <CloseConfirmDialog
+                    onConfirm={handleCloseConfirm}
+                    onCancel={() => setShowCloseDialog(false)}
+                />
+            )}
+        </>
     );
 };
 

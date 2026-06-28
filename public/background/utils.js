@@ -295,6 +295,26 @@ const Utils = {
         if (["Master", "Apex Predator"].includes(base)) return base;
         return `${base} ${roman}`;
     },
+
+    /** Lowest tabs.teams / TEAMS_ALIVE seen this match (may exceed 20 from GEP). */
+    trackMinTeamsAlive: (match, teamsRaw) => {
+        const teams = parseInt(teamsRaw, 10);
+        if (!match || isNaN(teams) || teams <= 0) return null;
+        match._lastTeamsAlive = teams;
+        if (match._guessedRank == null || teams < match._guessedRank) {
+            match._guessedRank = teams;
+        }
+        return teams;
+    },
+
+    /** tabs.teams minimum first; otherwise last alive teams + 1. */
+    estimatePlacementFromTeamsAlive: (match, teamsAlive = match?._lastTeamsAlive) => {
+        const minTeams = parseInt(match?._guessedRank, 10);
+        if (!isNaN(minTeams) && minTeams > 0) return minTeams;
+        const teams = parseInt(teamsAlive, 10);
+        if (!isNaN(teams) && teams > 0) return teams + 1;
+        return null;
+    },
 };
 
 window.Utils = Utils;

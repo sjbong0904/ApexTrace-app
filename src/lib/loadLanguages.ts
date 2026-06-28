@@ -1,9 +1,10 @@
 import i18n from 'i18next';
 import { supabase } from './supabase';
 
-const CACHE_KEY = 'languages_cache_v2';
+const CACHE_KEY = 'languages_cache_v3';
 
 type LanguageRow = { lang: string; strings: Record<string, unknown>; version?: number };
+type LanguageVersionRow = { lang: string; version: number | null };
 
 function applyBundles(rows: LanguageRow[]) {
     for (const row of rows) {
@@ -26,26 +27,64 @@ function readCache(): LanguageRow[] | null {
     }
 }
 
-/** Supabase languages 테이블에서 번역 로드 (실패 시 localStorage 캐시) */
-export async function loadRemoteLanguages(): Promise<void> {
-    let rows: LanguageRow[] | null = null;
+async function fetchRemoteVersions(): Promise<LanguageVersionRow[] | null> {
+    try {
+        const { data, error } = await supabase
+            .from('languages')
+            .select('lang, version')
+            .eq('is_active', true);
 
+        if (error || !data?.length) return null;
+        return data as LanguageVersionRow[];
+    } catch {
+        return null;
+    }
+}
+
+function isCacheFresh(cached: LanguageRow[], versions: LanguageVersionRow[]): boolean {
+    if (cached.length !== versions.length) return false;
+
+    return versions.every((remote) => {
+        const cachedRow = cached.find((row) => row.lang === remote.lang);
+        if (!cachedRow?.strings) return false;
+        const cachedVersion = cachedRow.version ?? null;
+        if (cachedVersion == null || remote.version == null) return false;
+        return cachedVersion === remote.version;
+    });
+}
+
+async function fetchFullLanguageRows(): Promise<LanguageRow[] | null> {
     try {
         const { data, error } = await supabase
             .from('languages')
             .select('lang, strings, version')
             .eq('is_active', true);
 
-        if (!error && data?.length) {
-            rows = data as LanguageRow[];
-            localStorage.setItem(CACHE_KEY, JSON.stringify(rows));
-        }
-    } catch (e) {
-        console.warn('[i18n] Remote languages fetch failed:', e);
+        if (error || !data?.length) return null;
+        return data as LanguageRow[];
+    } catch {
+        return null;
+    }
+}
+
+/** Supabase languages 테이블에서 번역 로드 (버전 동일 시 캐시만 사용) */
+export async function loadRemoteLanguages(): Promise<void> {
+    const cached = readCache();
+    const remoteVersions = await fetchRemoteVersions();
+
+    if (cached && remoteVersions && isCacheFresh(cached, remoteVersions)) {
+        applyBundles(cached);
+        await i18n.changeLanguage(i18n.language);
+        return;
+    }
+
+    let rows: LanguageRow[] | null = await fetchFullLanguageRows();
+    if (rows?.length) {
+        localStorage.setItem(CACHE_KEY, JSON.stringify(rows));
     }
 
     if (!rows?.length) {
-        rows = readCache();
+        rows = cached;
         if (rows?.length) {
             console.warn('[i18n] Using cached translations (offline or DB unavailable)');
         }

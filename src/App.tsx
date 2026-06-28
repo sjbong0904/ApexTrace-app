@@ -20,15 +20,16 @@ import SettingsTab from './components/SettingsTab';
 import { startTutorial } from './utils/tutorial';
 import WindowControls from './components/WindowControls';
 import { LocalDB } from './utils/LocalDB';
-import { normalizeHistoryForFrontend } from './utils/matchNormalizer';
+import { normalizeHistoryForFrontend, normalizeMatchForFrontend } from './utils/matchNormalizer';
+import { hasMatchDetail, mergeMatchDetail, markMatchDetailLoaded } from './utils/matchDetail';
+import { invalidatePlayerStatsCache } from './utils/playerStatsApi';
 import {
-    clearArchiveSyncState,
     getOldestMatchTime,
-    INITIAL_ARCHIVE_SYNC_TARGET,
     isArchiveFullySynced,
     markArchiveFullySynced,
     MATCH_SAVED_MESSAGE,
     mergeAndSortHistory,
+    preferRicherMatch,
     type MatchSavedPayload,
     withLiveMatchProtection,
 } from './utils/historySync';
@@ -136,6 +137,9 @@ const App = () => {
     const [user, setUser] = useState<User>({ name: t('search.defaultName'), level: 0, prestige: 0, rankName: '-', rankScore: 0, legend: 'unknown', avatar: null, uid: null });
     const [selectedSeasonId, setSelectedSeasonId] = useState<number>(FALLBACK_SEASONS[0].id);
     const [expandedMatchIds, setExpandedMatchIds] = useState<string[]>([]);
+    const [loadingDetailMatchId, setLoadingDetailMatchId] = useState<string | null>(null);
+    const detailPrefetchRef = useRef<Map<string, Promise<Match | null>>>(new Map());
+    const lazyHistoryFetchInFlightRef = useRef(false);
     const [refreshCooldown, setRefreshCooldown] = useState(0);
     const [isSearching, setIsSearching] = useState(false);
     const [isProfileLoading, setIsProfileLoading] = useState(false);
@@ -144,6 +148,8 @@ const App = () => {
     const [statusMessage, setStatusMessage] = useState("");
     const [isDownloadingArchive, setIsDownloadingArchive] = useState(false);
     const [downloadProgress, setDownloadProgress] = useState(0);
+    const [statsRefreshToken, setStatsRefreshToken] = useState(0);
+    const [isFetchingHistoryPage, setIsFetchingHistoryPage] = useState(false);
     const [currentPage, setCurrentPage] = useState(1);
     const MATCHES_PER_PAGE = 20;
     const [searchResetKey, setSearchResetKey] = useState(0);
@@ -180,7 +186,13 @@ const App = () => {
     const userRef = useRef(user);
     const historyRef = useRef(history);
     const archiveSyncGenerationRef = useRef(0);
+    const profileLoadGenerationRef = useRef(0);
     const historyFlushEnabledRef = useRef(false);
+    const handleSelectUserRef = useRef<(
+        selectedUser: any,
+        skipTabSwitch?: boolean,
+        preloaded?: { data: any; history?: any[] },
+    ) => Promise<void>>(async () => {});
     const [searchCandidates, setSearchCandidates] = useState<any[]>([]); 
     const [showSearchModal, setShowSearchModal] = useState(false);
     const [pinnedUid, setPinnedUid] = useState<string | null>(localStorage.getItem('apex_pinned_uid'));
@@ -206,6 +218,25 @@ const App = () => {
     useEffect(() => { userRef.current = user; }, [user]);
     useEffect(() => { historyRef.current = history; }, [history]);
 
+    const isViewingUid = useCallback((uid: string | null | undefined) => {
+        if (!uid) return false;
+        return String(userRef.current?.uid) === String(uid);
+    }, []);
+
+    const getLocalUid = useCallback((): string | null => {
+        const bg = window.overwolf?.windows?.getMainWindow() as {
+            apexData?: { getLocalUid?: () => string | null };
+            Store?: { system?: { localUser?: { uid?: string | null } } };
+        } | undefined;
+        return bg?.apexData?.getLocalUid?.() ?? bg?.Store?.system?.localUser?.uid ?? null;
+    }, []);
+
+    const isViewingOwnAccount = useMemo(() => {
+        const localUid = getLocalUid();
+        if (!user.uid || !localUid) return false;
+        return String(localUid) === String(user.uid);
+    }, [user.uid, getLocalUid]);
+
     useEffect(() => {
         localStorage.setItem('apex_favorites', JSON.stringify(favorites));
     }, [favorites]);
@@ -230,7 +261,9 @@ const App = () => {
 
         const uniqueMap = new Map<string, any>();
         prev.forEach(m => uniqueMap.set(m.matchId, m));
-        newMatches.forEach((m: any) => uniqueMap.set(m.matchId, m));
+        newMatches.forEach((m: any) => {
+            uniqueMap.set(m.matchId, preferRicherMatch(uniqueMap.get(m.matchId), m));
+        });
 
         return Array.from(uniqueMap.values()).sort((a: any, b: any) =>
             (b.startTime || b.endTime) - (a.startTime || a.endTime)
@@ -257,6 +290,11 @@ const App = () => {
         });
 
         setHistory(prev => mergeHistoryForUser(prev, freshUser, rawHistory, previousUserUid));
+
+        const normalized = normalizeHistoryForFrontend(rawHistory).filter((m) => isSupportedMode(m.mode));
+        if (freshUser?.uid && normalized.length > 0) {
+            void LocalDB.saveMatches(freshUser.uid, normalized);
+        }
 
         if (!options?.skipTabSwitch) {
             setActiveTab("BR");
@@ -285,29 +323,35 @@ const App = () => {
     }, []);
 
     useEffect(() => {
-        if (!user || !user.uid) return;
+        if (!user?.uid || (user.level ?? 0) > 0) return;
+
         const fetchDetail = async () => {
+            const requestUid = userRef.current?.uid;
+            if (!requestUid || (userRef.current?.level ?? 0) > 0) return;
+
+            const loadGeneration = profileLoadGenerationRef.current;
+
             try {
                 const bg = window.overwolf?.windows?.getMainWindow();
-                if (bg && bg.apexData) {
-                    const result = await bg.apexData.getUserDetail(user.uid);
-                    if (result.success) {
-                        applyProfileToUi(result.data, result.history ?? [], { skipTabSwitch: true });
-                    }
+                if (!bg?.apexData) return;
+
+                const result = await bg.apexData.getUserDetail(requestUid);
+                if (loadGeneration !== profileLoadGenerationRef.current) return;
+                if (!isViewingUid(requestUid)) return;
+                if ((userRef.current?.level ?? 0) > 0) return;
+
+                if (result.success) {
+                    applyProfileToUi(result.data, result.history ?? [], { skipTabSwitch: true });
                 }
             } catch (e) {
-                console.error("Auto-fetch failed:", e);
+                console.error('Auto-fetch failed:', e);
             }
         };
 
-        if (user.level === 0) {
-            fetchDetail();
-        }
-
+        void fetchDetail();
         const intervalId = setInterval(fetchDetail, 300000);
         return () => clearInterval(intervalId);
-
-    }, [user.uid, user.level, applyProfileToUi]);
+    }, [user.uid, user.level, applyProfileToUi, isViewingUid]);
 
     const handleTogglePin = () => {
         if (!user || !user.uid) return;
@@ -319,11 +363,6 @@ const App = () => {
             localStorage.setItem('apex_pinned_uid', user.uid);
         }
     };
-
-    useEffect(() => {
-        const savedPin = localStorage.getItem('apex_pinned_uid');
-        if (savedPin) handleSelectUser({ uid: savedPin }, true); 
-    }, []);
 
     const handleToggleFavorite = (arg?: any) => {
         const targetUser = (arg && arg.uid) ? arg : user;
@@ -358,8 +397,26 @@ const App = () => {
             const isViewingLocalAccount = localUid && String(currentUser.uid) === String(localUid);
 
             if (isEmptyProfile || isViewingMyself || isViewingLocalAccount) {
-                if (bgUser.name !== currentUser.name || bgUser.rankScore !== currentUser.rankScore) {
-                    setUser(bgUser);
+                const stillViewingBgUser = !userRef.current?.uid
+                    || String(userRef.current.uid) === String(bgUser.uid);
+                if (stillViewingBgUser) {
+                    setUser((prev) => {
+                        const merged = {
+                            ...prev,
+                            ...bgUser,
+                            uid: bgUser.uid ?? prev.uid,
+                        };
+                        if ((prev.level ?? 0) > (bgUser.level ?? 0)) merged.level = prev.level;
+                        if ((prev.rankScore ?? 0) > (bgUser.rankScore ?? 0)) merged.rankScore = prev.rankScore;
+                        if (
+                            prev.name
+                            && prev.name !== 'Search for a player...'
+                            && (!bgUser.name || bgUser.name === 'Unknown')
+                        ) {
+                            merged.name = prev.name;
+                        }
+                        return merged;
+                    });
                 }
             }
         }
@@ -367,29 +424,20 @@ const App = () => {
         if (typeof bg.apexData.getHistory !== 'function') return;
 
         const historyOwnerUid = bgUser?.uid;
-        const canSyncHistory = currentUser.uid && historyOwnerUid
-            && String(currentUser.uid) === String(historyOwnerUid);
+        const viewingUid = userRef.current?.uid;
+        const canSyncHistory = viewingUid && historyOwnerUid
+            && String(viewingUid) === String(historyOwnerUid);
 
         if (!canSyncHistory) return;
 
         const liveMatches = (bg.apexData.getHistory() || []).filter((m: any) => isSupportedMode(m.mode));
+        if (liveMatches.length === 0) return;
 
-        setHistory(prev => {
-            if (liveMatches.length === 0) return prev;
-
-            if (prev.length > 0 && liveMatches.length > 0 &&
-                prev[0].matchId === liveMatches[0].matchId && prev.length >= liveMatches.length) {
-                return prev;
-            }
-
-            const liveIds = new Set(liveMatches.map((m: any) => m.matchId));
-            const oldMatches = prev.filter(m => !liveIds.has(m.matchId) && isSupportedMode(m.mode));
-
-            const merged = [...liveMatches, ...oldMatches].sort((a: any, b: any) =>
-                (b.startTime || b.endTime) - (a.startTime || a.endTime)
-            );
-            return merged;
-        });
+        setHistory((prev) => withLiveMatchProtection(
+            mergeAndSortHistory(prev, liveMatches),
+            prev,
+            viewingUid,
+        ));
     }, []);
 
     useEffect(() => {
@@ -500,7 +548,29 @@ const App = () => {
         }
     };
 
-    // 🌟 파라미터에 skipTabSwitch = false 추가
+    const stageSelectedUserForLoad = (selectedUser: any) => {
+        if (!selectedUser?.uid) return;
+
+        const previousUserUid = userRef.current?.uid ?? null;
+        const uidChanged = !previousUserUid || String(previousUserUid) !== String(selectedUser.uid);
+        if (uidChanged) {
+            setHistory([]);
+            setExpandedMatchIds([]);
+        }
+
+        setUser((prev) => ({
+            ...prev,
+            uid: selectedUser.uid,
+            name: selectedUser.name ?? prev.name,
+            level: selectedUser.level ?? (uidChanged ? 0 : prev.level),
+            prestige: selectedUser.prestige ?? prev.prestige ?? 0,
+            rankScore: selectedUser.rankScore ?? selectedUser.rank_score ?? (uidChanged ? 0 : prev.rankScore),
+            rankName: selectedUser.rankName ?? selectedUser.rank_name ?? prev.rankName,
+            legend: selectedUser.legend ?? prev.legend ?? 'unknown',
+            avatar: selectedUser.avatar ?? prev.avatar ?? null,
+        }));
+    };
+
     const handleSelectUser = async (
         selectedUser: any,
         skipTabSwitch: boolean = false,
@@ -509,32 +579,65 @@ const App = () => {
         setShowSearchModal(false);
         setIsSearching(true);
         setIsProfileLoading(true);
+        const loadGeneration = ++profileLoadGenerationRef.current;
+
+        stageSelectedUserForLoad(selectedUser);
+
+        if (!skipTabSwitch) {
+            setActiveTab("BR");
+            setMainTab("DASHBOARD");
+        }
 
         let loadedSuccessfully = false;
         try {
             const bg = window.overwolf?.windows?.getMainWindow();
             if (bg && bg.apexData) {
                 if (preloaded?.data) {
-                    applyProfileToUi(preloaded.data, preloaded.history ?? [], { skipTabSwitch });
-                    loadedSuccessfully = true;
+                    if (loadGeneration === profileLoadGenerationRef.current) {
+                        applyProfileToUi(preloaded.data, preloaded.history ?? [], { skipTabSwitch: true });
+                        loadedSuccessfully = true;
+                    }
                     return;
                 }
 
                 console.log("Loading user with backup cache:", selectedUser.name);
-                const result = await bg.apexData.getUserDetail(selectedUser.uid, selectedUser);
+
+                const historyPromise = bg.apexData.fetchUserHistory?.(selectedUser.uid)
+                    ?? Promise.resolve([] as any[]);
+                historyPromise.then((earlyHistory: any[]) => {
+                    if (loadGeneration !== profileLoadGenerationRef.current) return;
+
+                    const normalized = normalizeHistoryForFrontend(earlyHistory ?? [])
+                        .filter((m) => isSupportedMode(m.mode));
+                    if (normalized.length === 0) return;
+
+                    const previousUserUid = userRef.current?.uid ?? null;
+                    setHistory((prev) => mergeHistoryForUser(
+                        prev,
+                        selectedUser,
+                        normalized,
+                        previousUserUid,
+                    ));
+                    void LocalDB.saveMatches(selectedUser.uid, normalized);
+                });
+
+                const result = await bg.apexData.getUserDetail(selectedUser.uid, selectedUser, {
+                    preloadedHistory: historyPromise,
+                });
+
+                if (loadGeneration !== profileLoadGenerationRef.current) return;
                 
                 if (!result.success) {
                     console.error("❌ API request failed.");
                     if (selectedUser && selectedUser.name) {
                         console.log("⚠️ Falling back to selectedUser for UI display.");
-                        const history = await bg.apexData.getHistory();
                         applyProfileToUi({
                             ...selectedUser,
                             level: selectedUser.level || 0,
                             rankScore: selectedUser.rankScore || selectedUser.rank_score || 0,
                             rankName: selectedUser.rankName || selectedUser.rank_name || "Unknown",
                             _source: 'UI_CACHE'
-                        }, normalizeHistoryForFrontend(history), { skipTabSwitch });
+                        }, [], { skipTabSwitch: true });
                         loadedSuccessfully = true;
                         return; 
                     } else {
@@ -556,18 +659,28 @@ const App = () => {
                     }
                 }
 
-                applyProfileToUi(freshUser, result.history ?? [], { skipTabSwitch });
+                applyProfileToUi(freshUser, result.history ?? [], { skipTabSwitch: true });
                 loadedSuccessfully = true;
             }
         } catch (e) {
             console.error("handleSelectUser Error:", e);
             setStatusMessage(t('search.error'));
         } finally {
-            if (loadedSuccessfully) setSearchResetKey(k => k + 1);
-            setIsProfileLoading(false);
-            setIsSearching(false);
+            if (loadGeneration === profileLoadGenerationRef.current) {
+                if (loadedSuccessfully) setSearchResetKey(k => k + 1);
+                setIsProfileLoading(false);
+                setIsSearching(false);
+            }
         }
     };
+
+    handleSelectUserRef.current = handleSelectUser;
+
+    useEffect(() => {
+        const savedPin = localStorage.getItem('apex_pinned_uid');
+        if (!savedPin) return;
+        void handleSelectUserRef.current({ uid: savedPin }, true);
+    }, []);
 
     const handleApiSearch = async () => {
         const targetName = searchCandidates.length > 0 ? searchCandidates[0].name : lastSearchQuery;
@@ -591,26 +704,66 @@ const App = () => {
         }
     };
 
-    const handleManualRefresh = async () => {
-        if (refreshCooldown > 0) return;
-        const bg = window.overwolf?.windows?.getMainWindow();
-        if (bg && bg.apexData && user.uid) {
-            setIsProfileLoading(true);
-            try {
-                const result = await bg.apexData.getUserDetail(user.uid);
-                if (result.success) {
-                    applyProfileToUi(result.data, result.history ?? [], { skipTabSwitch: true });
-                }
-            } catch(e) {} finally {
-                setIsProfileLoading(false);
-            }
-        }
-        setRefreshCooldown(30);
-    };
+    const ensureMatchDetail = useCallback(async (matchId: string): Promise<Match | null> => {
+        const uid = userRef.current?.uid;
+        if (!uid) return null;
 
-    const toggleMatch = (id: string) => {
-        setExpandedMatchIds(prev => prev.includes(id) ? prev.filter(matchId => matchId !== id) : [...prev, id]);
-    };
+        const existing = historyRef.current.find((m) => m.matchId === matchId);
+        if (existing && hasMatchDetail(existing)) {
+            return existing;
+        }
+
+        const inflight = detailPrefetchRef.current.get(matchId);
+        if (inflight) return inflight;
+
+        const task = (async () => {
+            const requestUid = uid;
+            const bg = window.overwolf?.windows?.getMainWindow() as {
+                apexData?: { fetchMatchDetail?: (u: string, m: string) => Promise<unknown> };
+            } | undefined;
+            const raw = await bg?.apexData?.fetchMatchDetail?.(requestUid, matchId);
+            if (!isViewingUid(requestUid)) return existing ?? null;
+            if (!raw) return existing ?? null;
+
+            const base = existing ?? normalizeMatchForFrontend(raw);
+            if (!base) return null;
+
+            const merged = mergeMatchDetail(base, raw);
+            await LocalDB.saveMatches(requestUid, [merged]);
+            if (!isViewingUid(requestUid)) return merged;
+
+            setHistory((prev) => mergeAndSortHistory(prev, [merged]));
+            return merged;
+        })();
+
+        detailPrefetchRef.current.set(matchId, task);
+        try {
+            return await task;
+        } finally {
+            detailPrefetchRef.current.delete(matchId);
+        }
+    }, [isViewingUid]);
+
+    const prefetchMatchDetail = useCallback((matchId: string) => {
+        const existing = historyRef.current.find((m) => m.matchId === matchId);
+        if (existing && hasMatchDetail(existing)) return;
+        void ensureMatchDetail(matchId);
+    }, [ensureMatchDetail]);
+
+    const handleMatchToggle = useCallback(async (matchId: string) => {
+        if (expandedMatchIds.includes(matchId)) {
+            setExpandedMatchIds((prev) => prev.filter((id) => id !== matchId));
+            return;
+        }
+
+        setLoadingDetailMatchId(matchId);
+        try {
+            await ensureMatchDetail(matchId);
+            setExpandedMatchIds((prev) => [...prev, matchId]);
+        } finally {
+            setLoadingDetailMatchId((current) => (current === matchId ? null : current));
+        }
+    }, [expandedMatchIds, ensureMatchDetail]);
     const collapseAll = () => setExpandedMatchIds([]);
     const filteredHistory = useMemo(() => {
         return history.filter(match => {
@@ -631,7 +784,15 @@ const App = () => {
         });
     }, [history, activeTab, selectedSeasonId, SEASONS]);
 
-    const totalPages = Math.max(1, Math.ceil(filteredHistory.length / MATCHES_PER_PAGE));
+    const totalPages = useMemo(() => {
+        const base = Math.max(1, Math.ceil(filteredHistory.length / MATCHES_PER_PAGE));
+        const remoteMayHaveMore = user.uid
+            && !isViewingOwnAccount
+            && !isArchiveFullySynced(user.uid)
+            && filteredHistory.length >= MATCHES_PER_PAGE;
+        if (!remoteMayHaveMore) return base;
+        return Math.max(base + 1, currentPage);
+    }, [filteredHistory.length, user.uid, isViewingOwnAccount, currentPage]);
     const effectiveCurrentPage = Math.min(currentPage, totalPages);
     const currentMatches = useMemo(() => {
         const startIndex = (effectiveCurrentPage - 1) * MATCHES_PER_PAGE;
@@ -645,7 +806,8 @@ const App = () => {
     }, [currentPage, totalPages]);
 
     const syncHistory = useCallback(async () => {
-        if (!user.uid) return;
+        const requestUid = user.uid;
+        if (!requestUid) return;
         try {
             const prevHistory = historyRef.current;
             let latestLocalTime = prevHistory.length > 0
@@ -653,7 +815,8 @@ const App = () => {
                 : 0;
 
             if (latestLocalTime === 0) {
-                const localMatches = await LocalDB.getMatchesByUid(user.uid);
+                const localMatches = await LocalDB.getMatchesByUid(requestUid);
+                if (!isViewingUid(requestUid)) return;
                 latestLocalTime = localMatches.length > 0
                     ? (localMatches[0].endTime || localMatches[0].startTime)
                     : 0;
@@ -663,21 +826,60 @@ const App = () => {
             if (!bg?.APIService) return;
 
             const serverMatches = normalizeHistoryForFrontend(
-                await bg.APIService.getHistorySince(user.uid, latestLocalTime + 1),
+                await bg.APIService.getHistorySince(requestUid, latestLocalTime + 1),
             );
+            if (!isViewingUid(requestUid)) return;
             if (serverMatches.length === 0) return;
 
             const validServerMatches = serverMatches.filter((m: Match) => isSupportedMode(m.mode));
             if (validServerMatches.length > 0) {
-                await LocalDB.saveMatches(user.uid, validServerMatches);
+                await LocalDB.saveMatches(requestUid, validServerMatches);
             }
+            if (!isViewingUid(requestUid)) return;
 
             setHistory((prev) => withLiveMatchProtection(
                 mergeAndSortHistory(prev, validServerMatches),
                 prev,
+                requestUid,
             ));
         } catch (e) { console.error(e); }
-    }, [user.uid]);
+    }, [user.uid, isViewingUid]);
+
+    const handleManualRefresh = useCallback(async () => {
+        if (refreshCooldown > 0 || !user.uid) return;
+
+        const bg = window.overwolf?.windows?.getMainWindow();
+        if (!bg?.apexData) return;
+
+        const requestUid = user.uid;
+        const loadGeneration = ++profileLoadGenerationRef.current;
+
+        setIsProfileLoading(true);
+        try {
+            await syncHistory();
+            if (loadGeneration !== profileLoadGenerationRef.current) return;
+            if (!isViewingUid(requestUid)) return;
+
+            const result = await bg.apexData.getUserDetail(requestUid, null, {
+                preloadedHistory: historyRef.current,
+            });
+            if (loadGeneration !== profileLoadGenerationRef.current) return;
+            if (!isViewingUid(requestUid)) return;
+
+            if (result.success) {
+                applyProfileToUi(result.data, result.history ?? [], { skipTabSwitch: true });
+            }
+            invalidatePlayerStatsCache(requestUid);
+            setStatsRefreshToken((token) => token + 1);
+        } catch (e) {
+            console.error('Manual refresh failed:', e);
+        } finally {
+            if (loadGeneration === profileLoadGenerationRef.current) {
+                setIsProfileLoading(false);
+            }
+        }
+        setRefreshCooldown(30);
+    }, [refreshCooldown, user.uid, syncHistory, applyProfileToUi, isViewingUid]);
 
     const syncMatchFromStore = useCallback(async (payload: MatchSavedPayload) => {
         const viewingUid = userRef.current?.uid;
@@ -690,36 +892,89 @@ const App = () => {
         const incoming = storeMatches.filter((m) => m.matchId === payload.matchId);
         if (incoming.length === 0) return;
 
-        const validMatches = incoming.filter((m) => isSupportedMode(m.mode));
+        const validMatches = incoming
+            .filter((m) => isSupportedMode(m.mode))
+            .map((m) => markMatchDetailLoaded(m));
         if (validMatches.length === 0) return;
 
         await LocalDB.saveMatches(payload.uid, validMatches);
+        if (!isViewingUid(payload.uid)) return;
 
         setHistory((prev) => mergeAndSortHistory(prev, validMatches));
-        setCurrentPage(1);
-    }, []);
+        invalidatePlayerStatsCache(payload.uid);
+        setStatsRefreshToken((token) => token + 1);
+    }, [isViewingUid]);
 
-    const flushHistoryFromLocal = useCallback(async () => {
-        if (!user.uid) return;
+    const flushHistoryFromLocal = useCallback(async (expectedUid?: string | null) => {
+        const requestUid = expectedUid ?? userRef.current?.uid;
+        if (!requestUid) return;
+
         try {
-            const localMatches = await LocalDB.getMatchesByUid(user.uid);
+            const localMatches = await LocalDB.getMatchesByUid(requestUid);
+            if (!isViewingUid(requestUid)) return;
+
             setHistory((prev) => withLiveMatchProtection(
-                mergeAndSortHistory(localMatches),
+                mergeAndSortHistory(prev, localMatches),
                 prev,
+                requestUid,
             ));
         } catch (e) { console.error(e); }
-    }, [user.uid]);
+    }, [isViewingUid]);
 
-    const fetchArchiveChunk = useCallback(async (uid: string, cursor: number) => {
+    const mergeHistoryIntoUi = useCallback((incoming: Match[], expectedUid?: string | null) => {
+        if (incoming.length === 0) return;
+
+        const targetUid = expectedUid ?? userRef.current?.uid;
+        if (!targetUid || !isViewingUid(targetUid)) return;
+
+        setHistory((prev) => withLiveMatchProtection(
+            mergeAndSortHistory(prev, incoming),
+            prev,
+            targetUid,
+        ));
+    }, [isViewingUid]);
+
+    const fetchHistoryPage = useCallback(async (uid: string, cursor: number) => {
         const bg = window.overwolf?.windows?.getMainWindow();
         if (!bg?.APIService) return [] as Match[];
 
-        const matches = normalizeHistoryForFrontend(await bg.APIService.getArchivedMatches(uid, cursor));
+        const matches = normalizeHistoryForFrontend(await bg.APIService.getHistoryPage(uid, cursor));
         if (!matches?.length) return [] as Match[];
         return matches.filter((m: Match) => isSupportedMode(m.mode));
     }, []);
 
-    const downloadArchiveInBackground = useCallback(async (
+    const fetchLazyHistoryPage = useCallback(async (uid: string) => {
+        if (isArchiveFullySynced(uid) || lazyHistoryFetchInFlightRef.current) return;
+
+        lazyHistoryFetchInFlightRef.current = true;
+        setIsFetchingHistoryPage(true);
+        try {
+            if (!isViewingUid(uid)) return;
+
+            const seed = historyRef.current;
+            const cursor = seed.length > 0 ? getOldestMatchTime(seed) : Date.now();
+            const chunk = await fetchHistoryPage(uid, cursor);
+            if (!isViewingUid(uid)) return;
+
+            if (chunk.length === 0) {
+                markArchiveFullySynced(uid);
+                return;
+            }
+
+            await LocalDB.saveMatches(uid, chunk);
+            mergeHistoryIntoUi(chunk, uid);
+            if (chunk.length < MATCHES_PER_PAGE) {
+                markArchiveFullySynced(uid);
+            }
+        } catch (e) {
+            console.error('Lazy history page fetch failed:', e);
+        } finally {
+            lazyHistoryFetchInFlightRef.current = false;
+            setIsFetchingHistoryPage(false);
+        }
+    }, [fetchHistoryPage, mergeHistoryIntoUi, isViewingUid]);
+
+    const downloadHistoryInBackground = useCallback(async (
         uid: string,
         startCursor: number,
         generation: number,
@@ -731,102 +986,95 @@ const App = () => {
 
         let cursor = startCursor;
         let totalDownloaded = 0;
-        let hasMore = true;
 
         try {
-            while (hasMore) {
+            while (true) {
                 if (archiveSyncGenerationRef.current !== generation) return;
 
-                const chunk = await fetchArchiveChunk(uid, cursor);
+                const chunk = await fetchHistoryPage(uid, cursor);
                 if (chunk.length === 0) {
-                    hasMore = false;
+                    markArchiveFullySynced(uid);
                     break;
                 }
 
                 await LocalDB.saveMatches(uid, chunk);
+                mergeHistoryIntoUi(chunk, uid);
                 totalDownloaded += chunk.length;
                 setDownloadProgress((prev) => prev + chunk.length);
 
+                if (chunk.length < 20) {
+                    markArchiveFullySynced(uid);
+                    break;
+                }
+
                 const oldestInChunk = Math.min(...chunk.map((m) => m.startTime || m.endTime || cursor));
                 if (oldestInChunk >= cursor) {
-                    hasMore = false;
+                    markArchiveFullySynced(uid);
                     break;
                 }
                 cursor = oldestInChunk;
                 await new Promise((resolve) => setTimeout(resolve, 100));
             }
 
-            if (archiveSyncGenerationRef.current !== generation) return;
-
-            markArchiveFullySynced(uid);
-            await flushHistoryFromLocal();
             if (totalDownloaded > 0) {
                 showTemporaryStatus(t('sync.archiveComplete', { count: totalDownloaded }));
             }
         } catch (e) {
-            console.error('Archive background sync failed:', e);
+            console.error('History background sync failed:', e);
         } finally {
             if (archiveSyncGenerationRef.current === generation) {
                 setIsDownloadingArchive(false);
             }
         }
-    }, [fetchArchiveChunk, flushHistoryFromLocal, t]);
+    }, [fetchHistoryPage, mergeHistoryIntoUi, t]);
 
-    const runArchiveSyncPipeline = useCallback(async (uid: string, generation: number) => {
-        await syncHistory();
+    const runHistorySyncPipeline = useCallback(async (uid: string, generation: number) => {
+        await flushHistoryFromLocal(uid);
         if (archiveSyncGenerationRef.current !== generation) return;
+        if (!isViewingUid(uid)) return;
 
-        if (isArchiveFullySynced(uid)) {
-            const localMatches = await LocalDB.getMatchesByUid(uid);
-            if (localMatches.length === 0) {
-                clearArchiveSyncState(uid);
-            } else {
-                await flushHistoryFromLocal();
-                historyFlushEnabledRef.current = true;
-                return;
-            }
-        }
-
-        let localMatches = await LocalDB.getMatchesByUid(uid);
-        if (localMatches.length >= INITIAL_ARCHIVE_SYNC_TARGET) {
-            await flushHistoryFromLocal();
-            historyFlushEnabledRef.current = true;
-            if (archiveSyncGenerationRef.current !== generation) return;
-            void downloadArchiveInBackground(uid, getOldestMatchTime(localMatches), generation);
-            return;
-        }
-
-        let cursor = getOldestMatchTime(localMatches);
-        while (localMatches.length < INITIAL_ARCHIVE_SYNC_TARGET) {
-            if (archiveSyncGenerationRef.current !== generation) return;
-
-            const chunk = await fetchArchiveChunk(uid, cursor);
-            if (chunk.length === 0) break;
-
-            await LocalDB.saveMatches(uid, chunk);
-            const oldestInChunk = Math.min(...chunk.map((m) => m.startTime || m.endTime || cursor));
-            if (oldestInChunk >= cursor) break;
-            cursor = oldestInChunk;
-            localMatches = await LocalDB.getMatchesByUid(uid);
-            await new Promise((resolve) => setTimeout(resolve, 50));
-        }
-
-        if (archiveSyncGenerationRef.current !== generation) return;
-
-        await flushHistoryFromLocal();
         historyFlushEnabledRef.current = true;
 
-        localMatches = await LocalDB.getMatchesByUid(uid);
-        if (localMatches.length === 0 || isArchiveFullySynced(uid)) return;
+        const localUid = getLocalUid();
+        const isOwnAccount = localUid && String(localUid) === String(uid);
+        if (!isOwnAccount) return;
 
-        void downloadArchiveInBackground(uid, getOldestMatchTime(localMatches), generation);
-    }, [syncHistory, flushHistoryFromLocal, fetchArchiveChunk, downloadArchiveInBackground]);
+        if (isArchiveFullySynced(uid)) return;
+
+        const seedMatches = historyRef.current.length > 0
+            ? historyRef.current
+            : await LocalDB.getMatchesByUid(uid);
+        if (archiveSyncGenerationRef.current !== generation) return;
+        if (!isViewingUid(uid)) return;
+
+        const startCursor = seedMatches.length > 0
+            ? getOldestMatchTime(seedMatches)
+            : Date.now();
+
+        void downloadHistoryInBackground(uid, startCursor, generation);
+    }, [flushHistoryFromLocal, downloadHistoryInBackground, isViewingUid, getLocalUid]);
 
     useEffect(() => {
-        syncHistory();
-        const interval = setInterval(syncHistory, 60000);
-        return () => clearInterval(interval);
-    }, [syncHistory]);
+        if (!user.uid || isViewingOwnAccount || mainTab !== 'DASHBOARD') return;
+        if (isArchiveFullySynced(user.uid)) return;
+
+        const neededMatches = currentPage * MATCHES_PER_PAGE;
+        if (filteredHistory.length >= neededMatches) return;
+
+        void fetchLazyHistoryPage(user.uid);
+    }, [
+        user.uid,
+        isViewingOwnAccount,
+        mainTab,
+        currentPage,
+        filteredHistory.length,
+        fetchLazyHistoryPage,
+    ]);
+
+    useEffect(() => {
+        if (!user.uid || currentMatches.length === 0) return;
+        currentMatches.slice(0, 3).forEach((match) => prefetchMatchDetail(match.matchId));
+    }, [user.uid, currentMatches, prefetchMatchDetail]);
 
     useEffect(() => {
         if (typeof overwolf === 'undefined') return;
@@ -861,16 +1109,16 @@ const App = () => {
         setIsDownloadingArchive(false);
 
         const generation = ++archiveSyncGenerationRef.current;
-        void runArchiveSyncPipeline(user.uid, generation);
+        void runHistorySyncPipeline(user.uid, generation);
 
         return () => {
             archiveSyncGenerationRef.current += 1;
         };
-    }, [user.uid, runArchiveSyncPipeline]);
+    }, [user.uid, runHistorySyncPipeline]);
 
     useEffect(() => {
         if (!user.uid || !historyFlushEnabledRef.current) return;
-        void flushHistoryFromLocal();
+        void flushHistoryFromLocal(user.uid);
     }, [mainTab, currentPage, activeTab, selectedSeasonId, flushHistoryFromLocal, user.uid]);
 
     const handleHeaderDoubleClick = () => {
@@ -1057,7 +1305,7 @@ const App = () => {
                     </div>
                 
                     <div ref={mainScrollRef} style={{ padding: '30px', overflowY: 'auto', flex: 1, height: '100%', paddingBottom: '90px', position: 'relative' }}>
-                        {isProfileLoading && mainTab === "DASHBOARD" && (
+                        {isProfileLoading && (mainTab === "DASHBOARD" || mainTab === "STATISTICS") && (
                             <ProfileLoadingOverlay label={t('search.loadingProfile')} />
                         )}
                         {mainTab === "FAVORITES" ? (
@@ -1080,12 +1328,12 @@ const App = () => {
                         ) : mainTab === "STATISTICS" ? (
                             <div style={{ padding: '30px', overflowY: 'auto' }}>
                                 <StatisticsTab 
-                                    history={history} 
                                     isPremium={isPremium} 
                                     selectedSeasonId={selectedSeasonId}
                                     seasons={SEASONS}
                                     profileUid={user.uid}
                                     profileName={user.name}
+                                    statsRefreshToken={statsRefreshToken}
                                 />
                             </div>
                         ) : mainTab === "WEAPONS" ? (
@@ -1135,6 +1383,10 @@ const App = () => {
                                         </>
                                     </div>
                                 ) : (
+                                    <div style={{ position: 'relative' }}>
+                                        {isDownloadingArchive && (
+                                            <ProfileLoadingOverlay label={`${t('sync.syncingArchive')} (${downloadProgress})`} />
+                                        )}
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                                         {currentMatches.map((match: any) => {
                                             const displayRank = (match.placement === 1 || match.placement === '1') ? 1 : match.placement;
@@ -1147,7 +1399,11 @@ const App = () => {
 
                                             return (
                                                 <div key={match.matchId} style={{ background: 'var(--color-bg-card)', borderRadius: '8px', overflow: 'hidden', boxShadow: '0 2px 5px rgba(0,0,0,0.2)', border: '1px solid var(--color-border)' }}>
-                                                    <div onClick={() => toggleMatch(match.matchId)} style={{ display: 'flex', alignItems: 'center', padding: '15px 20px', cursor: 'pointer', borderLeft: `6px solid ${getRankColor(displayRank)}`, background: isExpanded ? 'var(--color-bg-card-hover)' : 'var(--color-bg-card)', transition: 'background 0.2s' }}>
+                                                    <div
+                                                        onPointerDown={() => prefetchMatchDetail(match.matchId)}
+                                                        onClick={() => { void handleMatchToggle(match.matchId); }}
+                                                        style={{ display: 'flex', alignItems: 'center', padding: '15px 20px', cursor: 'pointer', borderLeft: `6px solid ${getRankColor(displayRank)}`, background: isExpanded ? 'var(--color-bg-card-hover)' : 'var(--color-bg-card)', transition: 'background 0.2s', opacity: loadingDetailMatchId === match.matchId ? 0.75 : 1 }}
+                                                    >
                                                         <div style={{ position: 'relative', width: '50px', height: '50px', borderRadius: '10px', background: 'var(--color-bg-sub-header)', overflow: 'hidden', marginRight: '20px', border: '2px solid var(--color-border-light)', flexShrink: 0 }}>
                                                             <img src={`https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/${legendFile}.png`} alt={match.legend || "?"} style={{ width: '100%', height: '100%', objectFit: 'cover', transform: 'scale(1.1)' }} onError={(e) => { (e.target as HTMLImageElement).src = 'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/unknown.png'; }} />
                                                             <div style={{ position: 'absolute', top: 0, left: 0, background: 'color-mix(in srgb, var(--color-bg-deep) 80%, transparent)', color: 'var(--color-text-secondary)', fontSize: '9px', padding: '2px 4px', borderBottomRightRadius: '5px', fontWeight: 'bold', lineHeight: '1', backdropFilter: 'blur(2px)' }}>{timeLabel}</div>
@@ -1171,7 +1427,7 @@ const App = () => {
                                                                 <div style={{ flex: 3, minWidth: '280px', borderRight: '1px solid var(--color-border)', display: 'flex', flexDirection: 'column', zIndex: 10, overflow: 'hidden' }}>
                                                                     <CombatLog match={match} />
                                                                 </div>
-                                                                <div style={{ flex: 4, minWidth: '240px', display: 'flex', flexDirection: 'column', background: 'var(--color-bg-main)' }}>
+                                                                <div style={{ flex: 4, minWidth: '240px', display: 'flex', flexDirection: 'column', background: 'var(--color-bg-sub-header)' }}>
                                                                     <MatchDetailTabs match={match} onUserSelect={handleSelectUser} />
                                                                 </div>
                                                             </div>
@@ -1180,7 +1436,7 @@ const App = () => {
                                                 </div>
                                             );
                                         })}
-                                        {totalPages > 1 && (
+                                        {(totalPages > 1 || isFetchingHistoryPage) && (
                                             <div style={{ 
                                                 display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '15px', 
                                                 marginTop: '10px', padding: '15px 0', borderTop: '1px solid var(--color-border)' 
@@ -1201,8 +1457,9 @@ const App = () => {
                                                     {t('controls.prev')}
                                                 </button>
                                                 
-                                                <span style={{ fontSize: '14px', color: 'var(--color-text-dim)', fontWeight: 'bold' }}>
+                                                <span style={{ fontSize: '14px', color: 'var(--color-text-dim)', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px' }}>
                                                     {t('controls.page')} <span style={{color: 'var(--color-text-primary)'}}>{effectiveCurrentPage}</span> {t('controls.of')} {totalPages}
+                                                    {isFetchingHistoryPage && <FaSync className="spin-animation" size={12} />}
                                                 </span>
                                                 
                                                 <button 
@@ -1229,6 +1486,7 @@ const App = () => {
                                                 </div>
                                             </div>
                                         )}
+                                    </div>
                                     </div>
                                 )}
                             </>

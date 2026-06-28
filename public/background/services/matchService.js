@@ -31,7 +31,7 @@ const MatchFactory = {
             startTime: Date.now(), endTime: 0,
             loadout: { primary: null, secondary: null },
             path: [], events: [], teamStats: [], weaponTimeline: [],
-            _lastLocationTime: 0, _lastKnownTeams: 20, _guessedRank: 20,
+            _lastLocationTime: 0, _lastKnownTeams: 20, _guessedRank: null,
             _rosterCache: [], _isVictory: false,
             _squadNames: new Set(initialUser?.name ? [initialUser.name] : []),
             _unknownKillers: [],
@@ -96,14 +96,16 @@ class MatchService {
             case 'LEGEND': match.legend = data; break;
 
             case 'TEAMS_ALIVE':{
-                const teams = parseInt(data);
-                if (!isNaN(teams) && teams > 0 && teams <= 20) {
-                    match._lastTeamsAlive = teams;
-                    if (teams < match._guessedRank) match._guessedRank = teams;
+                const teams = window.Utils?.trackMinTeamsAlive?.(match, data);
+                if (teams) {
                     if (match._isVictory) {
                         match.placement = 1;
-                    } else if (match._squadEliminated && (match.placement === 20 || match.placement === 0)) {
-                        match.placement = Math.min(20, teams + 1);
+                    } else if (MatchService._isSquadOut(match) && (match.placement === 20 || match.placement === 0)) {
+                        const estimate = window.Utils?.estimatePlacementFromTeamsAlive?.(match, teams);
+                        if (estimate) {
+                            match.placement = estimate;
+                            match._estimatedPlacement = estimate;
+                        }
                     }
                 }
                 break;
@@ -306,14 +308,24 @@ class MatchService {
         match.squadKills = Math.max(match.squadKills, myKills + teammatesKills);
     }
 
+    static _isSquadOut(match) {
+        if (!match) return false;
+        if (match._squadEliminated) return true;
+        if (!match.isDead) return false;
+        const teammates = match.teamStats || [];
+        if (teammates.length === 0) return true;
+        return !teammates.some((t) => t.state && t.state !== 'death');
+    }
+
     static resolveFinalPlacement(match) {
         if (!match) return 20;
         if (match._isVictory) return 1;
         if (match._matchSummaryRank) return match._matchSummaryRank;
         if (match.placement > 0 && match.placement < 20) return match.placement;
         if (match._estimatedPlacement) return match._estimatedPlacement;
-        if (match._squadEliminated && match._lastTeamsAlive) {
-            return Math.min(20, match._lastTeamsAlive + 1);
+        if (MatchService._isSquadOut(match)) {
+            const estimate = window.Utils?.estimatePlacementFromTeamsAlive?.(match);
+            if (estimate) return estimate;
         }
         return match.placement || 20;
     }
@@ -333,7 +345,7 @@ class MatchService {
             'isDead', '_ending', '_saved', '_isVictory', '_guessedRank', '_lastLocationTime',
             '_lastKnownTeams', '_lastUltValue', '_currentPhase', '_rosterCache', '_squadNames',
             '_unknownKillers', 'startPos', 'endPos', '_pathSegment', '_pathRecording',
-            '_squadEliminated', '_lastTeamsAlive', '_matchSummaryRank', '_estimatedPlacement', '_teamStates'
+            '_squadEliminated', '_lastTeamsAlive', '_matchSummaryRank', '_estimatedPlacement'
         ];
         runtimeKeys.forEach((k) => { delete match[k]; });
         if (match.teamStats) {
@@ -404,8 +416,10 @@ class MatchService {
         }
 
         match.placement = MatchService.resolveFinalPlacement(match);
-        if (match.placement < 20) {
-            match._guessedRank = Math.min(match._guessedRank || 20, match.placement);
+        if (match.placement > 0 && match.placement !== 20) {
+            match._guessedRank = match._guessedRank == null
+                ? match.placement
+                : Math.min(match._guessedRank, match.placement);
         }
 
         const durationSeconds = (match.endTime - match.startTime) / 1000;

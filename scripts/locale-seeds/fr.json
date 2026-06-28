@@ -40,7 +40,18 @@
     "minimize": "Réduire",
     "maximize": "Agrandir",
     "restore": "Restaurer",
-    "close": "Fermer"
+    "close": "Fermer",
+    "closeDialog": {
+      "title": "Fermer ApexTrace ?",
+      "description": "Choisissez de masquer la fenêtre ou de quitter complètement l'application.",
+      "hideOption": "Masquer la fenêtre (garder l'arrière-plan)",
+      "hideHint": "Le suivi des matchs continue. Cliquez avec le bouton droit sur l'icône ApexTrace dans la zone de notification (icônes masquées) pour rouvrir.",
+      "quitOption": "Quitter complètement",
+      "quitHint": "Arrête le processus d'arrière-plan et le suivi des matchs.",
+      "dontAskAgain": "Ne plus demander",
+      "cancel": "Annuler",
+      "confirm": "Confirmer"
+    }
   },
   "favorites": {
     "empty": "Aucun joueur favori pour le moment.",
@@ -61,6 +72,7 @@
   },
   "matchDetails": {
     "stats": "Statistiques",
+    "loadout": "Équipement",
     "loadoutTimeline": "Chronologie de l'équipement",
     "loadoutTimelineDesc": "Changements d'armes détectés pendant ce match.",
     "noLoadoutTimeline": "Aucun changement d'arme enregistré pour ce match.",
@@ -515,7 +527,7 @@
       "maps": "Cartes",
       "legends": "Légendes",
       "weapons": "Armes",
-      "teammates": "Coéquipiers"
+      "teammates": "Mes stats par coéq."
     },
     "modes": {
       "all": "Tout",
@@ -670,25 +682,31 @@
       "kadTooltip": "Votre ratio (Éliminations + Assistances) / Morts dans les matchs avec ce coéquipier.",
       "mostPlayed": "🏆 Le plus joué avec",
       "pick": "#{{rank}}",
-      "matches": "Matchs",
-      "kd": "K/D",
-      "kad": "KA/D",
-      "winPercent": "Victoire%",
-      "avgDamage": "Dégâts moy.",
-      "avgDamageShort": "DMG",
+      "matches": "Mes matchs",
+      "kd": "Mon K/D",
+      "kad": "Mon KA/D",
+      "winPercent": "Ma victoire%",
+      "avgDamage": "Mes dégâts moy.",
+      "avgDamageShort": "Mes DMG",
       "noTeammateData": "Aucune donnée de coéquipier pour l'instant.",
-      "detailedStatsTitle": "Statistiques détaillées des coéquipiers",
+      "detailedStatsTitle": "Mes performances par coéquipier",
       "rank4Plus": "Top 4+",
       "rank": "Rang",
       "teammate": "Coéquipier",
-      "winRate": "Taux de victoire",
+      "winRate": "Mon taux de victoire",
       "noMoreTeammates": "Plus de coéquipiers enregistrés.",
       "unknownTeammate": "Inconnu",
-      "statsDisclaimer": "Les icônes montrent les picks du coéquipier. Les chiffres sont vos stats personnelles dans ces matchs.",
+      "statsDisclaimer": "Les icônes montrent les picks du coéquipier. Les chiffres du tableau sont vos stats personnelles dans ces matchs.",
       "teammatePicks": "Picks du coéquipier",
       "myStatsWhenTogether": "Mes stats en jouant ensemble",
       "teammatePicksHint": "L'avatar montre sa légende la plus jouée.",
-      "whenPlayingWith": "Lorsque vous jouez avec ce coéquipier :"
+      "whenPlayingWith": "Lorsque vous jouez avec ce coéquipier :",
+      "teammateColumnGroup": "Coéquipier (picks)",
+      "myStatsColumnGroup": "Mes stats",
+      "overallBaselineLabel": "Moyenne globale",
+      "overallBaselineSummary": "K/D {{kd}} · {{winRate}}% victoires · #{{avgPlacement}} · {{avgDamage}} DMG · {{games}} matchs",
+      "overallBaselineRowLabel": "Ma moyenne de saison",
+      "deltaVsAverage": "Par rapport à votre moyenne globale pour cette saison et ce mode"
     },
     "premiumLock": {
       "unlockAnalytics": "Débloquer les analyses {{title}}",

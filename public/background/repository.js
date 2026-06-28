@@ -126,16 +126,30 @@ console.log("Initializing Cloud Repository (Proxy Mode)");
     };
 
     const HistoryStorageModule = {
-        // 히스토리 불러오기 (백엔드가 융합해서 주므로 uid만 던지면 됨)
-        fetch: async (uid) => {
+        fetch: async (uid, options = {}) => {
             try {
                 const PROXY_BASE_URL = getProxyBaseUrl();
-                const res = await fetch(`${PROXY_BASE_URL}/history?uid=${uid}`);
+                const view = options.view ?? 'summary';
+                const res = await fetch(`${PROXY_BASE_URL}/history?uid=${encodeURIComponent(uid)}&view=${encodeURIComponent(view)}`);
                 if (!res.ok) return [];
                 const json = await res.json();
                 return json.history || [];
             } catch (e) {
                 return [];
+            }
+        },
+
+        fetchDetail: async (uid, matchId) => {
+            try {
+                const PROXY_BASE_URL = getProxyBaseUrl();
+                const res = await fetch(
+                    `${PROXY_BASE_URL}/history?uid=${encodeURIComponent(uid)}&matchId=${encodeURIComponent(matchId)}&view=detail`,
+                );
+                if (!res.ok) return null;
+                const json = await res.json();
+                return Array.isArray(json.history) ? (json.history[0] ?? null) : null;
+            } catch (e) {
+                return null;
             }
         },
 
@@ -215,6 +229,7 @@ console.log("Initializing Cloud Repository (Proxy Mode)");
         updateAddressBookBulk: AddressBookModule.bulkUpdate,
         
         fetchHistoryFile: HistoryStorageModule.fetch,
+        fetchMatchDetail: HistoryStorageModule.fetchDetail,
         appendMatchHistory: HistoryStorageModule.save, 
         upsertDailyRankSnapshot: DailyRankSnapshotModule.upsert,
         

@@ -1,5 +1,30 @@
 # ApexTrace Release Notes
 
+## v0.0.7 — 2026-06-28
+
+### 새 기능
+
+- **Match Data V3 (클라이언트)** — Statistics 탭이 `player_season_stats` 서버 집계를 우선 사용. 매치 목록은 summary-only 동기화, 펼침 시 detail lazy fetch + prefetch. `public.seasons` SSOT 기반 시즌 필터.
+- **팀원별 내 기록** — TOP3 카드(팀원 픽 포디움), 2단 헤더 표(팀원/내 기록), 표 첫 줄에 **나의 시즌 평균** baseline, 5판 이상 함께한 팀원은 **▲/▼** 시즌 평균 대비 표시, 긴 닉네임 marquee.
+- **닫기 확인** — 데스크톱 창 닫기 시 확인 다이얼로그 + “다시 묻지 않기” (`CloseConfirmDialog`).
+- **Supabase 마이그레이션** — `seasons`, `matches.season_id`, `player_season_stats` 스키마 추가.
+- **개발용 시드** — `npm run seed:teammate-test` / `:clean` (가짜 팀원 매치 삽입·삭제).
+
+### 개선
+
+- **동기화·레이스** — 검색 후 Statistics 탭 점프 방지, 프로필 로드 generation guard, 수동 새로고침만 원격 sync (60s 폴링 제거).
+- **네트워크** — `fetchPlayerStats` 클라이언트 캐시, i18n `languages_cache_v3` + 버전 게이트, 타인 프로필 lazy archive (page 2+).
+- **로케일** — 팀원 탭/표 copy 개선, `{{variables}}` 미번역 버그 수정 (seed version 5), 10개 언어 동기화.
+- **매치 상세** — `matchDetail` 유틸, `matchPanelStyles` 공유, `ProfileTagIcon` 사이드바 태그.
+- **배경** — summary/detail API 분리, `apiService` stats 엔드포인트, repository lazy history.
+
+### 문서
+
+- [match-data-architecture-v3.md](match-data-architecture-v3.md) — V3 아키텍처 (Shipped 상태).
+- README — V3 마이그레이션·스크립트·기능 목록 갱신.
+
+---
+
 ## v0.0.6 — 2026-06-28
 
 ### 새 기능
@@ -11,6 +36,7 @@
 
 ### 개선
 
+- **Match Data V3** — `matches` 단일 소스, summary/detail 분리 로드, `public.seasons` SSOT, `player_season_stats` 서버 통계, 통계탭은 `/player-stats` 전용. 매치 펼침 시 detail lazy fetch + prefetch.
 - **지도 마커 크기** — 모든 마커 반지름 통일, 전체화면에서는 초기 크기 50% 축소.
 - **전투기록 아이콘** — `eventIcons.ts`로 Combat Log 아이콘 URL 공유.
 - **통계 탭** — Statistics UI/차트 개선.

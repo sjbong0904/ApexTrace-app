@@ -40,7 +40,18 @@
     "minimize": "最小化",
     "maximize": "最大化",
     "restore": "元のサイズに戻す",
-    "close": "閉じる"
+    "close": "閉じる",
+    "closeDialog": {
+      "title": "ApexTraceを閉じますか？",
+      "description": "ウィンドウを隠すか、アプリを完全に終了するかを選んでください。",
+      "hideOption": "ウィンドウを隠す（バックグラウンド維持）",
+      "hideHint": "マッチ記録は続きます。通知領域（隠れているアイコン）の ApexTrace アイコンを右クリックして再度開けます。",
+      "quitOption": "完全に終了",
+      "quitHint": "バックグラウンドプロセスとマッチ追跡を停止します。",
+      "dontAskAgain": "今後表示しない",
+      "cancel": "キャンセル",
+      "confirm": "確認"
+    }
   },
   "favorites": {
     "empty": "お気に入りのプレイヤーがいません。",
@@ -61,6 +72,7 @@
   },
   "matchDetails": {
     "stats": "統計",
+    "loadout": "ロードアウト",
     "loadoutTimeline": "ロードアウトタイムライン",
     "loadoutTimelineDesc": "このマッチ中に検出された武器変更です。",
     "noLoadoutTimeline": "このマッチの武器変更記録はありません。",
@@ -519,7 +531,7 @@
       "maps": "マップ",
       "legends": "レジェンド",
       "weapons": "武器",
-      "teammates": "チームメイト"
+      "teammates": "チームメイト別の自分"
     },
     "modes": {
       "all": "全て",
@@ -674,25 +686,31 @@
       "kadTooltip": "このチームメイトと一緒にプレイした試合での（キル＋アシスト）/ デス比率です。",
       "mostPlayed": "🏆 最多プレイ",
       "pick": "#{{rank}}",
-      "matches": "試合数",
-      "kd": "K/D",
-      "kad": "KA/D",
-      "winPercent": "勝率",
-      "avgDamage": "平均DMG",
-      "avgDamageShort": "DMG",
+      "matches": "自分の試合数",
+      "kd": "自分のK/D",
+      "kad": "自分のKA/D",
+      "winPercent": "自分の勝率",
+      "avgDamage": "自分の平均DMG",
+      "avgDamageShort": "自分のDMG",
       "noTeammateData": "チームメイトデータがまだありません。",
-      "detailedStatsTitle": "チームメイト詳細統計",
+      "detailedStatsTitle": "チームメイト別の自分の成績",
       "rank4Plus": "4位以降",
       "rank": "順位",
       "teammate": "チームメイト",
-      "winRate": "勝率",
+      "winRate": "自分の勝率",
       "noMoreTeammates": "これ以上記録されたチームメイトはいません。",
       "unknownTeammate": "不明",
-      "statsDisclaimer": "アイコンはチームメイトのピック、数値は一緒にプレイした試合でのあなたの成績です。",
+      "statsDisclaimer": "アイコンはチームメイトのピックです。表の数値は一緒にプレイした試合でのあなたの個人成績です。",
       "teammatePicks": "チームメイトのピック",
       "myStatsWhenTogether": "一緒にプレイしたときの自分の成績",
       "teammatePicksHint": "アイコンはチームメイトの主力レジェンドです。",
-      "whenPlayingWith": "このチームメイトと一緒にプレイしたとき："
+      "whenPlayingWith": "このチームメイトと一緒にプレイしたとき：",
+      "teammateColumnGroup": "チームメイト（ピック）",
+      "myStatsColumnGroup": "自分の成績",
+      "overallBaselineLabel": "全体平均",
+      "overallBaselineSummary": "K/D {{kd}} · 勝率 {{winRate}}% · 平均 #{{avgPlacement}} · {{avgDamage}} DMG · {{games}}試合",
+      "overallBaselineRowLabel": "自分のシーズン平均",
+      "deltaVsAverage": "このシーズン・モードの全体平均との比較"
     },
     "premiumLock": {
       "unlockAnalytics": "{{title}}分析を解放",

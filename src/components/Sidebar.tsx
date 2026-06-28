@@ -8,7 +8,8 @@ import { GiBullets, GiGunshot } from 'react-icons/gi';
 import { useTranslation } from 'react-i18next';
 import type { MatchHistory } from '../utils/match';
 import { formatFullRankName } from '../utils/helpers';
-import { getWeaponTagTheme, type WeaponTagTier } from '../utils/weaponTheme';
+import { getWeaponTagTheme, getLegendImageId, getWeaponImageId, type WeaponTagTier } from '../utils/weaponTheme';
+import ProfileTagIcon from './ProfileTagIcon';
 
 
 // ✅ 최소 타입 정의
@@ -47,6 +48,8 @@ interface PlayerTag {
     themeColor?: string;
     weaponTier?: WeaponTagTier;
     shineGradient?: string;
+    imageId?: string;
+    imageType?: 'legend' | 'weapon';
 }
 
 interface RoleTagConfig {
@@ -237,6 +240,8 @@ const Sidebar: React.FC<SidebarProps> = ({
                     shineGradient: theme.shineGradient,
                     themeColor: theme.themeColor,
                     weaponTier: 'god',
+                    imageId: getWeaponImageId(key),
+                    imageType: 'weapon',
                 });
             } else if (pickRate >= 0.3 && (avgWpnKills >= 2.5 || avgWpnDmg >= 700)) {
                 const theme = getWeaponTagTheme(key, 'master');
@@ -249,6 +254,8 @@ const Sidebar: React.FC<SidebarProps> = ({
                     bgGradient: theme.bgGradient,
                     themeColor: theme.themeColor,
                     weaponTier: 'master',
+                    imageId: getWeaponImageId(key),
+                    imageType: 'weapon',
                 });
             } else if (pickRate >= 0.35) {
                 const theme = getWeaponTagTheme(key, 'user');
@@ -260,6 +267,8 @@ const Sidebar: React.FC<SidebarProps> = ({
                     score: 72,
                     themeColor: theme.themeColor,
                     weaponTier: 'user',
+                    imageId: getWeaponImageId(key),
+                    imageType: 'weapon',
                 });
             }
         });
@@ -273,11 +282,11 @@ const Sidebar: React.FC<SidebarProps> = ({
             const legendLocalizedName = t(`sidebar.legendNames.${legendKey}`, name);
 
             if (pickRate >= 0.8)
-                tags.push({ label: `${legendLocalizedName}${t('sidebar.tags.suffix.oneTrick')}`, desc: t('sidebar.tags.desc.legendOneTrick'), icon: <FaGem />, color: '#fff', score: 98, bgGradient: getDynamicGradient(legendKey) });
+                tags.push({ label: `${legendLocalizedName}${t('sidebar.tags.suffix.oneTrick')}`, desc: t('sidebar.tags.desc.legendOneTrick'), icon: <FaGem />, color: '#fff', score: 98, bgGradient: getDynamicGradient(legendKey), imageId: getLegendImageId(name), imageType: 'legend' });
             else if (pickRate >= 0.3 && (avgLegRank <= 5 || avgLegKills >= 3))
-                tags.push({ label: `${legendLocalizedName}${t('sidebar.tags.suffix.master')}`, desc: t('sidebar.tags.desc.legendMaster'), icon: <FaMedal />, color: '#fff', score: 96, bgGradient: getDynamicGradient(legendKey) });
+                tags.push({ label: `${legendLocalizedName}${t('sidebar.tags.suffix.master')}`, desc: t('sidebar.tags.desc.legendMaster'), icon: <FaMedal />, color: '#fff', score: 96, bgGradient: getDynamicGradient(legendKey), imageId: getLegendImageId(name), imageType: 'legend' });
             else if (pickRate >= 0.4)
-                tags.push({ label: `${legendLocalizedName}${t('sidebar.tags.suffix.main')}`, desc: t('sidebar.tags.desc.legendMain'), icon: <FaStar />, color: '#a29bfe', score: 76 });
+                tags.push({ label: `${legendLocalizedName}${t('sidebar.tags.suffix.main')}`, desc: t('sidebar.tags.desc.legendMain'), icon: <FaStar />, color: '#a29bfe', score: 76, imageId: getLegendImageId(name), imageType: 'legend' });
         });
 
         return tags.sort((a, b) => b.score - a.score).slice(0, 4);
@@ -469,13 +478,21 @@ const Sidebar: React.FC<SidebarProps> = ({
                                     color: iconColor,
                                     marginRight: '6px',
                                     display: 'flex',
-                                    filter: tag.isRole
+                                    alignItems: 'center',
+                                    filter: tag.isRole || isWeaponGod
                                         ? `drop-shadow(0 0 3px ${accent})`
-                                        : isWeaponGod
-                                            ? `drop-shadow(0 0 3px ${accent})`
-                                            : 'none',
+                                        : 'none',
                                 }}>
-                                    {tag.icon}
+                                    {tag.imageId && tag.imageType ? (
+                                        <ProfileTagIcon
+                                            imageId={tag.imageId}
+                                            imageType={tag.imageType}
+                                            color={labelColor}
+                                            fallback={tag.icon}
+                                        />
+                                    ) : (
+                                        tag.icon
+                                    )}
                                 </span>
                                 <span style={{
                                     color: labelColor,

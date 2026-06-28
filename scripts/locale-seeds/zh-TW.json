@@ -40,7 +40,18 @@
     "minimize": "最小化",
     "maximize": "最大化",
     "restore": "還原",
-    "close": "關閉"
+    "close": "關閉",
+    "closeDialog": {
+      "title": "關閉 ApexTrace？",
+      "description": "選擇僅隱藏視窗，還是完全結束應用程式。",
+      "hideOption": "隱藏視窗（保持背景執行）",
+      "hideHint": "比賽記錄會繼續。在通知區域（隱藏圖示）中右鍵點擊 ApexTrace 圖示即可重新開啟。",
+      "quitOption": "完全結束",
+      "quitHint": "停止背景程序與比賽追蹤。",
+      "dontAskAgain": "不再詢問",
+      "cancel": "取消",
+      "confirm": "確認"
+    }
   },
   "favorites": {
     "empty": "暫無收藏的玩家。",
@@ -61,6 +72,7 @@
   },
   "matchDetails": {
     "stats": "統計",
+    "loadout": "配槍",
     "loadoutTimeline": "武器時間軸",
     "loadoutTimelineDesc": "本場比賽中偵測到的武器變化。",
     "noLoadoutTimeline": "本場比賽沒有記錄武器變化。",
@@ -515,7 +527,7 @@
       "maps": "地圖",
       "legends": "傳奇",
       "weapons": "武器",
-      "teammates": "隊友"
+      "teammates": "隊友同隊我的數據"
     },
     "modes": {
       "all": "全部",
@@ -670,25 +682,31 @@
       "kadTooltip": "與該隊友一起比賽時的（擊殺+助攻）/ 死亡比率。",
       "mostPlayed": "🏆 最常組隊",
       "pick": "#{{rank}}",
-      "matches": "場次",
-      "kd": "K/D",
-      "kad": "KA/D",
-      "winPercent": "勝率",
-      "avgDamage": "平均傷害",
-      "avgDamageShort": "傷害",
+      "matches": "我的場次",
+      "kd": "我的K/D",
+      "kad": "我的KA/D",
+      "winPercent": "我的勝率",
+      "avgDamage": "我的平均傷害",
+      "avgDamageShort": "我的傷害",
       "noTeammateData": "暫無隊友資料。",
-      "detailedStatsTitle": "隊友詳細統計",
+      "detailedStatsTitle": "按隊友查看我的表現",
       "rank4Plus": "第4名及以後",
       "rank": "排名",
       "teammate": "隊友",
-      "winRate": "勝率",
+      "winRate": "我的勝率",
       "noMoreTeammates": "沒有更多記錄的隊友。",
       "unknownTeammate": "未知",
-      "statsDisclaimer": "圖示為隊友選用的傳奇，數字為與其同隊時你的個人數據。",
+      "statsDisclaimer": "圖示為隊友選用的傳奇。表格中的數字為與其同隊時你的個人數據。",
       "teammatePicks": "隊友選用",
       "myStatsWhenTogether": "同隊時我的數據",
       "teammatePicksHint": "頭像為隊友最常用的傳奇。",
-      "whenPlayingWith": "與該隊友一起比賽時："
+      "whenPlayingWith": "與該隊友一起比賽時：",
+      "teammateColumnGroup": "隊友（選用）",
+      "myStatsColumnGroup": "我的數據",
+      "overallBaselineLabel": "整體平均",
+      "overallBaselineSummary": "K/D {{kd}} · 勝率 {{winRate}}% · 平均 #{{avgPlacement}} · {{avgDamage}} 傷害 · {{games}} 場",
+      "overallBaselineRowLabel": "我的賽季平均",
+      "deltaVsAverage": "與目前賽季與模式的整體平均相比"
     },
     "premiumLock": {
       "unlockAnalytics": "解鎖 {{title}} 分析",

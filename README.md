@@ -1,7 +1,7 @@
 # ApexTrace
 
 **Repository:** https://github.com/sjbong0904/ApexTrace-app  
-**Current version:** `0.0.6` — see [docs/RELEASE_NOTES.md](docs/RELEASE_NOTES.md)
+**Current version:** `0.0.7` — see [docs/RELEASE_NOTES.md](docs/RELEASE_NOTES.md)
 
 Apex Legends match tracking, movement path visualization, and stats overlay built as an [Overwolf](https://www.overwolf.com/) desktop app. ApexTrace listens to in-game events (GEP), records match data locally, syncs history to the cloud, and presents analytics across a second-screen desktop window and an in-game overlay.
 
@@ -27,8 +27,9 @@ flowchart LR
 
     subgraph cloud ["Supabase"]
         LANG[languages]
+        SEASONS[seasons SSOT]
         MATCHES[matches v2]
-        ARCHIVE[match_archives legacy]
+        STATS[player_season_stats]
         RANKS[daily_rank_snapshots]
     end
 
@@ -36,7 +37,8 @@ flowchart LR
     UI --> API
     BG --> API
     API --> MATCHES
-    API --> ARCHIVE
+    API --> STATS
+    API --> SEASONS
     UI --> LANG
     BG --> LANG
 ```
@@ -86,11 +88,16 @@ Target game: Apex Legends (`game_id: 21566`).
 1. React UI ([`src/App.tsx`](src/App.tsx)) loads player stats and match history through the proxy (`/apex-stats`, `/history`, `/search-candidates`).
 2. Responses are normalized by [`src/utils/matchNormalizer.ts`](src/utils/matchNormalizer.ts) so the frontend keeps a stable shape across legacy archives and v2 rows.
 3. Recent matches are cached in **IndexedDB** via [`src/utils/LocalDB.ts`](src/utils/LocalDB.ts).
-4. Large archives sync progressively: first **100 matches** render immediately, remaining rows sync in the background ([`src/utils/historySync.ts`](src/utils/historySync.ts)).
+4. Large archives sync progressively in the background as **summary-only** pages (`view=summary`); match detail loads on expand.
 
-### Match Storage V2
+### Match storage
 
-New matches are stored as one row per match in `public.matches`. Legacy bulk archives remain in `public.match_archives`. Full schema and rollout notes: [docs/match-storage-v2.md](docs/match-storage-v2.md).
+New matches are stored as one row per match in `public.matches`. Legacy `match_archives` is deprecated on the read path.
+
+| Doc | Contents |
+|-----|----------|
+| [docs/match-storage-v2.md](docs/match-storage-v2.md) | v2 `matches` column layout and legacy API contract |
+| [docs/match-data-architecture-v3.md](docs/match-data-architecture-v3.md) | **Shipped:** summary/detail split, seasons SSOT, server-side season stats, loading flows |
 
 ---
 
@@ -145,13 +152,15 @@ apex-trace/
 ├── scripts/
 │   ├── locale-seeds/          # Translation source JSON (10 languages, BCP 47)
 │   ├── seed-languages.ts      # Push locale seeds → Supabase
+│   ├── seed-teammate-test-data.ts  # Dev-only fake teammate matches for UI testing
 │   ├── generate-zh-tw.mjs     # Regenerate zh-TW from zh-CN
 │   └── generate-locale-migration.mjs
 │
-├── supabase/migrations/       # Postgres schema (languages, matches v2, rank snapshots)
+├── supabase/migrations/       # Postgres schema (languages, matches v2, seasons, player_season_stats)
 ├── docs/
 │   ├── RELEASE_NOTES.md       # Version changelog
-│   └── match-storage-v2.md    # Match v2 storage design
+│   ├── match-storage-v2.md    # Match v2 storage design
+│   └── match-data-architecture-v3.md  # V3 architecture (shipped)
 │
 └── dist/                      # Production build output (gitignored) — load as unpacked extension
 ```
@@ -195,6 +204,8 @@ For local proxy development, set `window.PROXY_BASE_URL` or edit [`public/backgr
 | `npm run preview` | Preview production build |
 | `npm run lint` | ESLint |
 | `npm run seed:languages` | Push `scripts/locale-seeds/*.json` to Supabase |
+| `npm run seed:teammate-test` | Insert dev-only fake teammate matches (requires service role key) |
+| `npm run seed:teammate-test:clean` | Remove `test_tm_*` dev matches and recompute stats |
 
 ---
 
@@ -223,6 +234,9 @@ Apply migrations in chronological order:
 | `20260624055600_add_match_v2_optional_stats.sql` | Optional stat columns |
 | `20260624060600_add_match_v2_timeline_fields.sql` | Timeline fields (weapon_timeline, ring_rounds, …) |
 | `20260624062600_matches_uid_match_id_primary_key.sql` | Composite PK `(uid, match_id)` |
+| `20260628100000_create_seasons.sql` | Season boundaries SSOT (`public.seasons`) |
+| `20260628100100_matches_add_season_id.sql` | `season_id` on `matches` |
+| `20260628100200_create_player_season_stats.sql` | Precomputed season/mode stats for Statistics tab |
 
 Legacy table `match_archives` is managed by the proxy repo and is not recreated here.
 
@@ -232,7 +246,8 @@ Legacy table `match_archives` is managed by the proxy repo and is not recreated 
 
 - **Match list & map** — movement path overlay per match, ring rounds (when GEP provides data), fullscreen map with `Esc` to exit
 - **Match detail tabs** — Stats + Loadout Timeline (weapon change history)
-- **Statistics** — Overview (5-axis radar, last-20 match trends, free full preview); Maps/Legends/Weapons/Teammates show blurred premium preview with upgrade CTA; season + mode filters
+- **Statistics** — Overview (5-axis radar, last-20 match trends, free full preview); Maps/Legends/Weapons/Teammates show blurred premium preview with upgrade CTA; season + mode filters; **server-side season stats** via `player_season_stats` (V3)
+- **Teammates tab** — “My stats when playing with X” framing; TOP3 cards with legend podium; detailed table with season-average baseline row, ▲/▼ deltas (5+ games), long-nickname marquee
 - **Rank RP trend chart** — daily snapshots from `daily_rank_snapshots` (Overview, All/Ranked); tier-colored line, hides unranked (0 RP) seasons
 - **Sidebar stats** — recent-20 summary cards (win rate, avg placement, kills, damage, assists, top legend)
 - **Combat log** — Supabase-hosted event icons (kill, knockdown, death, revive, respawn); kill/knockdown/assist/revive events with improved revive/respawn display
@@ -243,6 +258,8 @@ Legacy table `match_archives` is managed by the proxy repo and is not recreated 
 - **Game mode fallback** — when GEP omits `game_mode`, real matches with map + teammates are saved as `BR` and shown only in the BR tab
 - **Progressive history sync** — initial 100-match UI load, background archive sync, flush on navigation/filter change
 - **Live match sync** — newly saved matches merge into the UI without flicker when viewing the same player
+- **Close confirm** — optional “don’t ask again” dialog when closing the desktop window
+- **Match detail lazy load** — summary list first; events/path/timeline fetched on expand (V3)
 
 ---
 
@@ -261,6 +278,7 @@ Do not commit `trace-proxy-server/` into this repo (see [`.gitignore`](.gitignor
 
 - [Release notes](docs/RELEASE_NOTES.md)
 - [Match Storage V2 design](docs/match-storage-v2.md)
+- [Match Data Architecture V3](docs/match-data-architecture-v3.md)
 
 ---
 

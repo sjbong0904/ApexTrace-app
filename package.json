@@ -1,14 +1,16 @@
 {
   "name": "apex-trace",
   "private": true,
-  "version": "0.0.6",
+  "version": "0.0.7",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "seed:languages": "npx tsx scripts/seed-languages.ts"
+    "seed:languages": "npx tsx scripts/seed-languages.ts",
+    "seed:teammate-test": "npx tsx scripts/seed-teammate-test-data.ts",
+    "seed:teammate-test:clean": "npx tsx scripts/seed-teammate-test-data.ts --clean"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.91.1",

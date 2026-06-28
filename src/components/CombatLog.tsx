@@ -1,11 +1,12 @@
 import React from 'react';
 import type { Match } from '../types';
-import { formatMatchTime } from '../utils/helpers';
+import { formatMatchElapsedTime } from '../utils/helpers';
 import { getEventIconUrl } from '../utils/eventIcons';
 import { FaHandshake } from 'react-icons/fa';
 import { GiCrossedSwords } from 'react-icons/gi';
 
 import { useTranslation } from 'react-i18next';
+import { MATCH_PANEL_BODY_PADDING, MATCH_PANEL_HEADER, matchTimelineContentStyle, matchTimelineRowGap, matchTimelineRowStyle, matchTimelineTimeStyle } from './matchPanelStyles';
 
 const formatEventTypeLabel = (type: string) =>
     type.length > 0 ? type.charAt(0).toUpperCase() + type.slice(1) : type;
@@ -66,7 +67,6 @@ const CombatLog = ({ match }: { match: Match }) => {
             height: '100%',
             minHeight: 0,
             boxSizing: 'border-box',
-            paddingTop: '20px',
             display: 'flex',
             flexDirection: 'column',
             background: 'var(--color-bg-sub-header)',
@@ -74,23 +74,13 @@ const CombatLog = ({ match }: { match: Match }) => {
         }}>
             
             {/* 헤더 */}
-            <div style={{ 
-                borderBottom: '1px solid var(--color-border)', 
-                background: 'var(--color-bg-sub-header)',
-                color: 'var(--color-text-muted)', 
-                fontWeight: 'bold',
-                fontSize: '11px',
-                display: 'flex',
-                textTransform: 'uppercase',
-                justifyContent: 'space-between',
-                padding: '0 15px 5px 15px'
-            }}>
+            <div style={MATCH_PANEL_HEADER}>
                 <span>{t('combatLog.title')}</span>
-                <span style={{ fontWeight: 'normal' }}>{t('combatLog.eventsCount', { count: validEvents.length })}</span>
+                <span style={{ fontWeight: 400 }}>{t('combatLog.eventsCount', { count: validEvents.length })}</span>
             </div>
 
             {/* 로그 리스트 */}
-            <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '10px 10px 12px' }}>
+            <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: MATCH_PANEL_BODY_PADDING }}>
                 {validEvents.map((event: any, index: number) => {
                     const attackerDisplay = formatLogName(
                         event.attacker, event.type, 'attacker', myName, meLabel, unknownLabel,
@@ -108,7 +98,7 @@ const CombatLog = ({ match }: { match: Match }) => {
                     let fallbackColor = 'var(--color-text-dim)';
                     let rowBg = 'var(--color-bg-card)';
                     let borderColor = 'var(--color-border-light)';
-                    const timeLabel = formatMatchTime(event.timestamp - startTime, 'digital');
+                    const timeLabel = formatMatchElapsedTime(event.timestamp - startTime, 'digital');
                     const eventIconUrl = getEventIconUrl(event.type);
 
                     if (event.type === 'assist') {
@@ -140,20 +130,21 @@ const CombatLog = ({ match }: { match: Match }) => {
                     };
 
                     return (
-                        <div key={index} style={{ 
-                            display: 'flex', alignItems: 'center', marginBottom: index === validEvents.length - 1 ? 0 : '8px',
-                            fontSize: '12px', padding: '8px', borderRadius: '4px',
-                            background: rowBg,
-                            width: '100%',
-                            borderLeft: `4px solid ${borderColor}`, boxSizing: 'border-box'
-                        }}>
-                            {/* 시간 */}
-                            <div style={{ minWidth: '40px', color: 'var(--color-text-subtle)', fontSize: '11px', fontWeight: 'bold' }}>
+                        <div
+                            key={index}
+                            style={{
+                                ...matchTimelineRowStyle({
+                                    background: rowBg,
+                                    borderLeft: `4px solid ${borderColor}`,
+                                }),
+                                ...matchTimelineRowGap(index === validEvents.length - 1),
+                            }}
+                        >
+                            <div style={matchTimelineTimeStyle}>
                                 {timeLabel}
                             </div>
-                            
-                            {/* 내용 */}
-                            <div style={{ flex: 1, display: 'flex', alignItems: 'center', minWidth: 0 }}>
+
+                            <div style={matchTimelineContentStyle}>
                                 
                                 {/* 1. 공격자 — 빈칸이어도 flex 유지로 다른 행과 정렬 통일 */}
                                 <span style={{

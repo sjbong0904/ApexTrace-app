@@ -18,6 +18,7 @@ const HOTKEYS = {
     inGame: 'toggle_in_game_window'
 };
 const isApexGame = (gameId) => (gameId === TARGET_GAME_ID || Math.floor(gameId / 10) === TARGET_GAME_ID);
+const DESKTOP_BOUNDS_KEY = 'apextrace_desktop_bounds';
 
 window.GAME_MODE_MAP = window.GAME_MODE_MAP || {};
 window.LEGEND_MAP = window.LEGEND_MAP || {};
@@ -54,31 +55,64 @@ const WindowController = {
     },
 
     _selectSecondScreen: (displays, gameInfo) => {
-        const primaryDisplay = displays.find(d => d.is_primary) || displays[0];
+        const primaryDisplay = displays.find((d) => d.is_primary) || displays[0];
+        if (!displays || displays.length <= 1) return primaryDisplay;
+
         const gameRunning = gameInfo && gameInfo.isRunning && isApexGame(gameInfo.classId);
         const gameMonitorHandle = gameInfo?.monitorHandle;
 
-        if (!gameRunning) return primaryDisplay;
-
-        const gameDisplay = displays.find((display) =>
-            WindowController._displayMatchesHandle(display, gameMonitorHandle)
+        const pickLargest = (list) => (
+            [...list].sort((a, b) => WindowController._displayArea(b) - WindowController._displayArea(a))[0]
         );
 
-        const nonGameDisplays = gameDisplay
-            ? displays.filter((display) => display !== gameDisplay)
-            : displays.filter((display) => !display.is_primary);
+        if (gameRunning) {
+            const gameDisplay = displays.find((display) =>
+                WindowController._displayMatchesHandle(display, gameMonitorHandle)
+            );
 
-        return [...nonGameDisplays].sort((a, b) =>
-            WindowController._displayArea(b) - WindowController._displayArea(a)
-        )[0] || primaryDisplay;
+            const nonGameDisplays = gameDisplay
+                ? displays.filter((display) => display !== gameDisplay)
+                : displays.filter((display) => !display.is_primary);
+
+            return pickLargest(nonGameDisplays) || primaryDisplay;
+        }
+
+        const secondaryDisplays = displays.filter((display) => !display.is_primary);
+        return pickLargest(secondaryDisplays) || primaryDisplay;
+    },
+
+    _boundsDisplay: (bounds, displays) => {
+        if (!bounds || !Array.isArray(displays) || displays.length === 0) return null;
+
+        const left = Number(bounds.left);
+        const top = Number(bounds.top);
+        if (!Number.isFinite(left) || !Number.isFinite(top)) return null;
+
+        const width = Number(bounds.width) || 1540;
+        const height = Number(bounds.height) || 850;
+        const centerX = left + (width / 2);
+        const centerY = top + (height / 2);
+
+        return displays.find((display) => (
+            centerX >= display.x
+            && centerX < display.x + display.width
+            && centerY >= display.y
+            && centerY < display.y + display.height
+        )) || null;
+    },
+
+    _sameDisplay: (a, b) => {
+        if (!a || !b) return false;
+        if (a === b) return true;
+        return a.x === b.x && a.y === b.y && a.width === b.width && a.height === b.height;
     },
 
     _repositionDesktopIfVisible: () => {
         overwolf.windows.obtainDeclaredWindow("desktop", (res) => {
             if (res.status !== "success") return;
-            const state = res.window.stateEx || res.window.state;
-            const isVisible = state === "normal" || state === "maximized";
-            if (isVisible) WindowController.centerWindow(res.window.id);
+            if (WindowController._isWindowVisible(res.window)) {
+                WindowController.centerWindow(res.window.id);
+            }
         });
     },
 
@@ -107,20 +141,188 @@ const WindowController = {
         });
     },
 
-    toggleDeclaredWindow: (targetWindow) => {
-        overwolf.windows.obtainDeclaredWindow(targetWindow, (winRes) => {
-            if (winRes.status === "success") {
-                const winState = winRes.window.stateEx;
-                const isVisible = winState === "normal" || winState === "maximized";
+    _rememberDesktopBounds: (windowInfo) => {
+        if (!windowInfo) return;
+        const state = String(windowInfo.stateEx || windowInfo.state || '').toLowerCase();
+        // Native OS windows report invalid left/top while minimized.
+        if (state === 'minimized') return;
 
-                if (isVisible) {
-                    overwolf.windows.hide(winRes.window.id);
-                } else {
-                    overwolf.windows.restore(winRes.window.id, () => {
-                        if (targetWindow === "desktop") WindowController.centerWindow(winRes.window.id);
-                    });
+        const left = Number(windowInfo.left);
+        const top = Number(windowInfo.top);
+        if (!Number.isFinite(left) || !Number.isFinite(top)) return;
+        if (Math.abs(left) > 30000 || Math.abs(top) > 30000) return;
+
+        try {
+            localStorage.setItem(DESKTOP_BOUNDS_KEY, JSON.stringify({
+                left,
+                top,
+                width: windowInfo.width,
+                height: windowInfo.height,
+            }));
+        } catch (_) {
+            // ignore quota / private mode
+        }
+    },
+
+    _loadDesktopBounds: () => {
+        try {
+            const raw = localStorage.getItem(DESKTOP_BOUNDS_KEY);
+            return raw ? JSON.parse(raw) : null;
+        } catch (_) {
+            return null;
+        }
+    },
+
+    _isBoundsVisibleOnDisplays: (bounds, displays) => {
+        if (!bounds || !Array.isArray(displays) || displays.length === 0) return false;
+
+        const left = Number(bounds.left);
+        const top = Number(bounds.top);
+        if (!Number.isFinite(left) || !Number.isFinite(top)) return false;
+        if (Math.abs(left) > 30000 || Math.abs(top) > 30000) return false;
+
+        const width = Number(bounds.width) || 1540;
+        const height = Number(bounds.height) || 850;
+        const right = left + width;
+        const bottom = top + height;
+        const minVisible = 80;
+
+        return displays.some((display) => {
+            const displayRight = display.x + display.width;
+            const displayBottom = display.y + display.height;
+            const overlapW = Math.min(right, displayRight) - Math.max(left, display.x);
+            const overlapH = Math.min(bottom, displayBottom) - Math.max(top, display.y);
+            return overlapW >= minVisible && overlapH >= minVisible;
+        });
+    },
+
+    /** @param {'restore' | 'center' | 'none'} placement */
+    _placeDesktopWindow: (windowId, placement = 'restore') => {
+        if (placement === 'none') return;
+
+        if (placement === 'center') {
+            WindowController.centerWindow(windowId);
+            return;
+        }
+
+        const saved = WindowController._loadDesktopBounds();
+        if (!saved) {
+            WindowController.centerWindow(windowId);
+            return;
+        }
+
+        overwolf.utils.getMonitorsList((res) => {
+            const displays = res.success && res.displays?.length ? res.displays : [];
+            if (!WindowController._isBoundsVisibleOnDisplays(saved, displays)) {
+                try {
+                    localStorage.removeItem(DESKTOP_BOUNDS_KEY);
+                } catch (_) {
+                    // ignore
                 }
+                WindowController.centerWindow(windowId);
+                return;
             }
+
+            overwolf.games.getRunningGameInfo((gameRes) => {
+                const preferredDisplay = WindowController._selectSecondScreen(displays, gameRes);
+                const boundsDisplay = WindowController._boundsDisplay(saved, displays);
+
+                if (
+                    displays.length > 1
+                    && boundsDisplay
+                    && !WindowController._sameDisplay(boundsDisplay, preferredDisplay)
+                ) {
+                    WindowController.centerWindow(windowId);
+                    return;
+                }
+
+                overwolf.windows.changePosition(windowId, saved.left, saved.top);
+            });
+        });
+    },
+
+    _isWindowVisible: (windowInfo) => {
+        const state = String(windowInfo?.stateEx || windowInfo?.state || '').toLowerCase();
+        return state === 'normal' || state === 'maximized';
+    },
+
+    _readWindowState: (stateResult, windowInfo) => (
+        String(stateResult?.window_state_ex || stateResult?.window_state || windowInfo?.stateEx || windowInfo?.state || '')
+            .toLowerCase()
+    ),
+
+    _isWindowShownState: (state) => state === 'normal' || state === 'maximized',
+
+    _withDeclaredWindowState: (targetWindow, handler) => {
+        overwolf.windows.obtainDeclaredWindow(targetWindow, (winRes) => {
+            if (winRes.status !== 'success') return;
+
+            const windowId = winRes.window.id;
+            overwolf.windows.getWindowState(windowId, (stateRes) => {
+                const state = WindowController._readWindowState(stateRes, winRes.window);
+                handler(windowId, state, winRes.window);
+            });
+        });
+    },
+
+    _showDesktopWindow: (windowId, { placement = 'restore', grabFocus = true } = {}) => {
+        overwolf.windows.restore(windowId, () => {
+            WindowController._isWindowOpen = true;
+            WindowController._placeDesktopWindow(windowId, placement);
+            overwolf.windows.bringToFront(windowId, grabFocus, () => {});
+        });
+    },
+
+    _hideDesktopWindow: (windowId, windowInfo) => {
+        WindowController._rememberDesktopBounds(windowInfo);
+        overwolf.windows.minimize(windowId);
+    },
+
+    _showDeclaredWindow: (targetWindow, { grabFocus = targetWindow === 'desktop', desktopPlacement = 'restore' } = {}) => {
+        if (targetWindow === 'desktop') {
+            WindowController._withDeclaredWindowState('desktop', (windowId, state) => {
+                if (WindowController._isWindowShownState(state)) {
+                    WindowController._isWindowOpen = true;
+                    WindowController._placeDesktopWindow(windowId, desktopPlacement);
+                    overwolf.windows.bringToFront(windowId, grabFocus, () => {});
+                    return;
+                }
+                WindowController._showDesktopWindow(windowId, { placement: desktopPlacement, grabFocus });
+            });
+            return;
+        }
+
+        overwolf.windows.obtainDeclaredWindow(targetWindow, (winRes) => {
+            if (winRes.status !== 'success') return;
+
+            const windowId = winRes.window.id;
+            overwolf.windows.restore(windowId, () => {
+                overwolf.windows.bringToFront(windowId, grabFocus, () => {});
+            });
+        });
+    },
+
+    toggleDeclaredWindow: (targetWindow) => {
+        if (targetWindow === 'desktop') {
+            WindowController._withDeclaredWindowState('desktop', (windowId, state, windowInfo) => {
+                if (WindowController._isWindowShownState(state)) {
+                    WindowController._hideDesktopWindow(windowId, windowInfo);
+                    return;
+                }
+                WindowController._showDesktopWindow(windowId, { placement: 'restore', grabFocus: true });
+            });
+            return;
+        }
+
+        WindowController._withDeclaredWindowState(targetWindow, (windowId, state) => {
+            if (WindowController._isWindowShownState(state)) {
+                overwolf.windows.hide(windowId);
+                return;
+            }
+
+            overwolf.windows.restore(windowId, () => {
+                overwolf.windows.bringToFront(windowId, false, () => {});
+            });
         });
     },
 
@@ -132,28 +334,22 @@ const WindowController = {
     },
 
     showSecondScreen: () => {
-        overwolf.windows.obtainDeclaredWindow("desktop", (res) => {
-            if (res.status === "success") {
-                overwolf.windows.restore(res.window.id, () => {
-                    WindowController._isWindowOpen = true;
-                    WindowController.centerWindow(res.window.id);
-                    overwolf.windows.bringToFront(res.window.id, false, () => {});
-                });
-            }
-        });
+        WindowController._showDeclaredWindow('desktop', { grabFocus: true, desktopPlacement: 'restore' });
     },
 
     openMainWindow: () => {
-        if (WindowController._isWindowOpen) return;
-        overwolf.windows.obtainDeclaredWindow("desktop", (res) => {
-            if (res.status === "success") {
-                overwolf.windows.restore(res.window.id, (result) => {
-                    if (result.success) {
-                        WindowController._isWindowOpen = true; 
-                        WindowController.centerWindow(res.window.id);
-                    }
-                });
+        WindowController._withDeclaredWindowState('desktop', (windowId, state) => {
+            const hasSavedBounds = Boolean(WindowController._loadDesktopBounds());
+            const placement = hasSavedBounds ? 'restore' : 'center';
+
+            if (WindowController._isWindowShownState(state)) {
+                WindowController._isWindowOpen = true;
+                WindowController._placeDesktopWindow(windowId, placement);
+                overwolf.windows.bringToFront(windowId, true, () => {});
+                return;
             }
+
+            WindowController._showDesktopWindow(windowId, { placement, grabFocus: true });
         });
     },
     
@@ -176,7 +372,137 @@ const WindowController = {
         overwolf.windows.obtainDeclaredWindow("worker", (res) => {
             if (res.status === "success") overwolf.windows.close(res.window.id);
         });
-    }
+    },
+
+    hideDesktopWindow: () => {
+        overwolf.windows.obtainDeclaredWindow("desktop", (res) => {
+            if (res.status !== "success") return;
+            WindowController._rememberDesktopBounds(res.window);
+            WindowController._isWindowOpen = false;
+            overwolf.windows.close(res.window.id);
+        });
+    },
+
+    quitApplication: () => {
+        if (window.Store?.activeMatch && window.CoreController?.endMatch) {
+            void window.CoreController.endMatch();
+        }
+
+        TrayController.destroy();
+        WindowController.closeWorker();
+
+        overwolf.windows.obtainDeclaredWindow("in_game", (res) => {
+            if (res.status === "success") overwolf.windows.close(res.window.id);
+        });
+
+        overwolf.windows.obtainDeclaredWindow("desktop", (res) => {
+            const closeBackground = () => {
+                overwolf.windows.getCurrentWindow((bgRes) => {
+                    if (bgRes.success) overwolf.windows.close(bgRes.window.id);
+                });
+            };
+
+            if (res.status === "success") {
+                WindowController._isWindowOpen = false;
+                overwolf.windows.close(res.window.id, closeBackground);
+                return;
+            }
+
+            closeBackground();
+        });
+    },
+
+    requestDesktopClose: (mode) => {
+        if (mode === "quit") WindowController.quitApplication();
+        else WindowController.hideDesktopWindow();
+    },
+
+    initDesktopBoundsTracking: () => {
+        overwolf.windows.onStateChanged.addListener((event) => {
+            if (event.window_name !== 'desktop') return;
+            const state = String(event.window_state_ex || event.window_state || '').toLowerCase();
+
+            if (state === 'closed' || state === 'hidden') {
+                WindowController._isWindowOpen = false;
+                return;
+            }
+
+            if (state === 'normal' || state === 'maximized') {
+                WindowController._isWindowOpen = true;
+                overwolf.windows.obtainDeclaredWindow('desktop', (res) => {
+                    if (res.status === 'success') {
+                        WindowController._rememberDesktopBounds(res.window);
+                    }
+                });
+            }
+        });
+    },
+};
+
+const OFFICIAL_DISCORD_URL = 'https://discord.gg/vwGVAFEYyj';
+
+const TRAY_MENU = {
+    menu_items: [
+        { label: 'Open ApexTrace', id: 'tray_open' },
+        { label: '-' },
+        { label: 'Official Discord', id: 'tray_discord' },
+        { label: 'Restart ApexTrace', id: 'tray_restart' },
+        { label: '-' },
+        { label: 'Quit ApexTrace', id: 'tray_quit' },
+    ],
+};
+
+const TrayController = {
+    _initialized: false,
+
+    init: () => {
+        if (TrayController._initialized || !overwolf.os?.tray?.setMenu) return;
+
+        overwolf.os.tray.setMenu(TRAY_MENU, (res) => {
+            if (res?.success === false) {
+                console.warn('Tray setMenu failed:', res);
+                return;
+            }
+            TrayController._initialized = true;
+            console.log('System tray icon ready');
+        });
+
+        overwolf.os.tray.onMenuItemClicked.addListener(TrayController._onMenuItemClicked);
+        overwolf.os.tray.onTrayIconClicked.addListener(() => {
+            WindowController.showSecondScreen();
+        });
+        overwolf.os.tray.onTrayIconDoubleClicked.addListener(() => {
+            WindowController.showSecondScreen();
+        });
+    },
+
+    destroy: () => {
+        if (!TrayController._initialized || !overwolf.os?.tray?.destroy) return;
+        overwolf.os.tray.destroy();
+        TrayController._initialized = false;
+    },
+
+    _onMenuItemClicked: (event) => {
+        switch (event?.item) {
+            case 'tray_open':
+                WindowController.showSecondScreen();
+                break;
+            case 'tray_discord':
+                overwolf.utils.openUrlInDefaultBrowser(OFFICIAL_DISCORD_URL);
+                break;
+            case 'tray_restart':
+                if (window.Store?.activeMatch && window.CoreController?.endMatch) {
+                    void window.CoreController.endMatch();
+                }
+                overwolf.extensions.relaunch();
+                break;
+            case 'tray_quit':
+                WindowController.quitApplication();
+                break;
+            default:
+                break;
+        }
+    },
 };
 
 const ConfigController = {
@@ -185,13 +511,27 @@ const ConfigController = {
         if (!window._supabase) return;
         try {
             const { data, error } = await window._supabase
+                .from('seasons')
+                .select('id, name, start_time')
+                .order('id', { ascending: false });
+
+            if (!error && data && data.length > 0) {
+                window.SEASONS = data.map(s => ({
+                    id: s.id,
+                    name: s.name,
+                    startTime: s.start_time ? Number(s.start_time) : 0,
+                }));
+                console.log("✅ [ConfigController] Seasons loaded from public.seasons");
+            }
+
+            const { data: constants, error: constantsError } = await window._supabase
                 .from('game_constants')
                 .select('key, value');
 
-            if (error) throw error;
-            if (!data || data.length === 0) return;
+            if (constantsError) throw constantsError;
+            if (!constants || constants.length === 0) return;
 
-            data.forEach(({ key, value }) => {
+            constants.forEach(({ key, value }) => {
                 if (key === 'gep_features') window.GEP_FEATURES = value;
                 if (key === 'platform_map') window.PLATFORM_MAP = value;
                 if (key === 'proxy_base_url') window.PROXY_BASE_URL = value;
@@ -204,7 +544,7 @@ const ConfigController = {
                 if (key === 'discord_webhook_url') window.DISCORD_WEBHOOK_URL = value;
                 if (key === 'maintenance_mode')    window.MAINTENANCE_MODE = value;
                 if (key === 'sync_config') window.SYNC_CONFIG = value;
-                if (key === 'seasons') {
+                if (key === 'seasons' && (!window.SEASONS || window.SEASONS.length === 0)) {
                     window.SEASONS = value.map(s => ({
                         id: s.id,
                         name: s.name,
@@ -360,7 +700,7 @@ const canUseCachedStats = (uid, cached) => {
 };
 
 const CoreController = {
-    loadUserProfile: async (uid, cachedProfile = null) => {
+    loadUserProfile: async (uid, cachedProfile = null, options = {}) => {
         if (!uid) return { success: false };
         
         try {
@@ -369,9 +709,13 @@ const CoreController = {
                 ? Promise.resolve(cachedProfile)
                 : window.APIService.fetchUserStats(uid, 'uid');
 
+            const remoteHistoryTask = options.preloadedHistory !== undefined
+                ? Promise.resolve(options.preloadedHistory)
+                : window.CloudRepository.fetchHistoryFile(uid);
+
             const [apiStats, remoteHistory, dbInfo] = await Promise.all([
                 statsTask,
-                window.CloudRepository.fetchHistoryFile(uid),
+                remoteHistoryTask,
                 window.CloudRepository.fetchUserByUid
                     ? window.CloudRepository.fetchUserByUid(uid)
                     : Promise.resolve(null),
@@ -435,9 +779,12 @@ const CoreController = {
                     }
                 }
                 
-                // Store 업데이트 (라이브 prepend 매치 보존)
+                const remote = Array.isArray(remoteHistory) ? remoteHistory : [];
+                const mergeWithLocal = CoreController._shouldUpdateStoreHistory(uid);
                 window.Store.user = normalizedUser;
-                window.Store.history = CoreController._mergeHistoryLists(window.Store.history, remoteHistory);
+                window.Store.history = mergeWithLocal
+                    ? CoreController._mergeHistoryLists(window.Store.history, remote)
+                    : remote;
                 window.Store.system.candidates = null;
 
                 if (window.Store.activeMatch) {
@@ -922,7 +1269,8 @@ const GameProcessMonitor = {
                 overwolf.windows.obtainDeclaredWindow("desktop", (res) => {
                     if (res.status === "success") {
                         overwolf.windows.restore(res.window.id, () => {
-                            WindowController.centerWindow(res.window.id);
+                            WindowController._placeDesktopWindow(res.window.id, 'restore');
+                            overwolf.windows.bringToFront(res.window.id, true, () => {});
                         });
                     }
                 });
@@ -974,6 +1322,9 @@ window.apexData = {
     getIdentityState: () => ({ state: "SEARCH_MODE", candidates: window.Store.system.candidates }),
     searchUser: CoreController.searchUser,
     getUserDetail: CoreController.loadUserProfile,
+    fetchUserHistory: (uid) => window.CloudRepository.fetchHistoryFile(uid, { view: 'summary' }),
+    fetchMatchDetail: (uid, matchId) => window.CloudRepository.fetchMatchDetail(uid, matchId),
+    fetchPlayerStats: (uid, seasonId, mode) => window.APIService.getPlayerStats(uid, seasonId, mode),
     processWorkerResult: window.SyncManager.receiveWorkerResult
 };
 
@@ -983,7 +1334,9 @@ const initApp = () => {
         if (window.Store.pendingMatches.length > 0 && window.Store.system?.localUser) {
             CoreController.handleWorkerIdentity(window.Store.system.localUser);
         }
+        TrayController.init();
         WindowController.startWorker();
+        WindowController.initDesktopBoundsTracking();
         WindowController.openMainWindow();
         GameProcessMonitor.init();
 

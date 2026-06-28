@@ -105,6 +105,17 @@ export const formatMatchTime = (ms: number, style: 'digital' | 'text' = 'digital
     return "";
 };
 
+/** Overwolf match start includes ~1 min pre-drop; UI times are from dropship. */
+export const MATCH_GAME_START_OFFSET_MS = 60_000;
+
+export const toGameElapsedMs = (elapsedFromMatchStartMs: number): number =>
+    Math.max(0, elapsedFromMatchStartMs - MATCH_GAME_START_OFFSET_MS);
+
+export const formatMatchElapsedTime = (
+    elapsedFromMatchStartMs: number,
+    style: 'digital' | 'text' = 'digital',
+) => formatMatchTime(toGameElapsedMs(elapsedFromMatchStartMs), style);
+
 /** Relative duration only (e.g. `3h`, `5m`). Use `formatRelativeTime` for display. */
 export const getRelativeTime = (timestamp: number | string): string => {
     if (!timestamp) return "";

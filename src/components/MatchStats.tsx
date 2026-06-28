@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { getMapConfig, formatMatchTime } from '../utils/helpers';
+import { getMapConfig, formatMatchTime, toGameElapsedMs } from '../utils/helpers';
 import type { Match } from '../types';
 import { FaInfoCircle } from 'react-icons/fa';
 import type { TFunction } from 'i18next'; // ✅ TFunction 타입 import
@@ -276,7 +276,7 @@ const MatchStats = ({ match, onUserSelect }: MatchStatsProps) => {
         squadKills = totalAssists + totalKills;
     }
 
-    const durationMs = (match.endTime || Date.now()) - match.startTime;
+    const durationMs = toGameElapsedMs((match.endTime || Date.now()) - match.startTime);
     const durationMin = durationMs / 1000 / 60;
     const timeLabel = formatMatchTime(durationMs, 'text');
     const dpm = durationMin > 0.1 ? Math.round(totalDamage / durationMin) : 0;
@@ -299,7 +299,7 @@ const MatchStats = ({ match, onUserSelect }: MatchStatsProps) => {
     };
 
     return (
-        <div style={{ width: '100%', height: '100%', padding: '20px', boxSizing: 'border-box', display: 'flex', flexDirection: 'column' }}>
+        <div style={{ width: '100%', height: '100%', padding: '10px 12px 12px', boxSizing: 'border-box', display: 'flex', flexDirection: 'column' }}>
             <style>{`
                 @keyframes matchStatsLabelPan {
                     from { transform: translateX(0); }
