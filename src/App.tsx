@@ -8,12 +8,12 @@ import type { Match, User } from './types';
 import MapVisualizer from './components/MapVisualizer';
 import CombatLog from './components/CombatLog';
 import MatchDetailTabs from './components/MatchDetailTabs';
-import LoadoutDisplay from './components/LoadoutDisplay';
 import PerformanceTrend from './components/PerformanceTrend';
 import StatisticsTab from './components/StatisticsTab';
 import WeaponsTab from './components/weaponsTab';
+import TierTableTab from './components/TierTableTab';
 import { formatRelativeTime, getRankColor, getRelativeTime } from './utils/helpers';
-import { FaSearch, FaSync, FaQuestionCircle, FaCrown, FaList, FaStar, FaChartBar, FaCrosshairs, FaCog } from 'react-icons/fa';
+import { FaSearch, FaSync, FaQuestionCircle, FaCrown, FaList, FaStar, FaChartBar, FaCrosshairs, FaCog, FaThList } from 'react-icons/fa';
 import PlayerSelectionModal from './components/PlayerSelectionModal';
 import AdUnit from './components/AdUnit';
 import SettingsTab from './components/SettingsTab';
@@ -989,7 +989,9 @@ const App = () => {
                             {mainTab === "DASHBOARD" ? <><FaList color="var(--color-text-muted)"/> {t('nav.matchHistory')}</> : 
                              mainTab === "FAVORITES" ? <><FaStar color="#e1b12c"/> {t('nav.favorites')}</> :
                              mainTab === "STATISTICS" ? <><FaChartBar color="#e17055"/> {t('nav.statistics')}</> :
-                             mainTab === "WEAPONS" ? <><FaCrosshairs color="#00cec9"/> {t('nav.weapons')}</> : <><FaCog color="var(--color-text-muted)"/> {t('nav.settings')}</>}
+                             mainTab === "WEAPONS" ? <><FaCrosshairs color="#00cec9"/> {t('nav.weapons')}</> :
+                             mainTab === "TIER_TABLE" ? <><FaThList color="#a29bfe"/> {t('nav.tierTable')}</> :
+                             <><FaCog color="var(--color-text-muted)"/> {t('nav.settings')}</>}
                         </div>
 
                         <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
@@ -1088,6 +1090,17 @@ const App = () => {
                             </div>
                         ) : mainTab === "WEAPONS" ? (
                             <WeaponsTab />
+                        ) : mainTab === "TIER_TABLE" ? (
+                            <div style={{
+                                margin: '-30px',
+                                marginBottom: '-90px',
+                                width: 'calc(100% + 60px)',
+                                height: 'calc(100% + 120px)',
+                                minHeight: 0,
+                                overflow: 'hidden',
+                            }}>
+                                <TierTableTab />
+                            </div>
                         ) : mainTab === "SETTINGS" ? (
                             <SettingsTab isPremium={isPremium} />
                         ) : (
@@ -1155,9 +1168,8 @@ const App = () => {
                                                         <div className="match-accordion-inner">
                                                             <div style={{ height: '420px', display: 'flex', borderTop: '1px solid var(--color-border)', background: 'var(--color-bg-sub-header)' }}>
                                                                 <div style={{ flex: 5, minWidth: '250px', position: 'relative', borderRight: '1px solid var(--color-border)', overflow: 'hidden' }}>{isExpanded && <MapVisualizer match={match} />}</div>
-                                                                <div style={{ flex: 3, minWidth: '280px', borderRight: '1px solid var(--color-border)', display: 'flex', flexDirection: 'column', zIndex: 10 }}>
-                                                                    <div style={{ flex: 1, overflow: 'hidden', minHeight: 0 }}><CombatLog match={match} /></div>
-                                                                    <div style={{ height: '180px', borderTop: '1px solid var(--color-border)', background: 'var(--color-bg-main)', flexShrink: 0 }}><LoadoutDisplay match={match} /></div>
+                                                                <div style={{ flex: 3, minWidth: '280px', borderRight: '1px solid var(--color-border)', display: 'flex', flexDirection: 'column', zIndex: 10, overflow: 'hidden' }}>
+                                                                    <CombatLog match={match} />
                                                                 </div>
                                                                 <div style={{ flex: 4, minWidth: '240px', display: 'flex', flexDirection: 'column', background: 'var(--color-bg-main)' }}>
                                                                     <MatchDetailTabs match={match} onUserSelect={handleSelectUser} />

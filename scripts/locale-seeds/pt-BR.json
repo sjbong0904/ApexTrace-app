@@ -22,6 +22,7 @@
     "favorites": "Favoritos",
     "statistics": "Estatísticas",
     "weapons": "Banco de dados de armas",
+    "tierTable": "Tabela de tiers",
     "settings": "Configurações"
   },
   "controls": {
@@ -119,6 +120,35 @@
     "disruptor": "Disruptor",
     "hammerpoint": "Hammerpoint",
     "graffiti": "Graffiti Mod"
+  },
+  "tierTable": {
+    "chooseType": "Criar tabela de tiers",
+    "chooseTypeDesc": "Escolha lendas ou armas e arraste os ícones para os tiers.",
+    "legendTier": "Tabela de lendas",
+    "weaponTier": "Tabela de armas",
+    "changeType": "Mudar tipo",
+    "reset": "Redefinir",
+    "screenshot": "Captura de tela",
+    "screenshotPreview": "Pré-visualização da captura",
+    "screenshotCapturing": "Capturando…",
+    "screenshotReady": "Pré-visualização pronta — título opcional e clique em Salvar",
+    "screenshotTitle": "Título",
+    "screenshotTitlePlaceholder": "Opcional",
+    "screenshotSave": "Salvar",
+    "screenshotSaving": "Salvando…",
+    "screenshotSavedShort": "Salvo!",
+    "screenshotSaved": "Captura salva: {{path}}",
+    "screenshotDownloaded": "Captura baixada",
+    "screenshotFailed": "Falha ao salvar captura",
+    "newTier": "Novo",
+    "removeTier": "Remover",
+    "removeItem": "Retirar",
+    "dropHere": "Arraste aqui",
+    "addTier": "Adicionar linha",
+    "legendPool": "Lendas",
+    "weaponPool": "Armas",
+    "poolHint": "Arraste para cima · Solte aqui para desatribuir",
+    "dragRow": "Arraste para reordenar linhas"
   },
   "weaponDb": {
     "names": {
@@ -297,12 +327,6 @@
       "matchLifecycle": { "label": "Início / fim da partida", "impact": "A detecção automática de início ou fim da partida pode falhar." },
       "revive": { "label": "Revive / respawn", "impact": "Revives após derrubada e respawns podem não ser registrados." }
     }
-  },
-  "loadout": {
-    "title": "Equipamento",
-    "noWeapon": "Sem arma",
-    "slot1": "SLOT #1",
-    "slot2": "SLOT #2"
   },
   "settings": {
     "alerts": {

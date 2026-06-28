@@ -22,6 +22,7 @@
     "favorites": "お気に入り",
     "statistics": "統計",
     "weapons": "武器データベース",
+    "tierTable": "ティア表",
     "settings": "設定"
   },
   "controls": {
@@ -119,6 +120,35 @@
     "disruptor": "ディスラプター",
     "hammerpoint": "ハンマーポイント",
     "graffiti": "グラフィティMOD"
+  },
+  "tierTable": {
+    "chooseType": "ティア表を作成",
+    "chooseTypeDesc": "レジェンドまたは武器を選び、アイコンをドラッグして配置します。",
+    "legendTier": "レジェンド ティア表",
+    "weaponTier": "武器 ティア表",
+    "changeType": "種類を変更",
+    "reset": "リセット",
+    "screenshot": "スクリーンショット",
+    "screenshotPreview": "スクリーンショットプレビュー",
+    "screenshotCapturing": "スクリーンショットをキャプチャ中…",
+    "screenshotReady": "プレビュー準備完了 — タイトルを入力して保存（任意）",
+    "screenshotTitle": "タイトル",
+    "screenshotTitlePlaceholder": "任意",
+    "screenshotSave": "保存",
+    "screenshotSaving": "保存中…",
+    "screenshotSavedShort": "保存しました！",
+    "screenshotSaved": "スクリーンショットを保存しました: {{path}}",
+    "screenshotDownloaded": "スクリーンショットをダウンロードしました",
+    "screenshotFailed": "スクリーンショットの保存に失敗しました",
+    "newTier": "新規",
+    "removeTier": "削除",
+    "removeItem": "除去",
+    "dropHere": "ここにドラッグ",
+    "addTier": "ティア行を追加",
+    "legendPool": "レジェンド",
+    "weaponPool": "武器",
+    "poolHint": "上のティアへドラッグ · ここにドロップで解除",
+    "dragRow": "ドラッグしてティア行の順序を変更"
   },
   "weaponDb": {
     "names": {
@@ -301,12 +331,6 @@
       "matchLifecycle": { "label": "マッチ開始 / 終了", "impact": "マッチ開始または終了の自動検出に失敗する場合があります。" },
       "revive": { "label": "蘇生 / リスポーン", "impact": "ノックダウン蘇生とリスポーンイベントが記録されない場合があります。" }
     }
-  },
-  "loadout": {
-    "title": "ロードアウト",
-    "noWeapon": "武器なし",
-    "slot1": "SLOT #1",
-    "slot2": "SLOT #2"
   },
   "settings": {
     "alerts": {

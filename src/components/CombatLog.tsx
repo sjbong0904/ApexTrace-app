@@ -1,26 +1,11 @@
 import React from 'react';
 import type { Match } from '../types';
 import { formatMatchTime } from '../utils/helpers';
+import { getEventIconUrl } from '../utils/eventIcons';
 import { FaHandshake } from 'react-icons/fa';
 import { GiCrossedSwords } from 'react-icons/gi';
 
 import { useTranslation } from 'react-i18next';
-
-const EVENT_ICON_BASE =
-    'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/events';
-
-const EVENT_ICON_FILES: Record<string, string> = {
-    death: 'death1',
-    kill: 'kill',
-    knockdown: 'knockdown',
-    respawn: 'respawn',
-    revive: 'revive',
-};
-
-const getEventIconUrl = (type: string) => {
-    const file = EVENT_ICON_FILES[type];
-    return file ? `${EVENT_ICON_BASE}/${file}.png` : null;
-};
 
 const formatEventTypeLabel = (type: string) =>
     type.length > 0 ? type.charAt(0).toUpperCase() + type.slice(1) : type;

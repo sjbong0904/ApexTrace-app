@@ -22,6 +22,7 @@
     "favorites": "Favoritos",
     "statistics": "Estadísticas",
     "weapons": "Base de datos de armas",
+    "tierTable": "Tabla de tiers",
     "settings": "Ajustes"
   },
   "controls": {
@@ -119,6 +120,35 @@
     "disruptor": "Disruptor",
     "hammerpoint": "Hammerpoint",
     "graffiti": "Graffiti Mod"
+  },
+  "tierTable": {
+    "chooseType": "Crear tabla de tiers",
+    "chooseTypeDesc": "Elige leyendas o armas y arrastra los iconos a los tiers.",
+    "legendTier": "Tabla de leyendas",
+    "weaponTier": "Tabla de armas",
+    "changeType": "Cambiar tipo",
+    "reset": "Restablecer",
+    "screenshot": "Captura",
+    "screenshotPreview": "Vista previa de captura",
+    "screenshotCapturing": "Capturando…",
+    "screenshotReady": "Vista previa lista — título opcional y pulsa Guardar",
+    "screenshotTitle": "Título",
+    "screenshotTitlePlaceholder": "Opcional",
+    "screenshotSave": "Guardar",
+    "screenshotSaving": "Guardando…",
+    "screenshotSavedShort": "¡Guardado!",
+    "screenshotSaved": "Captura guardada: {{path}}",
+    "screenshotDownloaded": "Captura descargada",
+    "screenshotFailed": "Error al guardar la captura",
+    "newTier": "Nuevo",
+    "removeTier": "Eliminar",
+    "removeItem": "Quitar",
+    "dropHere": "Arrastra aquí",
+    "addTier": "Añadir fila",
+    "legendPool": "Leyendas",
+    "weaponPool": "Armas",
+    "poolHint": "Arrastra arriba · Suelta aquí para quitar",
+    "dragRow": "Arrastra para reordenar filas"
   },
   "weaponDb": {
     "names": {
@@ -297,12 +327,6 @@
       "matchLifecycle": { "label": "Inicio / fin de partida", "impact": "La detección automática de inicio o fin de partida puede fallar." },
       "revive": { "label": "Revive / respawn", "impact": "Los revives tras derribo y respawns pueden no registrarse." }
     }
-  },
-  "loadout": {
-    "title": "Equipamiento",
-    "noWeapon": "Sin arma",
-    "slot1": "RANURA #1",
-    "slot2": "RANURA #2"
   },
   "settings": {
     "alerts": {

@@ -22,6 +22,7 @@
     "favorites": "Favorites",
     "statistics": "Statistics",
     "weapons": "Weapon Database",
+    "tierTable": "Tier Table",
     "settings": "Settings"
   },
   "controls": {
@@ -119,6 +120,35 @@
     "disruptor": "Disruptor",
     "hammerpoint": "Hammerpoint",
     "graffiti": "Graffiti Mod"
+  },
+  "tierTable": {
+    "chooseType": "Create a tier table",
+    "chooseTypeDesc": "Pick legend or weapon tier list, then drag icons into tiers.",
+    "legendTier": "Legend Tier Table",
+    "weaponTier": "Weapon Tier Table",
+    "changeType": "Change type",
+    "reset": "Reset",
+    "screenshot": "Screenshot",
+    "screenshotPreview": "Screenshot preview",
+    "screenshotCapturing": "Capturing screenshot…",
+    "screenshotReady": "Enter an optional title, then click Save",
+    "screenshotTitle": "Title",
+    "screenshotTitlePlaceholder": "Optional",
+    "screenshotSave": "Save",
+    "screenshotSaving": "Saving…",
+    "screenshotSavedShort": "Saved!",
+    "screenshotSaved": "Screenshot saved: {{path}}",
+    "screenshotDownloaded": "Screenshot downloaded",
+    "screenshotFailed": "Failed to save screenshot",
+    "newTier": "New",
+    "removeTier": "Remove",
+    "removeItem": "Remove",
+    "dropHere": "Drag items here",
+    "addTier": "Add tier row",
+    "legendPool": "Legends",
+    "weaponPool": "Weapons",
+    "poolHint": "Drag into tiers above · Drop here to unassign",
+    "dragRow": "Drag to reorder tier row"
   },
   "weaponDb": {
     "names": {
@@ -331,12 +361,6 @@
         "impact": "Knockdown revive and respawn events may not be recorded."
       }
     }
-  },
-  "loadout": {
-    "title": "Loadout",
-    "noWeapon": "No Weapon",
-    "slot1": "SLOT #1",
-    "slot2": "SLOT #2"
   },
   "settings": {
     "alerts": {

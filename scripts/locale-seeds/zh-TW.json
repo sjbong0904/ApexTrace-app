@@ -22,6 +22,7 @@
     "favorites": "收藏",
     "statistics": "統計",
     "weapons": "武器資料庫",
+    "tierTable": "梯隊表",
     "settings": "設定"
   },
   "controls": {
@@ -119,6 +120,35 @@
     "disruptor": "Disruptor",
     "hammerpoint": "Hammerpoint",
     "graffiti": "Graffiti Mod"
+  },
+  "tierTable": {
+    "chooseType": "建立梯隊表",
+    "chooseTypeDesc": "選擇傳奇或武器梯隊，將圖示拖入對應梯隊。",
+    "legendTier": "傳奇梯隊表",
+    "weaponTier": "武器梯隊表",
+    "changeType": "變更類型",
+    "reset": "重設",
+    "screenshot": "截圖",
+    "screenshotPreview": "截圖預覽",
+    "screenshotCapturing": "正在擷取截圖…",
+    "screenshotReady": "預覽就緒 — 可選填標題後點擊儲存",
+    "screenshotTitle": "標題",
+    "screenshotTitlePlaceholder": "選填",
+    "screenshotSave": "儲存",
+    "screenshotSaving": "正在儲存…",
+    "screenshotSavedShort": "已儲存！",
+    "screenshotSaved": "截圖已儲存：{{path}}",
+    "screenshotDownloaded": "截圖已下載",
+    "screenshotFailed": "截圖儲存失敗",
+    "newTier": "新梯隊",
+    "removeTier": "刪除",
+    "removeItem": "移除",
+    "dropHere": "拖放到此處",
+    "addTier": "新增梯隊列",
+    "legendPool": "傳奇",
+    "weaponPool": "武器",
+    "poolHint": "拖到上方梯隊 · 拖回此處取消分配",
+    "dragRow": "拖曳以調整梯隊順序"
   },
   "weaponDb": {
     "names": {
@@ -297,12 +327,6 @@
       "matchLifecycle": { "label": "比賽開始 / 結束", "impact": "自動偵測比賽開始或結束可能失敗。" },
       "revive": { "label": "復活 / 重生", "impact": "擊倒復活和重生事件可能未被記錄。" }
     }
-  },
-  "loadout": {
-    "title": "裝備",
-    "noWeapon": "無武器",
-    "slot1": "槽位 #1",
-    "slot2": "槽位 #2"
   },
   "settings": {
     "alerts": {

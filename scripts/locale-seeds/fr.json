@@ -22,6 +22,7 @@
     "favorites": "Favoris",
     "statistics": "Statistiques",
     "weapons": "Base de données des armes",
+    "tierTable": "Tableau de tiers",
     "settings": "Paramètres"
   },
   "controls": {
@@ -119,6 +120,35 @@
     "disruptor": "Disruptor",
     "hammerpoint": "Hammerpoint",
     "graffiti": "Graffiti Mod"
+  },
+  "tierTable": {
+    "chooseType": "Créer un tableau de tiers",
+    "chooseTypeDesc": "Choisissez légendes ou armes, puis faites glisser les icônes dans les tiers.",
+    "legendTier": "Tableau des légendes",
+    "weaponTier": "Tableau des armes",
+    "changeType": "Changer le type",
+    "reset": "Réinitialiser",
+    "screenshot": "Capture d'écran",
+    "screenshotPreview": "Aperçu de la capture",
+    "screenshotCapturing": "Capture en cours…",
+    "screenshotReady": "Aperçu prêt — saisissez un titre optionnel, puis Enregistrer",
+    "screenshotTitle": "Titre",
+    "screenshotTitlePlaceholder": "Facultatif",
+    "screenshotSave": "Enregistrer",
+    "screenshotSaving": "Enregistrement…",
+    "screenshotSavedShort": "Enregistré !",
+    "screenshotSaved": "Capture enregistrée : {{path}}",
+    "screenshotDownloaded": "Capture téléchargée",
+    "screenshotFailed": "Échec de l'enregistrement",
+    "newTier": "Nouveau",
+    "removeTier": "Supprimer",
+    "removeItem": "Retirer",
+    "dropHere": "Glisser ici",
+    "addTier": "Ajouter une ligne",
+    "legendPool": "Légendes",
+    "weaponPool": "Armes",
+    "poolHint": "Glisser vers les tiers · Déposer ici pour retirer",
+    "dragRow": "Glisser pour réordonner les tiers"
   },
   "weaponDb": {
     "names": {
@@ -297,12 +327,6 @@
       "matchLifecycle": { "label": "Début / fin de match", "impact": "La détection automatique du début ou de la fin de match peut échouer." },
       "revive": { "label": "Réa / respawn", "impact": "Les réanimations après knock et les respawns peuvent ne pas être enregistrés." }
     }
-  },
-  "loadout": {
-    "title": "Équipement",
-    "noWeapon": "Aucune arme",
-    "slot1": "EMPLACEMENT #1",
-    "slot2": "EMPLACEMENT #2"
   },
   "settings": {
     "alerts": {

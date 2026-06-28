@@ -194,6 +194,10 @@ export const isSamePlayer = (name1?: string | null, name2?: string | null): bool
     return clean(name1) === clean(name2);
 };
 
+/** Alphabetical teammate sort key — strips `[tag]` prefixes/suffixes, keeps nickname spacing. */
+export const getTeammateSortKey = (name: string): string =>
+    name.replace(/\[.*?\]/g, '').replace(/\s+/g, ' ').trim();
+
 export const normalizeLegendKey = (legend?: string | null): string =>
     (legend || 'unknown').toLowerCase().trim();
 

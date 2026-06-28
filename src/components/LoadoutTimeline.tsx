@@ -1,16 +1,13 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Match, WeaponTimelineEntry } from '../types';
 import { formatMatchTime } from '../utils/helpers';
 import { SHORT_WEAPON_NAMES } from '../utils/gameData';
 
-const formatWeapon = (weapon?: string | null) => {
-    if (!weapon || weapon.toLowerCase() === 'unknown') return '-';
-    return SHORT_WEAPON_NAMES(weapon) ?? weapon.toUpperCase().replace(/-/g, ' ');
-};
+const WEAPON_IMAGE_BASE = 'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images';
 
-const formatPair = (primary?: string | null, secondary?: string | null) =>
-    `${formatWeapon(primary)} / ${formatWeapon(secondary)}`;
+const isEmptyWeapon = (weapon?: string | null) =>
+    !weapon || weapon.trim() === '' || weapon.toLowerCase() === 'unknown';
 
 const actionLabel = (entry: WeaponTimelineEntry, t: ReturnType<typeof useTranslation>['t']) => {
     if (!entry.action || entry.action === 'loadout_change') {
@@ -18,6 +15,90 @@ const actionLabel = (entry: WeaponTimelineEntry, t: ReturnType<typeof useTransla
     }
     return entry.action.replace(/_/g, ' ').replace(/\b\w/g, char => char.toUpperCase());
 };
+
+const WeaponImage = ({ weapon }: { weapon?: string | null }) => {
+    const [failed, setFailed] = useState(false);
+    const displayName = weapon ? (SHORT_WEAPON_NAMES(weapon) ?? weapon.toUpperCase().replace(/-/g, ' ')) : '-';
+
+    if (isEmptyWeapon(weapon)) {
+        return (
+            <div
+                title={displayName}
+                style={{
+                    width: '52px',
+                    height: '28px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    background: 'rgba(255,255,255,0.04)',
+                    borderRadius: '4px',
+                    color: 'var(--color-border)',
+                    fontSize: '10px',
+                    fontWeight: 700,
+                }}
+            >
+                -
+            </div>
+        );
+    }
+
+    if (failed) {
+        return (
+            <div
+                title={displayName}
+                style={{
+                    width: '52px',
+                    height: '28px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    background: 'rgba(255,255,255,0.04)',
+                    borderRadius: '4px',
+                    padding: '0 4px',
+                }}
+            >
+                <span style={{ color: 'var(--color-warning)', fontSize: '8px', textAlign: 'center', lineHeight: 1.2, wordBreak: 'break-all' }}>
+                    {displayName}
+                </span>
+            </div>
+        );
+    }
+
+    return (
+        <div
+            style={{
+                width: '52px',
+                height: '28px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                background: 'rgba(255,255,255,0.05)',
+                borderRadius: '4px',
+            }}
+        >
+            <img
+                src={`${WEAPON_IMAGE_BASE}/${weapon}.png`}
+                alt={displayName}
+                title={displayName}
+                style={{
+                    maxWidth: '48px',
+                    maxHeight: '24px',
+                    objectFit: 'contain',
+                    filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.45))',
+                }}
+                onError={() => setFailed(true)}
+            />
+        </div>
+    );
+};
+
+const WeaponPairImages = ({ primary, secondary }: { primary?: string | null; secondary?: string | null }) => (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+        <WeaponImage weapon={primary} />
+        <span style={{ color: 'var(--color-text-faint)', fontSize: '9px', fontWeight: 700 }}>/</span>
+        <WeaponImage weapon={secondary} />
+    </div>
+);
 
 const LoadoutTimeline = ({ match }: { match: Match }) => {
     const { t } = useTranslation();
@@ -60,8 +141,12 @@ const LoadoutTimeline = ({ match }: { match: Match }) => {
                                             {formatMatchTime(elapsed)}
                                             <div style={{ color: 'var(--color-text-faint)', fontSize: '9px', fontWeight: 700, marginTop: '2px' }}>{actionLabel(entry, t)}</div>
                                         </td>
-                                        <td style={bodyCellStyle}>{formatPair(entry.previousPrimary, entry.previousSecondary)}</td>
-                                        <td style={{ ...bodyCellStyle, color: 'var(--color-text-primary)', fontWeight: 700 }}>{formatPair(entry.primary, entry.secondary)}</td>
+                                        <td style={bodyCellStyle}>
+                                            <WeaponPairImages primary={entry.previousPrimary} secondary={entry.previousSecondary} />
+                                        </td>
+                                        <td style={bodyCellStyle}>
+                                            <WeaponPairImages primary={entry.primary} secondary={entry.secondary} />
+                                        </td>
                                     </tr>
                                 );
                             })}
@@ -85,7 +170,7 @@ const headerCellStyle: React.CSSProperties = {
 const bodyCellStyle: React.CSSProperties = {
     padding: '10px',
     color: 'var(--color-text-dim)',
-    verticalAlign: 'top',
+    verticalAlign: 'middle',
     lineHeight: 1.35,
 };
 

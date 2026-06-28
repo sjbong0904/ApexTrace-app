@@ -11,7 +11,9 @@ import { COLORS, TARGET_MAPS, MAP_THUMBNAILS, LEGENDS_LIST, SHORT_WEAPON_NAMES }
 import { useTranslation } from 'react-i18next';
 import type { MatchHistory, Season } from '../utils/match';
 import { matchesStatisticsMode } from '../utils/matchMode';
-import { isSamePlayer, isKnownLegend, normalizeLegendKey } from '../utils/helpers';
+import { isSamePlayer, isKnownLegend, normalizeLegendKey, getTeammateSortKey } from '../utils/helpers';
+import { WEAPONS_DB, type WeaponCategory } from '../utils/WeaponsData';
+import { findWeaponByLoadoutId } from '../utils/weaponTheme';
 import RankProgressChart from './RankProgressChart';
 import PremiumBlurGate from './PremiumBlurGate';
 
@@ -230,6 +232,180 @@ const mapBreakdownHeadCellStyle: React.CSSProperties = {
     wordBreak: 'keep-all',
 };
 
+type SortDirection = 'desc' | 'asc';
+
+type TableSortState<K extends string = string> = {
+    column: K | null;
+    direction: SortDirection;
+};
+
+const createDefaultTableSort = <K extends string>(): TableSortState<K> => ({
+    column: null,
+    direction: 'desc',
+});
+
+const toggleTableSort = <K extends string>(
+    current: TableSortState<K>,
+    column: K,
+    firstClickDirection: SortDirection = 'desc',
+): TableSortState<K> => {
+    if (current.column !== column) {
+        return { column, direction: firstClickDirection };
+    }
+    return { column, direction: current.direction === 'desc' ? 'asc' : 'desc' };
+};
+
+/** Legend / weapon name columns: first click follows tab or DB order (asc). */
+const toggleCatalogNameTableSort = <K extends string>(
+    current: TableSortState<K>,
+    column: K,
+): TableSortState<K> => toggleTableSort(current, column, column === 'name' ? 'asc' : 'desc');
+
+const applyTableSort = <T, K extends string>(
+    rows: readonly T[],
+    sortState: TableSortState<K>,
+    comparators: Record<K, (a: T, b: T) => number>,
+): T[] => {
+    if (!sortState.column) return [...rows];
+    const compare = comparators[sortState.column];
+    if (!compare) return [...rows];
+    const factor = sortState.direction === 'desc' ? -1 : 1;
+    return [...rows].sort((a, b) => compare(a, b) * factor);
+};
+
+const compareStrings = (a: string, b: string) => a.localeCompare(b, undefined, { sensitivity: 'base' });
+
+const compareNumbers = (a: number, b: number) => a - b;
+
+const compareNumericStrings = (a: string, b: string) => parseFloat(a) - parseFloat(b);
+
+/** Lower placement rank is better — invert so desc shows #1 first. */
+const compareAvgPlacement = (a: string, b: string) => compareNumericStrings(b, a);
+
+/** Matches Legends tab picker order (`LEGENDS_LIST`). */
+const LEGEND_TAB_ORDER = new Map<string, number>(
+    LEGENDS_LIST.map((slug, index) => [normalizeLegendKey(slug), index]),
+);
+
+const compareLegendTabOrder = (aId: string, bId: string): number => {
+    const aKey = normalizeLegendKey(aId);
+    const bKey = normalizeLegendKey(bId);
+    const aOrder = LEGEND_TAB_ORDER.get(aKey) ?? Number.MAX_SAFE_INTEGER;
+    const bOrder = LEGEND_TAB_ORDER.get(bKey) ?? Number.MAX_SAFE_INTEGER;
+    if (aOrder !== bOrder) return aOrder - bOrder;
+    return compareStrings(aKey, bKey);
+};
+
+/** Matches Weapons tab / `WEAPONS_DB` category grid order. */
+const WEAPON_CATEGORY_ORDER: WeaponCategory[] = ['AR', 'SMG', 'LMG', 'MARKSMAN', 'SNIPER', 'SHOTGUN', 'PISTOL'];
+
+const registerWeaponOrderKeys = (map: Map<string, number>, key: string, order: number): void => {
+    if (!key) return;
+    const normalized = key.toLowerCase();
+    const variants = [
+        normalized,
+        normalized.replace(/-/g, '_'),
+        normalized.replace(/_/g, '-'),
+        `weapon_${normalized}`,
+        `weapon_${normalized.replace(/-/g, '_')}`,
+    ];
+    for (const variant of variants) {
+        if (!map.has(variant)) map.set(variant, order);
+    }
+};
+
+const WEAPON_DB_ORDER = (() => {
+    const map = new Map<string, number>();
+    let order = 0;
+    const seen = new Set<string>();
+
+    for (const category of WEAPON_CATEGORY_ORDER) {
+        for (const weapon of WEAPONS_DB) {
+            if (weapon.variant !== 'STANDARD' || weapon.category !== category) continue;
+            const baseKey = weapon.baseId ?? weapon.id;
+            if (seen.has(baseKey)) continue;
+            seen.add(baseKey);
+            registerWeaponOrderKeys(map, weapon.id, order);
+            registerWeaponOrderKeys(map, baseKey, order);
+            order += 1;
+        }
+    }
+
+    WEAPONS_DB.forEach((weapon, dbIndex) => {
+        registerWeaponOrderKeys(map, weapon.id, order + dbIndex);
+        if (weapon.baseId) registerWeaponOrderKeys(map, weapon.baseId, order + dbIndex);
+    });
+
+    return map;
+})();
+
+const getWeaponDbOrderIndex = (loadoutId: string): number => {
+    const direct =
+        WEAPON_DB_ORDER.get(loadoutId.toLowerCase())
+        ?? WEAPON_DB_ORDER.get(loadoutId.toLowerCase().replace(/^weapon_/, ''));
+    if (direct !== undefined) return direct;
+
+    const resolved = findWeaponByLoadoutId(loadoutId);
+    if (resolved) {
+        const keys = [resolved.id, resolved.baseId].filter(Boolean) as string[];
+        for (const key of keys) {
+            const idx = WEAPON_DB_ORDER.get(key.toLowerCase());
+            if (idx !== undefined) return idx;
+        }
+    }
+
+    return Number.MAX_SAFE_INTEGER;
+};
+
+const compareWeaponDbOrder = (aId: string, bId: string): number => {
+    const aOrder = getWeaponDbOrderIndex(aId);
+    const bOrder = getWeaponDbOrderIndex(bId);
+    if (aOrder !== bOrder) return aOrder - bOrder;
+    return compareStrings(aId, bId);
+};
+
+const SORT_HEADER_COLOR_DESC = 'var(--color-accent-hover)';
+const SORT_HEADER_COLOR_ASC = '#54a0ff';
+
+type SortableThProps<K extends string> = {
+    column: K;
+    sortState: TableSortState<K>;
+    onSort: (column: K) => void;
+    style?: React.CSSProperties;
+    children: React.ReactNode;
+    title?: string;
+};
+
+const SortableTh = <K extends string>({ column, sortState, onSort, style, children, title }: SortableThProps<K>) => {
+    const isActive = sortState.column === column;
+    const sortColor = isActive
+        ? (sortState.direction === 'desc' ? SORT_HEADER_COLOR_DESC : SORT_HEADER_COLOR_ASC)
+        : undefined;
+
+    return (
+        <th
+            style={{
+                ...style,
+                cursor: 'pointer',
+                userSelect: 'none',
+                whiteSpace: 'nowrap',
+            }}
+            title={title}
+            onClick={() => onSort(column)}
+            aria-sort={isActive ? (sortState.direction === 'asc' ? 'ascending' : 'descending') : 'none'}
+        >
+            <span style={{ color: sortColor }}>
+                {children}
+            </span>
+        </th>
+    );
+};
+
+const mainTableHeadCellStyle: React.CSSProperties = {
+    padding: '12px 20px',
+    background: 'var(--color-bg-table-header)',
+};
+
 const mapBreakdownBodyCellStyle: React.CSSProperties = {
     padding: '10px 12px',
     verticalAlign: 'middle',
@@ -324,7 +500,19 @@ const legendBreakdownPanelStyle: React.CSSProperties = {
 
 const LegendWeaponMapBreakdown = ({ matches, legendName }: { matches: MatchHistory[]; legendName: string }) => {
     const { t } = useTranslation();
+    type WeaponSortCol = 'name' | 'games' | 'winRate' | 'avgPlacement' | 'kd';
+    const [weaponSort, setWeaponSort] = useState<TableSortState<WeaponSortCol>>(createDefaultTableSort);
     const weaponStats = useMemo(() => aggregateWeaponStatsForMatches(matches).slice(0, 8), [matches]);
+    const sortedWeaponStats = useMemo(
+        () => applyTableSort(weaponStats, weaponSort, {
+            name: (a, b) => compareWeaponDbOrder(a.id, b.id),
+            games: (a, b) => compareNumbers(a.games, b.games),
+            winRate: (a, b) => compareNumericStrings(a.winRate, b.winRate),
+            avgPlacement: (a, b) => compareAvgPlacement(a.avgPlacement, b.avgPlacement),
+            kd: (a, b) => compareNumbers(a.kd, b.kd),
+        }),
+        [weaponStats, weaponSort],
+    );
     const mapStats = useMemo(() => aggregateMapStatsForMatches(matches), [matches]);
 
     const panelHeader = (title: string) => (
@@ -358,15 +546,25 @@ const LegendWeaponMapBreakdown = ({ matches, legendName }: { matches: MatchHisto
                             <thead style={{ position: 'sticky', top: 0, zIndex: 2 }}>
                                 <tr style={{ borderBottom: '1px solid var(--color-border)' }}>
                                     <th style={{ ...mapBreakdownHeadCellStyle, textAlign: 'center' }}>#</th>
-                                    <th style={{ ...mapBreakdownHeadCellStyle, textAlign: 'left' }}>{t('statistics.weapons.weapon')}</th>
-                                    <th style={{ ...mapBreakdownHeadCellStyle, textAlign: 'center' }}>{t('statistics.weapons.matches')}</th>
-                                    <th style={{ ...mapBreakdownHeadCellStyle, textAlign: 'center' }}>{t('statistics.weapons.winPercent')}</th>
-                                    <th style={{ ...mapBreakdownHeadCellStyle, textAlign: 'center' }} title={t('statistics.common.avgPlacement')}>{t('statistics.common.avgPlacementShort')}</th>
-                                    <th style={{ ...mapBreakdownHeadCellStyle, textAlign: 'center' }}>{t('statistics.weapons.kd')}</th>
+                                    <SortableTh column="name" sortState={weaponSort} onSort={(col) => setWeaponSort((prev) => toggleCatalogNameTableSort(prev, col))} style={{ ...mapBreakdownHeadCellStyle, textAlign: 'left' }}>
+                                        {t('statistics.weapons.weapon')}
+                                    </SortableTh>
+                                    <SortableTh column="games" sortState={weaponSort} onSort={(col) => setWeaponSort((prev) => toggleCatalogNameTableSort(prev, col))} style={{ ...mapBreakdownHeadCellStyle, textAlign: 'center' }}>
+                                        {t('statistics.weapons.matches')}
+                                    </SortableTh>
+                                    <SortableTh column="winRate" sortState={weaponSort} onSort={(col) => setWeaponSort((prev) => toggleCatalogNameTableSort(prev, col))} style={{ ...mapBreakdownHeadCellStyle, textAlign: 'center' }}>
+                                        {t('statistics.weapons.winPercent')}
+                                    </SortableTh>
+                                    <SortableTh column="avgPlacement" sortState={weaponSort} onSort={(col) => setWeaponSort((prev) => toggleCatalogNameTableSort(prev, col))} style={{ ...mapBreakdownHeadCellStyle, textAlign: 'center' }} title={t('statistics.common.avgPlacement')}>
+                                        {t('statistics.common.avgPlacementShort')}
+                                    </SortableTh>
+                                    <SortableTh column="kd" sortState={weaponSort} onSort={(col) => setWeaponSort((prev) => toggleCatalogNameTableSort(prev, col))} style={{ ...mapBreakdownHeadCellStyle, textAlign: 'center' }}>
+                                        {t('statistics.weapons.kd')}
+                                    </SortableTh>
                                 </tr>
                             </thead>
                             <tbody>
-                                {weaponStats.map((w, i) => (
+                                {sortedWeaponStats.map((w, i) => (
                                     <tr key={w.id} style={{ borderBottom: '1px solid var(--color-bg-card-hover)' }}>
                                         <td style={{ ...mapBreakdownBodyCellStyle, textAlign: 'center', color: 'var(--color-text-faint)', fontWeight: 'bold' }}>{i + 1}</td>
                                         <td style={mapBreakdownLegendBodyCellStyle}>
@@ -539,10 +737,35 @@ const MapLegendBreakdown = ({
     profileName?: string | null;
 }) => {
     const { t } = useTranslation();
+    type MapLegendSortCol = 'name' | 'games' | 'winRate' | 'avgPlacement' | 'kd' | 'avgDamage';
+    type TeammatePickSortCol = 'name' | 'picks' | 'winRate' | 'avgPlacement' | 'pickRate';
+    const [legendSort, setLegendSort] = useState<TableSortState<MapLegendSortCol>>(createDefaultTableSort);
+    const [teammateSort, setTeammateSort] = useState<TableSortState<TeammatePickSortCol>>(createDefaultTableSort);
     const legendStats = useMemo(() => aggregateLegendStatsForMatches(matches), [matches]);
+    const sortedLegendStats = useMemo(
+        () => applyTableSort(legendStats, legendSort, {
+            name: (a, b) => compareLegendTabOrder(a.id, b.id),
+            games: (a, b) => compareNumbers(a.games, b.games),
+            winRate: (a, b) => compareNumericStrings(a.winRate, b.winRate),
+            avgPlacement: (a, b) => compareAvgPlacement(a.avgPlacement, b.avgPlacement),
+            kd: (a, b) => compareNumbers(a.kd, b.kd),
+            avgDamage: (a, b) => compareNumbers(a.avgDamage, b.avgDamage),
+        }),
+        [legendStats, legendSort],
+    );
     const teammatePickStats = useMemo(
         () => aggregateTeammateLegendPicksForMatches(matches, profileUid, profileName),
         [matches, profileUid, profileName]
+    );
+    const sortedTeammatePickStats = useMemo(
+        () => applyTableSort(teammatePickStats, teammateSort, {
+            name: (a, b) => compareLegendTabOrder(a.id, b.id),
+            picks: (a, b) => compareNumbers(a.picks, b.picks),
+            winRate: (a, b) => compareNumericStrings(a.winRate, b.winRate),
+            avgPlacement: (a, b) => compareAvgPlacement(a.avgPlacement, b.avgPlacement),
+            pickRate: (a, b) => compareNumericStrings(a.pickRate, b.pickRate),
+        }),
+        [teammatePickStats, teammateSort],
     );
 
     const renderLegendAvatar = (legendId: string, size: number) => (
@@ -614,16 +837,28 @@ const MapLegendBreakdown = ({
                                 <thead style={{ position: 'sticky', top: 0, zIndex: 1 }}>
                                     <tr style={{ borderBottom: '1px solid var(--color-border)' }}>
                                         <th style={{ ...mapBreakdownHeadCellStyle, textAlign: 'center' }}>#</th>
-                                        <th style={{ ...mapBreakdownHeadCellStyle, textAlign: 'left' }}>{t('statistics.maps.legendColumn')}</th>
-                                        <th style={{ ...mapBreakdownHeadCellStyle, textAlign: 'center' }}>{t('statistics.maps.legendMatches')}</th>
-                                        <th style={{ ...mapBreakdownHeadCellStyle, textAlign: 'center' }}>{t('statistics.maps.legendWinPercent')}</th>
-                                        <th style={{ ...mapBreakdownHeadCellStyle, textAlign: 'center' }} title={t('statistics.common.avgPlacement')}>{t('statistics.common.avgPlacementShort')}</th>
-                                        <th style={{ ...mapBreakdownHeadCellStyle, textAlign: 'center' }}>{t('statistics.maps.legendKd')}</th>
-                                        <th style={{ ...mapBreakdownHeadCellStyle, textAlign: 'center' }} title={t('statistics.maps.legendAvgDamage')}>{t('statistics.maps.legendAvgDamageShort')}</th>
+                                        <SortableTh column="name" sortState={legendSort} onSort={(col) => setLegendSort((prev) => toggleCatalogNameTableSort(prev, col))} style={{ ...mapBreakdownHeadCellStyle, textAlign: 'left' }}>
+                                            {t('statistics.maps.legendColumn')}
+                                        </SortableTh>
+                                        <SortableTh column="games" sortState={legendSort} onSort={(col) => setLegendSort((prev) => toggleCatalogNameTableSort(prev, col))} style={{ ...mapBreakdownHeadCellStyle, textAlign: 'center' }}>
+                                            {t('statistics.maps.legendMatches')}
+                                        </SortableTh>
+                                        <SortableTh column="winRate" sortState={legendSort} onSort={(col) => setLegendSort((prev) => toggleCatalogNameTableSort(prev, col))} style={{ ...mapBreakdownHeadCellStyle, textAlign: 'center' }}>
+                                            {t('statistics.maps.legendWinPercent')}
+                                        </SortableTh>
+                                        <SortableTh column="avgPlacement" sortState={legendSort} onSort={(col) => setLegendSort((prev) => toggleCatalogNameTableSort(prev, col))} style={{ ...mapBreakdownHeadCellStyle, textAlign: 'center' }} title={t('statistics.common.avgPlacement')}>
+                                            {t('statistics.common.avgPlacementShort')}
+                                        </SortableTh>
+                                        <SortableTh column="kd" sortState={legendSort} onSort={(col) => setLegendSort((prev) => toggleCatalogNameTableSort(prev, col))} style={{ ...mapBreakdownHeadCellStyle, textAlign: 'center' }}>
+                                            {t('statistics.maps.legendKd')}
+                                        </SortableTh>
+                                        <SortableTh column="avgDamage" sortState={legendSort} onSort={(col) => setLegendSort((prev) => toggleCatalogNameTableSort(prev, col))} style={{ ...mapBreakdownHeadCellStyle, textAlign: 'center' }} title={t('statistics.maps.legendAvgDamage')}>
+                                            {t('statistics.maps.legendAvgDamageShort')}
+                                        </SortableTh>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {legendStats.map((leg, i) => (
+                                    {sortedLegendStats.map((leg, i) => (
                                         <tr key={leg.id} style={{ borderBottom: '1px solid var(--color-bg-card-hover)' }}>
                                             <td style={{ ...mapBreakdownBodyCellStyle, textAlign: 'center', color: 'var(--color-text-faint)', fontWeight: 'bold' }}>{i + 1}</td>
                                             {renderMapBreakdownLegendCell(leg.id, leg.name)}
@@ -663,15 +898,25 @@ const MapLegendBreakdown = ({
                                 <thead style={{ position: 'sticky', top: 0, zIndex: 1 }}>
                                     <tr style={{ borderBottom: '1px solid var(--color-border)' }}>
                                         <th style={{ ...mapBreakdownHeadCellStyle, textAlign: 'center' }}>#</th>
-                                        <th style={{ ...mapBreakdownHeadCellStyle, textAlign: 'left' }}>{t('statistics.maps.legendColumn')}</th>
-                                        <th style={{ ...mapBreakdownHeadCellStyle, textAlign: 'center' }}>{t('statistics.maps.teammatePicks')}</th>
-                                        <th style={{ ...mapBreakdownHeadCellStyle, textAlign: 'center' }}>{t('statistics.maps.legendWinPercent')}</th>
-                                        <th style={{ ...mapBreakdownHeadCellStyle, textAlign: 'center' }} title={t('statistics.common.avgPlacement')}>{t('statistics.common.avgPlacementShort')}</th>
-                                        <th style={{ ...mapBreakdownHeadCellStyle, textAlign: 'center' }}>{t('statistics.maps.pickRate')}</th>
+                                        <SortableTh column="name" sortState={teammateSort} onSort={(col) => setTeammateSort((prev) => toggleCatalogNameTableSort(prev, col))} style={{ ...mapBreakdownHeadCellStyle, textAlign: 'left' }}>
+                                            {t('statistics.maps.legendColumn')}
+                                        </SortableTh>
+                                        <SortableTh column="picks" sortState={teammateSort} onSort={(col) => setTeammateSort((prev) => toggleCatalogNameTableSort(prev, col))} style={{ ...mapBreakdownHeadCellStyle, textAlign: 'center' }}>
+                                            {t('statistics.maps.teammatePicks')}
+                                        </SortableTh>
+                                        <SortableTh column="winRate" sortState={teammateSort} onSort={(col) => setTeammateSort((prev) => toggleCatalogNameTableSort(prev, col))} style={{ ...mapBreakdownHeadCellStyle, textAlign: 'center' }}>
+                                            {t('statistics.maps.legendWinPercent')}
+                                        </SortableTh>
+                                        <SortableTh column="avgPlacement" sortState={teammateSort} onSort={(col) => setTeammateSort((prev) => toggleCatalogNameTableSort(prev, col))} style={{ ...mapBreakdownHeadCellStyle, textAlign: 'center' }} title={t('statistics.common.avgPlacement')}>
+                                            {t('statistics.common.avgPlacementShort')}
+                                        </SortableTh>
+                                        <SortableTh column="pickRate" sortState={teammateSort} onSort={(col) => setTeammateSort((prev) => toggleCatalogNameTableSort(prev, col))} style={{ ...mapBreakdownHeadCellStyle, textAlign: 'center' }}>
+                                            {t('statistics.maps.pickRate')}
+                                        </SortableTh>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {teammatePickStats.map((leg, i) => (
+                                    {sortedTeammatePickStats.map((leg, i) => (
                                         <tr key={leg.id} style={{ borderBottom: '1px solid var(--color-bg-card-hover)' }}>
                                             <td style={{ ...mapBreakdownBodyCellStyle, textAlign: 'center', color: 'var(--color-text-faint)', fontWeight: 'bold' }}>{i + 1}</td>
                                             {renderMapBreakdownLegendCell(leg.id, leg.name)}
@@ -2202,7 +2447,20 @@ const LegendsView = ({ data, profileUid, profileName }: { data: MatchHistory[]; 
 
 const WeaponsView = ({ data }: { data: MatchHistory[] }) => {
     const { t } = useTranslation();
+    type WeaponSortCol = 'name' | 'games' | 'winRate' | 'kd' | 'kda' | 'avgPlacement';
+    const [weaponSort, setWeaponSort] = useState<TableSortState<WeaponSortCol>>(createDefaultTableSort);
     const weaponStats = useMemo(() => aggregateWeaponStatsForMatches(data), [data]);
+    const sortedWeaponStats = useMemo(
+        () => applyTableSort(weaponStats, weaponSort, {
+            name: (a, b) => compareWeaponDbOrder(a.id, b.id),
+            games: (a, b) => compareNumbers(a.games, b.games),
+            winRate: (a, b) => compareNumericStrings(a.winRate, b.winRate),
+            kd: (a, b) => compareNumbers(a.kd, b.kd),
+            kda: (a, b) => compareNumbers(a.kda, b.kda),
+            avgPlacement: (a, b) => compareAvgPlacement(a.avgPlacement, b.avgPlacement),
+        }),
+        [weaponStats, weaponSort],
+    );
 
     const top3 = weaponStats.slice(0, 3);
 
@@ -2253,22 +2511,36 @@ const WeaponsView = ({ data }: { data: MatchHistory[] }) => {
                     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }}>
                         <thead style={{ position: 'sticky', top: 0, background: 'var(--color-bg-table-header)', zIndex: 2 }}>
                             <tr style={{ color: 'var(--color-text-muted)', fontSize: '11px', borderBottom: '1px solid var(--color-border)' }}>
-                                <th style={{ padding: '12px 20px', width: '50px', background: 'var(--color-bg-table-header)' }}>{t('statistics.weapons.rank')}</th>
-                                <th style={{ padding: '12px 20px', background: 'var(--color-bg-table-header)' }}>{t('statistics.weapons.weapon')}</th>
-                                <th style={{ padding: '12px 20px', textAlign: 'center', background: 'var(--color-bg-table-header)' }}>{t('statistics.weapons.matches')}</th>
-                                <th style={{ padding: '12px 20px', textAlign: 'center', background: 'var(--color-bg-table-header)' }}>{t('statistics.weapons.winRate')}</th>
-                                <th style={{ padding: '12px 20px', textAlign: 'center', background: 'var(--color-bg-table-header)' }}>{t('statistics.weapons.kd')}</th>
-                                <th style={{ padding: '12px 20px', textAlign: 'center', background: 'var(--color-bg-table-header)' }}>
+                                <th style={{ ...mainTableHeadCellStyle, width: '50px' }}>{t('statistics.weapons.rank')}</th>
+                                <SortableTh column="name" sortState={weaponSort} onSort={(col) => setWeaponSort((prev) => toggleCatalogNameTableSort(prev, col))} style={mainTableHeadCellStyle}>
+                                    {t('statistics.weapons.weapon')}
+                                </SortableTh>
+                                <SortableTh column="games" sortState={weaponSort} onSort={(col) => setWeaponSort((prev) => toggleCatalogNameTableSort(prev, col))} style={{ ...mainTableHeadCellStyle, textAlign: 'center' }}>
+                                    {t('statistics.weapons.matches')}
+                                </SortableTh>
+                                <SortableTh column="winRate" sortState={weaponSort} onSort={(col) => setWeaponSort((prev) => toggleCatalogNameTableSort(prev, col))} style={{ ...mainTableHeadCellStyle, textAlign: 'center' }}>
+                                    {t('statistics.weapons.winRate')}
+                                </SortableTh>
+                                <SortableTh column="kd" sortState={weaponSort} onSort={(col) => setWeaponSort((prev) => toggleCatalogNameTableSort(prev, col))} style={{ ...mainTableHeadCellStyle, textAlign: 'center' }}>
+                                    {t('statistics.weapons.kd')}
+                                </SortableTh>
+                                <SortableTh column="kda" sortState={weaponSort} onSort={(col) => setWeaponSort((prev) => toggleCatalogNameTableSort(prev, col))} style={{ ...mainTableHeadCellStyle, textAlign: 'center' }}>
                                     {t('statistics.weapons.kad')}
-                                    <span title={t('statistics.weapons.kadTooltip')} style={{ cursor: 'help', marginLeft: '4px', display: 'inline-block', verticalAlign: 'middle' }}>
+                                    <span
+                                        title={t('statistics.weapons.kadTooltip')}
+                                        style={{ cursor: 'help', marginLeft: '4px', display: 'inline-block', verticalAlign: 'middle' }}
+                                        onClick={(e) => e.stopPropagation()}
+                                    >
                                         <FaInfoCircle size={12} color="var(--color-text-muted)" />
                                     </span>
-                                </th>
-                                <th style={{ padding: '12px 20px', textAlign: 'center', background: 'var(--color-bg-table-header)' }} title={t('statistics.common.avgPlacement')}>{t('statistics.common.avgPlacementShort')}</th>
+                                </SortableTh>
+                                <SortableTh column="avgPlacement" sortState={weaponSort} onSort={(col) => setWeaponSort((prev) => toggleCatalogNameTableSort(prev, col))} style={{ ...mainTableHeadCellStyle, textAlign: 'center' }} title={t('statistics.common.avgPlacement')}>
+                                    {t('statistics.common.avgPlacementShort')}
+                                </SortableTh>
                             </tr>
                         </thead>
                         <tbody>
-                            {weaponStats.map((w, i) => (
+                            {sortedWeaponStats.map((w, i) => (
                                 <tr key={w.id} style={{ borderBottom: '1px solid var(--color-bg-card-hover)' }} onMouseEnter={e => e.currentTarget.style.background = 'var(--color-bg-card-hover)'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
                                     <td style={{ padding: '12px 20px', color: 'var(--color-text-faint)', fontWeight: 'bold' }}>#{i + 1}</td>
                                     <td style={{ padding: '12px 20px', display: 'flex', alignItems: 'center', color: 'var(--color-text-dim)', fontWeight: 'bold', minWidth: 0 }}>
@@ -2345,6 +2617,8 @@ const resolveTeammateKey = (
 
 const TeammatesView = ({ data, profileUid, profileName }: { data: MatchHistory[]; profileUid?: string | null; profileName?: string | null }) => {
     const { t } = useTranslation();
+    type TeammateSortCol = 'name' | 'games' | 'winRate' | 'kd' | 'kda' | 'avgPlacement' | 'avgDamage';
+    const [teammateSort, setTeammateSort] = useState<TableSortState<TeammateSortCol>>(createDefaultTableSort);
     const isSelfTeammate = (
         tm: { uid?: string | null; name?: string },
         matchPlayerName?: string
@@ -2422,6 +2696,7 @@ const TeammatesView = ({ data, profileUid, profileName }: { data: MatchHistory[]
                 id: v.uid ? `uid:${v.uid}` : key,
                 uid: v.uid,
                 name: v.name,
+                sortName: getTeammateSortKey(v.name),
                 legend: topLegend,
                 topLegends,
                 games: v.games,
@@ -2444,6 +2719,19 @@ const TeammatesView = ({ data, profileUid, profileName }: { data: MatchHistory[]
                 return true;
             });
     }, [data, profileUid, profileName, t]);
+
+    const sortedTeammateStats = useMemo(
+        () => applyTableSort(teammateStats, teammateSort, {
+            name: (a, b) => a.sortName.localeCompare(b.sortName, 'en', { sensitivity: 'base', numeric: true }),
+            games: (a, b) => compareNumbers(a.games, b.games),
+            winRate: (a, b) => compareNumericStrings(a.winRate, b.winRate),
+            kd: (a, b) => compareNumbers(a.kd, b.kd),
+            kda: (a, b) => compareNumbers(a.kda, b.kda),
+            avgPlacement: (a, b) => compareAvgPlacement(a.avgPlacement, b.avgPlacement),
+            avgDamage: (a, b) => compareNumbers(a.avgDamage, b.avgDamage),
+        }),
+        [teammateStats, teammateSort],
+    );
 
     const top3 = teammateStats.slice(0, 3);
 
@@ -2591,23 +2879,39 @@ const TeammatesView = ({ data, profileUid, profileName }: { data: MatchHistory[]
                     <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }}>
                         <thead style={{ position: 'sticky', top: 0, background: 'var(--color-bg-table-header)', zIndex: 1 }}>
                             <tr style={{ color: 'var(--color-text-muted)', fontSize: '11px', borderBottom: '1px solid var(--color-border)' }}>
-                                <th style={{ padding: '12px 20px', width: '50px' }}>{t('statistics.teammates.rank')}</th>
-                                <th style={{ padding: '12px 20px' }}>{t('statistics.teammates.teammate')}</th>
-                                <th style={{ padding: '12px 20px', textAlign: 'center' }}>{t('statistics.teammates.matches')}</th>
-                                <th style={{ padding: '12px 20px', textAlign: 'center' }}>{t('statistics.teammates.winRate')}</th>
-                                <th style={{ padding: '12px 20px', textAlign: 'center' }}>{t('statistics.teammates.kd')}</th>
-                                <th style={{ padding: '12px 20px', textAlign: 'center' }}>
+                                <th style={{ ...mainTableHeadCellStyle, width: '50px' }}>{t('statistics.teammates.rank')}</th>
+                                <SortableTh column="name" sortState={teammateSort} onSort={(col) => setTeammateSort((prev) => toggleTableSort(prev, col))} style={mainTableHeadCellStyle}>
+                                    {t('statistics.teammates.teammate')}
+                                </SortableTh>
+                                <SortableTh column="games" sortState={teammateSort} onSort={(col) => setTeammateSort((prev) => toggleTableSort(prev, col))} style={{ ...mainTableHeadCellStyle, textAlign: 'center' }}>
+                                    {t('statistics.teammates.matches')}
+                                </SortableTh>
+                                <SortableTh column="winRate" sortState={teammateSort} onSort={(col) => setTeammateSort((prev) => toggleTableSort(prev, col))} style={{ ...mainTableHeadCellStyle, textAlign: 'center' }}>
+                                    {t('statistics.teammates.winRate')}
+                                </SortableTh>
+                                <SortableTh column="kd" sortState={teammateSort} onSort={(col) => setTeammateSort((prev) => toggleTableSort(prev, col))} style={{ ...mainTableHeadCellStyle, textAlign: 'center' }}>
+                                    {t('statistics.teammates.kd')}
+                                </SortableTh>
+                                <SortableTh column="kda" sortState={teammateSort} onSort={(col) => setTeammateSort((prev) => toggleTableSort(prev, col))} style={{ ...mainTableHeadCellStyle, textAlign: 'center' }}>
                                     {t('statistics.teammates.kad')}
-                                    <span title={t('statistics.teammates.kadTooltip')} style={{ cursor: 'help', marginLeft: '4px', display: 'inline-block', verticalAlign: 'middle' }}>
+                                    <span
+                                        title={t('statistics.teammates.kadTooltip')}
+                                        style={{ cursor: 'help', marginLeft: '4px', display: 'inline-block', verticalAlign: 'middle' }}
+                                        onClick={(e) => e.stopPropagation()}
+                                    >
                                         <FaInfoCircle size={12} color="var(--color-text-muted)" />
                                     </span>
-                                </th>
-                                <th style={{ padding: '12px 20px', textAlign: 'center' }} title={t('statistics.common.avgPlacement')}>{t('statistics.common.avgPlacementShort')}</th>
-                                <th style={{ padding: '12px 20px', textAlign: 'center', whiteSpace: 'nowrap' }} title={t('statistics.teammates.avgDamage')}>{t('statistics.teammates.avgDamageShort')}</th>
+                                </SortableTh>
+                                <SortableTh column="avgPlacement" sortState={teammateSort} onSort={(col) => setTeammateSort((prev) => toggleTableSort(prev, col))} style={{ ...mainTableHeadCellStyle, textAlign: 'center' }} title={t('statistics.common.avgPlacement')}>
+                                    {t('statistics.common.avgPlacementShort')}
+                                </SortableTh>
+                                <SortableTh column="avgDamage" sortState={teammateSort} onSort={(col) => setTeammateSort((prev) => toggleTableSort(prev, col))} style={{ ...mainTableHeadCellStyle, textAlign: 'center', whiteSpace: 'nowrap' }} title={t('statistics.teammates.avgDamage')}>
+                                    {t('statistics.teammates.avgDamageShort')}
+                                </SortableTh>
                             </tr>
                         </thead>
                         <tbody>
-                            {teammateStats.map((tm, i) => (
+                            {sortedTeammateStats.map((tm, i) => (
                                 <tr key={tm.id} style={{ borderBottom: '1px solid var(--color-bg-card-hover)' }} onMouseEnter={e => e.currentTarget.style.background = 'var(--color-bg-card-hover)'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
                                     <td style={{ padding: '12px 20px', color: 'var(--color-text-faint)', fontWeight: 'bold' }}>#{i + 1}</td>
                                     <td style={{ padding: '12px 20px', display: 'flex', alignItems: 'center', color: 'var(--color-text-dim)', fontWeight: 'bold' }}>

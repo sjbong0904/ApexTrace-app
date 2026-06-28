@@ -1,6 +1,6 @@
 import React, { useState, useRef, useMemo, useEffect } from 'react';
 import { getCssPos, getMapConfig } from '../utils/helpers';
-import type { Match } from '../types'
+import type { Match } from '../types';
 import { FaExpand, FaCompress } from 'react-icons/fa';
 import { useTheme } from '../theme';
 
@@ -8,6 +8,61 @@ const PATH_COLORS = [
     "#4cd137", "#e67e22", "#f1c40f", "#00d2be", "#9b59b6", 
     "#1014ebff", "#974515ff", "#09b665ff", "#e74c3c"
 ];
+/** viewBox units; fullscreen map is much larger on screen so dots use a smaller base radius */
+const FULLSCREEN_MARKER_SCALE = 0.5;
+const HOVER_LEAVE_DELAY_MS = 40;
+
+interface JumpMarker {
+    x: number;
+    y: number;
+    colorIndex: number;
+    type: 'death' | 'respawn';
+    pairIndex: number;
+}
+
+interface MapDotProps {
+    cx: number;
+    cy: number;
+    fill: string;
+    dotSize: number;
+    dotStroke: number;
+    isHovered: boolean;
+    onEnter: () => void;
+    onLeave: () => void;
+}
+
+const MapDot: React.FC<MapDotProps> = ({
+    cx,
+    cy,
+    fill,
+    dotSize,
+    dotStroke,
+    isHovered,
+    onEnter,
+    onLeave,
+}) => {
+    const r = isHovered ? dotSize * 1.35 : dotSize;
+    const hitR = Math.max(dotSize * 2.5, 0.6);
+
+    return (
+        <g
+            pointerEvents="all"
+            style={{ cursor: 'pointer' }}
+            onMouseEnter={onEnter}
+            onMouseLeave={onLeave}
+        >
+            <circle cx={cx} cy={cy} r={hitR} fill="transparent" />
+            <circle
+                cx={cx}
+                cy={cy}
+                r={r}
+                fill={fill}
+                stroke="#fff"
+                strokeWidth={isHovered ? dotStroke * 1.6 : dotStroke}
+            />
+        </g>
+    );
+};
 
 interface MapVisualizerProps {
     match: Match; 
@@ -18,6 +73,9 @@ const MapVisualizer: React.FC<MapVisualizerProps> = ({ match }) => {
     const [scale, setScale] = useState(1);
     const [pos, setPos] = useState({ x: 0, y: 0 });
     const [isFullscreen, setIsFullscreen] = useState(false);
+    const [hoveredJumpPair, setHoveredJumpPair] = useState<number | null>(null);
+    const [hoveredEndpoint, setHoveredEndpoint] = useState<'start' | 'end' | null>(null);
+    const jumpHoverClearTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
     
     const containerRef = useRef<HTMLDivElement>(null); // 🌟 전체 화면을 위한 ref
     const isDragging = useRef(false);
@@ -122,6 +180,27 @@ const MapVisualizer: React.FC<MapVisualizerProps> = ({ match }) => {
         isDragging.current = false;
     };
 
+    const enterJumpPair = (pairIndex: number) => {
+        if (jumpHoverClearTimer.current) {
+            clearTimeout(jumpHoverClearTimer.current);
+            jumpHoverClearTimer.current = null;
+        }
+        setHoveredJumpPair(pairIndex);
+    };
+
+    const leaveJumpPair = (pairIndex: number) => {
+        jumpHoverClearTimer.current = setTimeout(() => {
+            setHoveredJumpPair((prev) => (prev === pairIndex ? null : prev));
+            jumpHoverClearTimer.current = null;
+        }, HOVER_LEAVE_DELAY_MS);
+    };
+
+    useEffect(() => {
+        return () => {
+            if (jumpHoverClearTimer.current) clearTimeout(jumpHoverClearTimer.current);
+        };
+    }, []);
+
     const mapConfig = useMemo(() => {
         const config = getMapConfig(match.map);
         return config;
@@ -133,7 +212,7 @@ const MapVisualizer: React.FC<MapVisualizerProps> = ({ match }) => {
     }, [match.path]);
 
     const { segments, jumpMarkers, displayPath } = useMemo(() => {
-        const emptyResult = { segments: [] as string[], jumpMarkers: [] as any[], displayPath: [] as any[] };
+        const emptyResult = { segments: [] as string[], jumpMarkers: [] as JumpMarker[], displayPath: [] as any[] };
         if (validPath.length === 0) return emptyResult;
 
         const filterGroundPath = (points: any[]) => {
@@ -148,7 +227,7 @@ const MapVisualizer: React.FC<MapVisualizerProps> = ({ match }) => {
         );
 
         const resultSegments: string[] = [];
-        const resultMarkers: any[] = [];
+        const resultMarkers: JumpMarker[] = [];
 
         const pushPathFromPoints = (points: any[]) => {
             if (points.length === 0) return;
@@ -184,8 +263,9 @@ const MapVisualizer: React.FC<MapVisualizerProps> = ({ match }) => {
                     const currFirst = group.points[0];
                     const currCss = getCssPos(currFirst.x, currFirst.y, match.map);
                     const colorIndex = resultSegments.length;
-                    resultMarkers.push({ x: prevCss.x, y: prevCss.y, colorIndex, type: 'death' });
-                    resultMarkers.push({ x: currCss.x, y: currCss.y, colorIndex, type: 'respawn' });
+                    const pairIndex = resultMarkers.length / 2;
+                    resultMarkers.push({ x: prevCss.x, y: prevCss.y, colorIndex, type: 'death', pairIndex });
+                    resultMarkers.push({ x: currCss.x, y: currCss.y, colorIndex, type: 'respawn', pairIndex });
                 }
                 pushPathFromPoints(group.points);
             });
@@ -215,8 +295,9 @@ const MapVisualizer: React.FC<MapVisualizerProps> = ({ match }) => {
                 if (dist > JUMP_THRESHOLD) {
                     resultSegments.push(currentPathString);
                     const nextColorIndex = resultSegments.length;
-                    resultMarkers.push({ x: prevCss.x, y: prevCss.y, colorIndex: nextColorIndex, type: 'death' });
-                    resultMarkers.push({ x: currCss.x, y: currCss.y, colorIndex: nextColorIndex, type: 'respawn' });
+                    const pairIndex = resultMarkers.length / 2;
+                    resultMarkers.push({ x: prevCss.x, y: prevCss.y, colorIndex: nextColorIndex, type: 'death', pairIndex });
+                    resultMarkers.push({ x: currCss.x, y: currCss.y, colorIndex: nextColorIndex, type: 'respawn', pairIndex });
                     currentPathString = `M ${currCss.x} ${currCss.y}`;
                 } else {
                     currentPathString += ` L ${currCss.x} ${currCss.y}`;
@@ -283,6 +364,12 @@ const MapVisualizer: React.FC<MapVisualizerProps> = ({ match }) => {
                 }
 
                 <svg viewBox="0 0 100 100" style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', pointerEvents: 'none' }}>
+                    {(() => {
+                        const markerBase = isFullscreen ? FULLSCREEN_MARKER_SCALE : 1;
+                        const dotSize = markerBase / scale;
+                        const dotStroke = (0.3 * markerBase) / scale;
+                        return (
+                    <>
                     {/* 경로 그리기 */}
                     {segments?.map((segment, index) => {
                         const color = PATH_COLORS[index % PATH_COLORS.length];
@@ -301,14 +388,17 @@ const MapVisualizer: React.FC<MapVisualizerProps> = ({ match }) => {
 
                     {/* 점프 마커 */}
                     {jumpMarkers?.map((marker, i) => (
-                        <circle 
+                        <MapDot
                             key={`marker-${i}`}
-                            cx={marker.x} cy={marker.y} r={1.2 / scale}
-                            fill={PATH_COLORS[marker.colorIndex % PATH_COLORS.length]} 
-                            stroke="#ffffffff" strokeWidth={0.3 / scale}
-                        >
-                            <title>{marker.type === 'death' ? 'Teleport Start / Death' : 'Teleport End / Respawn'}</title>
-                        </circle>
+                            cx={marker.x}
+                            cy={marker.y}
+                            fill={PATH_COLORS[marker.colorIndex % PATH_COLORS.length]}
+                            dotSize={dotSize}
+                            dotStroke={dotStroke}
+                            isHovered={hoveredJumpPair === marker.pairIndex}
+                            onEnter={() => enterJumpPair(marker.pairIndex)}
+                            onLeave={() => leaveJumpPair(marker.pairIndex)}
+                        />
                     ))}
 
                     {/* 시작(초록) & 끝(빨강) 점 */}
@@ -317,13 +407,33 @@ const MapVisualizer: React.FC<MapVisualizerProps> = ({ match }) => {
                         const end = displayPath[displayPath.length - 1];
                         const sCss = getCssPos(start.x, start.y, match.map);
                         const eCss = getCssPos(end.x, end.y, match.map);
-                        const dotSize = 1 / scale;
 
                         return (
                             <>
-                                <circle cx={sCss.x} cy={sCss.y} r={dotSize} fill="#2ecc71" stroke="#fff" strokeWidth={0.3/scale} />
-                                <circle cx={eCss.x} cy={eCss.y} r={dotSize} fill="#e74c3c" stroke="#fff" strokeWidth={0.3/scale} />
+                                <MapDot
+                                    cx={sCss.x}
+                                    cy={sCss.y}
+                                    fill="#2ecc71"
+                                    dotSize={dotSize}
+                                    dotStroke={dotStroke}
+                                    isHovered={hoveredEndpoint === 'start'}
+                                    onEnter={() => setHoveredEndpoint('start')}
+                                    onLeave={() => setHoveredEndpoint((prev) => (prev === 'start' ? null : prev))}
+                                />
+                                <MapDot
+                                    cx={eCss.x}
+                                    cy={eCss.y}
+                                    fill="#e74c3c"
+                                    dotSize={dotSize}
+                                    dotStroke={dotStroke}
+                                    isHovered={hoveredEndpoint === 'end'}
+                                    onEnter={() => setHoveredEndpoint('end')}
+                                    onLeave={() => setHoveredEndpoint((prev) => (prev === 'end' ? null : prev))}
+                                />
                             </>
+                        );
+                    })()}
+                    </>
                         );
                     })()}
                 </svg>

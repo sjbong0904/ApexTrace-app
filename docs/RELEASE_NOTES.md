@@ -1,5 +1,28 @@
 # ApexTrace Release Notes
 
+## v0.0.6 — 2026-06-28
+
+### 새 기능
+
+- **티어표 (Tier Table)** — 레전드/무기 티어표 탭 추가. 드래그 앤 드롭으로 티어 배치, 행 순서 변경, 로컬 저장. `html2canvas`로 캡처·미리보기·워터마크 오버레이 지원.
+- **매치 상세 레이아웃** — 중복 로드아웃 패널 제거, 전투기록(Combat Log) 영역 확대.
+- **로드아웃 타임라인** — Before/After 슬롯에 무기 이름 대신 Supabase Storage 무기 PNG 표시.
+- **지도 마커 호버** — 시작/끝은 각각 독립 호버, 점프(사망↔리스폰) 마커는 쌍으로 함께 강조. 툴팁 없음.
+
+### 개선
+
+- **지도 마커 크기** — 모든 마커 반지름 통일, 전체화면에서는 초기 크기 50% 축소.
+- **전투기록 아이콘** — `eventIcons.ts`로 Combat Log 아이콘 URL 공유.
+- **통계 탭** — Statistics UI/차트 개선.
+- 10개 언어 — 티어표·네비 등 번역 추가 (`npm run seed:languages`로 Supabase 반영).
+
+### 정리
+
+- dev 매치 프리뷰, `LoadoutDisplay`, `App.css`, `game_constants.json`, 미사용 `BackgroundController` 제거.
+- locale 시드에서 사용하지 않는 top-level `loadout.*` 키 정리.
+
+---
+
 ## v0.0.5b — 2026-06-26
 
 ### 새 기능

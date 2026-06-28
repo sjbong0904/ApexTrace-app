@@ -22,6 +22,7 @@
     "favorites": "收藏",
     "statistics": "统计",
     "weapons": "武器数据库",
+    "tierTable": "梯队表",
     "settings": "设置"
   },
   "controls": {
@@ -119,6 +120,35 @@
     "disruptor": "Disruptor",
     "hammerpoint": "Hammerpoint",
     "graffiti": "Graffiti Mod"
+  },
+  "tierTable": {
+    "chooseType": "创建梯队表",
+    "chooseTypeDesc": "选择传奇或武器梯队，将图标拖入对应梯队。",
+    "legendTier": "传奇梯队表",
+    "weaponTier": "武器梯队表",
+    "changeType": "更改类型",
+    "reset": "重置",
+    "screenshot": "截图",
+    "screenshotPreview": "截图预览",
+    "screenshotCapturing": "正在截图…",
+    "screenshotReady": "预览就绪 — 可选填写标题后点击保存",
+    "screenshotTitle": "标题",
+    "screenshotTitlePlaceholder": "可选",
+    "screenshotSave": "保存",
+    "screenshotSaving": "正在保存…",
+    "screenshotSavedShort": "已保存！",
+    "screenshotSaved": "截图已保存：{{path}}",
+    "screenshotDownloaded": "截图已下载",
+    "screenshotFailed": "截图保存失败",
+    "newTier": "新梯队",
+    "removeTier": "删除",
+    "removeItem": "移除",
+    "dropHere": "拖放到此处",
+    "addTier": "添加梯队行",
+    "legendPool": "传奇",
+    "weaponPool": "武器",
+    "poolHint": "拖到上方梯队 · 拖回此处取消分配",
+    "dragRow": "拖拽以调整梯队顺序"
   },
   "weaponDb": {
     "names": {
@@ -297,12 +327,6 @@
       "matchLifecycle": { "label": "比赛开始 / 结束", "impact": "自动检测比赛开始或结束可能失败。" },
       "revive": { "label": "复活 / 重生", "impact": "击倒复活和重生事件可能未被记录。" }
     }
-  },
-  "loadout": {
-    "title": "装备",
-    "noWeapon": "无武器",
-    "slot1": "槽位 #1",
-    "slot2": "槽位 #2"
   },
   "settings": {
     "alerts": {
