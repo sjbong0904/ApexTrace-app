@@ -24,6 +24,11 @@ import {
     compareNumericStrings,
     compareAvgPlacement,
 } from '../utils/tableSort';
+import {
+    type MatchWithMeta,
+    getMatchSurvivalSec,
+    computeOverviewAnalytics,
+} from '../utils/statsScoring';
 import { WEAPONS_DB, type WeaponCategory } from '../utils/WeaponsData';
 import { findWeaponByLoadoutId } from '../utils/weaponTheme';
 import RankProgressChart from './RankProgressChart';
@@ -973,160 +978,6 @@ const calculateStats = (matches: MatchHistory[]) => {
         squadKills: totalsquadKills,
         assists: totalAssists,
         lograte: Math.min(contributionRate, 100).toFixed(1)
-    };
-};
-
-type MatchWithMeta = MatchHistory & {
-    map?: string;
-    startTime?: number;
-    endTime?: number;
-    squadKills?: number;
-};
-
-/** Linear 0–100; at/below floor → 0, at/above ceiling → 100. */
-const linearScore = (value: number, floor: number, ceiling: number): number => {
-    if (ceiling <= floor) return value >= ceiling ? 100 : 0;
-    if (value <= floor) return 0;
-    if (value >= ceiling) return 100;
-    return ((value - floor) / (ceiling - floor)) * 100;
-};
-
-/** Compress mid/high scores — applied to non-combat axes. */
-const strictify = (score: number, power = 1.32): number =>
-    Math.pow(Math.max(0, Math.min(100, score)) / 100, power) * 100;
-
-/** Log-scaled 0–100 for metrics whose floor is strictly positive (e.g. survival seconds). */
-const logScore = (value: number, floor: number, ceiling: number): number => {
-    if (ceiling <= floor) return value >= ceiling ? 100 : 0;
-    if (value <= floor) return 0;
-    if (value >= ceiling) return 100;
-    const lf = Math.log(floor);
-    const lc = Math.log(ceiling);
-    const lv = Math.log(value);
-    return ((lv - lf) / (lc - lf)) * 100;
-};
-
-const getMatchSurvivalSec = (m: MatchWithMeta): number => {
-    if (!m.startTime) return 0;
-    return Math.max(0, Math.round(toGameElapsedMs((m.endTime || Date.now()) - m.startTime) / 1000));
-};
-
-/** 1 kill ≈ 200 damage — 피크 대미지 ceiling 기준. */
-const DMG_PER_KILL = 200;
-
-/** 0 → 0, ceiling → 100; at ~66.7% of ceiling → ~85 (shared curve). */
-const AVG_DAMAGE_CEILING = 1500;
-const PEAK_KILLS_CEILING = 20;
-const PEAK_DAMAGE_CEILING = PEAK_KILLS_CEILING * DMG_PER_KILL;
-const SCORE_CURVE_POWER = Math.log(0.85) / Math.log(1000 / AVG_DAMAGE_CEILING);
-/** 교전 전용 — 화력보다 가파른 곡선 (중간 스탯 점수 과다 방지). */
-const COMBAT_CURVE_POWER = 0.45;
-/** ~85 pt anchor (K/D 3.5, KA/D 5.25). */
-const COMBAT_STRONG_KD = 3.5;
-const COMBAT_STRONG_KAD = 5.25;
-const COMBAT_SCORE_RATIO_AT_85 = Math.pow(0.85, 1 / COMBAT_CURVE_POWER);
-const COMBAT_KD_CEILING = COMBAT_STRONG_KD / COMBAT_SCORE_RATIO_AT_85;
-const COMBAT_KAD_CEILING = COMBAT_STRONG_KAD / COMBAT_SCORE_RATIO_AT_85;
-
-const curvedMetricScore = (value: number, ceiling: number, power = SCORE_CURVE_POWER): number => {
-    const ratio = Math.max(0, Math.min(1, value / ceiling));
-    return Math.pow(ratio, power) * 100;
-};
-
-const avgDamageScore = (avgDamage: number): number =>
-    curvedMetricScore(avgDamage, AVG_DAMAGE_CEILING);
-
-/** Peak match score: 20 kills + 4000 damage = 100 (same curve as 화력, averaged). */
-const computePeakMatchScore = (m: MatchWithMeta): number => {
-    const kills = m.kills || 0;
-    const damage = m.damage || 0;
-    return (
-        curvedMetricScore(kills, PEAK_KILLS_CEILING) * 0.5 +
-        curvedMetricScore(damage, PEAK_DAMAGE_CEILING) * 0.5
-    );
-};
-
-const findBestPeakMatch = (matches: MatchHistory[]): { match: MatchWithMeta | null; score: number } => {
-    let best: MatchWithMeta | null = null;
-    let bestScore = 0;
-    for (const raw of matches) {
-        const m = raw as MatchWithMeta;
-        const score = computePeakMatchScore(m);
-        if (score > bestScore) {
-            bestScore = score;
-            best = m;
-        }
-    }
-    return { match: best, score: bestScore };
-};
-
-const SCORE_WEIGHTS = {
-    combat: 0.25,
-    damage: 0.20,
-    macro: 0.24,
-    team: 0.16,
-    peak: 0.15,
-} as const;
-
-const computeOverviewAnalytics = (
-    stats: NonNullable<ReturnType<typeof calculateStats>>,
-    matches: MatchHistory[],
-) => {
-    const kd = parseFloat(String(stats.kd));
-    const kda = parseFloat(String(stats.kda));
-    const avgPlacement = parseFloat(String(stats.avgPlacement));
-    const killContrib = parseFloat(String(stats.lograte));
-
-    const scoreCombat =
-        curvedMetricScore(kd, COMBAT_KD_CEILING, COMBAT_CURVE_POWER) * 0.55 +
-        curvedMetricScore(kda, COMBAT_KAD_CEILING, COMBAT_CURVE_POWER) * 0.45;
-
-    const scoreDamage = avgDamageScore(stats.avgDamage);
-
-    const scorePlace = linearScore(20 - avgPlacement, 0, 19);
-    const scoreSurvTime = logScore(stats.avgTimeSec, 180, 1020);
-    const scoreMacro = strictify(scorePlace * 0.65 + scoreSurvTime * 0.35);
-
-    const scoreTeam = Math.max(0, Math.min(100, killContrib));
-
-    const { match: bestPeakMatch, score: scorePeak } = findBestPeakMatch(matches);
-
-    const weightedScore = Math.max(0, Math.min(100,
-        scoreCombat * SCORE_WEIGHTS.combat +
-        scoreDamage * SCORE_WEIGHTS.damage +
-        scoreMacro * SCORE_WEIGHTS.macro +
-        scoreTeam * SCORE_WEIGHTS.team +
-        scorePeak * SCORE_WEIGHTS.peak,
-    ));
-
-    let tier = 'None';
-    if (weightedScore >= 97) tier = 'SSS';
-    else if (weightedScore >= 90) tier = 'SS';
-    else if (weightedScore >= 85) tier = 'S';
-    else if (weightedScore >= 80) tier = 'A+';
-    else if (weightedScore >= 75) tier = 'A';
-    else if (weightedScore >= 70) tier = 'A-';
-    else if (weightedScore >= 65) tier = 'B+';
-    else if (weightedScore >= 60) tier = 'B';
-    else if (weightedScore >= 55) tier = 'B-';
-    else if (weightedScore >= 50) tier = 'C+';
-    else if (weightedScore >= 45) tier = 'C';
-    else if (weightedScore >= 40) tier = 'C-';
-    else if (weightedScore >= 35) tier = 'D+';
-    else if (weightedScore >= 30) tier = 'D';
-    else tier = 'D-';
-
-    return {
-        radarScores: {
-            combat: scoreCombat,
-            damage: scoreDamage,
-            macro: scoreMacro,
-            team: scoreTeam,
-            peak: scorePeak,
-        },
-        bestPeakMatch,
-        totalTier: tier,
-        totalScore: Math.round(weightedScore),
     };
 };
 
