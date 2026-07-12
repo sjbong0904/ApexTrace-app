@@ -12,7 +12,7 @@ import { useTranslation } from 'react-i18next';
 import type { MatchHistory, Season } from '../utils/match';
 import { normalizeHistoryForFrontend } from '../utils/matchNormalizer';
 import { fetchPlayerStats, type StatisticsMode } from '../utils/playerStatsApi';
-import { isSamePlayer, isKnownLegend, normalizeLegendKey, getTeammateSortKey, toGameElapsedMs } from '../utils/helpers';
+import { isSamePlayer, isKnownLegend, normalizeLegendKey, getTeammateSortKey, toGameElapsedMs, getAvgPlacementColor } from '../utils/helpers';
 import { WEAPONS_DB, type WeaponCategory } from '../utils/WeaponsData';
 import { findWeaponByLoadoutId } from '../utils/weaponTheme';
 import RankProgressChart from './RankProgressChart';
@@ -36,14 +36,6 @@ const getMatchPlacement = (m: MatchHistory): number => {
 
 const formatAvgPlacement = (totalPlacement: number, count: number): string =>
     count > 0 ? (totalPlacement / count).toFixed(1) : '0.0';
-
-const getAvgPlacementColor = (avgPlacement: string | number): string => {
-    const val = typeof avgPlacement === 'number' ? avgPlacement : parseFloat(avgPlacement);
-    if (isNaN(val)) return 'var(--color-text-muted)';
-    if (val <= 3) return '#fdcb6e';
-    if (val <= 5) return '#4ade80';
-    return 'var(--color-text-muted)';
-};
 
 const AvgPlacementCell = ({ value, padding = '10px 12px' }: { value: string; padding?: string }) => (
     <td style={{ padding, textAlign: 'center', fontWeight: 'bold', color: getAvgPlacementColor(value) }}>

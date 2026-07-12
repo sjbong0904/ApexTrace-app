@@ -7,6 +7,15 @@ export const getRankColor = (rank: number | string) => {
     return 'var(--color-rank-other)';
 };
 
+/** Color for an average placement value (lower is better). */
+export const getAvgPlacementColor = (avgPlacement: string | number): string => {
+    const val = typeof avgPlacement === 'number' ? avgPlacement : parseFloat(avgPlacement);
+    if (isNaN(val)) return 'var(--color-text-muted)';
+    if (val <= 3) return '#fdcb6e';
+    if (val <= 5) return '#4ade80';
+    return 'var(--color-text-muted)';
+};
+
 export type RankTierKey =
     | 'bronze'
     | 'silver'

@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Match } from '../types';
+import { getRankColor } from '../utils/helpers';
 
 const PerformanceTrend = ({ history }: { history: Match[] }) => {
     const { t } = useTranslation();
@@ -28,12 +29,6 @@ const PerformanceTrend = ({ history }: { history: Match[] }) => {
     const getY = (rank: number) => {
         const safeRank = Math.min(Math.max(rank, 1), maxRank);
         return paddingY + ((safeRank - 1) / (maxRank - 1)) * (height - paddingY * 2);
-    };
-
-    const getRankColor = (rank: number) => {
-        if (rank === 1) return 'var(--color-rank-first)';
-        if (rank <= 5) return 'var(--color-rank-top5)';
-        return 'var(--color-rank-other)';
     };
 
     if (data.length === 0) {

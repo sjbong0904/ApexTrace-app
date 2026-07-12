@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { MatchHistory } from '../utils/match';
-import { isKnownLegend, normalizeLegendKey } from '../utils/helpers';
+import { isKnownLegend, normalizeLegendKey, getAvgPlacementColor } from '../utils/helpers';
 
 interface SidebarStatsProps {
     history: MatchHistory[];
@@ -89,14 +89,6 @@ const LegendCard = ({ label, legendName }: { label: string; legendName: string }
         </div>
     </div>
 );
-
-const getAvgPlacementColor = (avgPlacement: string | number): string => {
-    const val = typeof avgPlacement === 'number' ? avgPlacement : parseFloat(avgPlacement);
-    if (isNaN(val)) return 'var(--color-text-muted)';
-    if (val <= 3) return '#fdcb6e';
-    if (val <= 5) return '#4ade80';
-    return 'var(--color-text-muted)';
-};
 
 const SidebarStats: React.FC<SidebarStatsProps> = ({ history }) => {
     const { t } = useTranslation();
