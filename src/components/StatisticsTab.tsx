@@ -13,6 +13,17 @@ import type { MatchHistory, Season } from '../utils/match';
 import { normalizeHistoryForFrontend } from '../utils/matchNormalizer';
 import { fetchPlayerStats, type StatisticsMode } from '../utils/playerStatsApi';
 import { isSamePlayer, isKnownLegend, normalizeLegendKey, getTeammateSortKey, toGameElapsedMs, getAvgPlacementColor } from '../utils/helpers';
+import {
+    type TableSortState,
+    createDefaultTableSort,
+    toggleTableSort,
+    toggleCatalogNameTableSort,
+    applyTableSort,
+    compareStrings,
+    compareNumbers,
+    compareNumericStrings,
+    compareAvgPlacement,
+} from '../utils/tableSort';
 import { WEAPONS_DB, type WeaponCategory } from '../utils/WeaponsData';
 import { findWeaponByLoadoutId } from '../utils/weaponTheme';
 import RankProgressChart from './RankProgressChart';
@@ -224,56 +235,6 @@ const mapBreakdownHeadCellStyle: React.CSSProperties = {
     whiteSpace: 'normal',
     wordBreak: 'keep-all',
 };
-
-type SortDirection = 'desc' | 'asc';
-
-type TableSortState<K extends string = string> = {
-    column: K | null;
-    direction: SortDirection;
-};
-
-const createDefaultTableSort = <K extends string>(): TableSortState<K> => ({
-    column: null,
-    direction: 'desc',
-});
-
-const toggleTableSort = <K extends string>(
-    current: TableSortState<K>,
-    column: K,
-    firstClickDirection: SortDirection = 'desc',
-): TableSortState<K> => {
-    if (current.column !== column) {
-        return { column, direction: firstClickDirection };
-    }
-    return { column, direction: current.direction === 'desc' ? 'asc' : 'desc' };
-};
-
-/** Legend / weapon name columns: first click follows tab or DB order (asc). */
-const toggleCatalogNameTableSort = <K extends string>(
-    current: TableSortState<K>,
-    column: K,
-): TableSortState<K> => toggleTableSort(current, column, column === 'name' ? 'asc' : 'desc');
-
-const applyTableSort = <T, K extends string>(
-    rows: readonly T[],
-    sortState: TableSortState<K>,
-    comparators: Record<K, (a: T, b: T) => number>,
-): T[] => {
-    if (!sortState.column) return [...rows];
-    const compare = comparators[sortState.column];
-    if (!compare) return [...rows];
-    const factor = sortState.direction === 'desc' ? -1 : 1;
-    return [...rows].sort((a, b) => compare(a, b) * factor);
-};
-
-const compareStrings = (a: string, b: string) => a.localeCompare(b, undefined, { sensitivity: 'base' });
-
-const compareNumbers = (a: number, b: number) => a - b;
-
-const compareNumericStrings = (a: string, b: string) => parseFloat(a) - parseFloat(b);
-
-/** Lower placement rank is better — invert so desc shows #1 first. */
-const compareAvgPlacement = (a: string, b: string) => compareNumericStrings(b, a);
 
 /** Matches Legends tab picker order (`LEGENDS_LIST`). */
 const LEGEND_TAB_ORDER = new Map<string, number>(
