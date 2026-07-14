@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase';
 import type { Season } from './match';
+import { resolveSeasonEndMs } from './seasons';
 
 export interface DailyRankSnapshot {
     snapshot_date: string;
@@ -14,9 +15,9 @@ export function getSeasonSnapshotDateRange(
     const current = seasons.find(s => s.id === selectedSeasonId);
     if (!current?.startTime) return null;
 
-    const next = seasons.find(s => s.id === selectedSeasonId + 1);
     const startDate = new Date(current.startTime).toISOString().slice(0, 10);
-    const endMs = next?.startTime ? next.startTime - 1 : Date.now();
+    const exclusiveEnd = resolveSeasonEndMs(seasons, selectedSeasonId);
+    const endMs = exclusiveEnd != null ? exclusiveEnd - 1 : Date.now();
     const endDate = new Date(endMs).toISOString().slice(0, 10);
 
     return { startDate, endDate };

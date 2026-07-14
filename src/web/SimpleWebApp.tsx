@@ -7,6 +7,7 @@ import {
     isSupportedMode,
     matchesHistoryTab,
 } from '../utils/matchMode';
+import { getSelectableSeasons, resolveCurrentSeasonId, resolveSeasonEndMs } from '../utils/seasons';
 
 const getNumeric = (value: unknown): number => {
     const n = Number(value);
@@ -126,15 +127,13 @@ export default function SimpleWebApp() {
         const currentSeason = seasons.find((season) => season.id === selectedSeasonId);
         if (!currentSeason) return list;
 
-        const nextSeason = seasons
-            .filter((season) => season.startTime > currentSeason.startTime)
-            .sort((a, b) => a.startTime - b.startTime)[0];
+        const seasonEnd = resolveSeasonEndMs(seasons, selectedSeasonId);
 
         return list.filter((m) => {
             const matchTime = getNumeric(m?.startTime || m?.endTime);
             if (matchTime <= 0) return true;
             const afterStart = matchTime >= currentSeason.startTime;
-            const beforeEnd = nextSeason ? matchTime < nextSeason.startTime : true;
+            const beforeEnd = seasonEnd != null ? matchTime < seasonEnd : true;
             return afterStart && beforeEnd;
         });
     }, [history, selectedMode, selectedSeasonId, seasons]);
@@ -225,12 +224,18 @@ export default function SimpleWebApp() {
         const init = async () => {
             const seasonList = await fetchSeasons();
             setSeasons(seasonList);
-            if (seasonList.length > 0) {
-                setSelectedSeasonId(seasonList[0].id);
+            const currentId = resolveCurrentSeasonId(seasonList);
+            if (currentId != null) {
+                setSelectedSeasonId(currentId);
             }
         };
         void init();
     }, []);
+
+    const selectableSeasons = useMemo(
+        () => getSelectableSeasons(seasons),
+        [seasons],
+    );
 
     useEffect(() => {
         setPage(1);
@@ -395,7 +400,7 @@ export default function SimpleWebApp() {
                         {user && (
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
                                 <select value={selectedSeasonId} onChange={(e) => setSelectedSeasonId(Number(e.target.value))} style={{ background: 'var(--color-bg-card)', color: 'var(--color-text-primary)', border: '1px solid var(--color-border-light)', borderRadius: 6, padding: '7px 8px', fontSize: 12, fontWeight: 700 }}>
-                                    {seasons.map((season) => (
+                                    {selectableSeasons.map((season) => (
                                         <option key={season.id} value={season.id}>{season.name}</option>
                                     ))}
                                 </select>
@@ -572,7 +577,7 @@ export default function SimpleWebApp() {
                             {user && (
                                 <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
                                     <select value={selectedSeasonId} onChange={(e) => setSelectedSeasonId(Number(e.target.value))} style={{ background: 'var(--color-bg-card)', color: 'var(--color-text-primary)', border: '1px solid var(--color-border-light)', borderRadius: 6, padding: '6px 8px', fontSize: 12, fontWeight: 700 }}>
-                                        {seasons.map((season) => (
+                                        {selectableSeasons.map((season) => (
                                             <option key={season.id} value={season.id}>{season.name}</option>
                                         ))}
                                     </select>

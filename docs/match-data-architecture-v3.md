@@ -72,7 +72,6 @@ Season boundaries must be defined **only** in Supabase. The app reads them via e
 | `name` | `text` | Display name, e.g. `Season 28 : Split 2` |
 | `start_time` | `bigint` | Epoch ms, inclusive |
 | `end_time` | `bigint` nullable | Epoch ms, exclusive; `null` = open-ended current split |
-| `is_active` | `boolean` | Optional flag for default season in UI |
 | `version` | `integer` | Increment when boundaries change; triggers client cache invalidation |
 
 **Assignment rule:** For a match with `start_time` (or `end_time` fallback), find the season where `start_time >= seasons.start_time` and (`end_time` is null or `start_time < seasons.end_time`).

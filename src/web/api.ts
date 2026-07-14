@@ -26,6 +26,7 @@ export interface SeasonConfig {
     id: number;
     name: string;
     startTime: number;
+    endTime: number | null;
 }
 
 const safeJson = async <T>(response: Response): Promise<T | null> => {
@@ -67,20 +68,20 @@ export const fetchHistoryByUid = async (uid: string): Promise<any[]> => {
 
 export const fetchSeasons = async (): Promise<SeasonConfig[]> => {
     const { data, error } = await supabase
-        .from('game_constants')
-        .select('value')
-        .eq('key', 'seasons')
-        .single();
+        .from('seasons')
+        .select('id, name, start_time, end_time')
+        .order('id', { ascending: false });
 
-    if (error || !data?.value || !Array.isArray(data.value)) {
+    if (error || !data?.length) {
         return [];
     }
 
-    return data.value
-        .map((season: any) => ({
+    return data
+        .map((season) => ({
             id: Number(season.id),
             name: String(season.name ?? `Season ${season.id}`),
-            startTime: season.startTime ? new Date(season.startTime).getTime() : 0,
+            startTime: season.start_time != null ? Number(season.start_time) : 0,
+            endTime: season.end_time != null ? Number(season.end_time) : null,
         }))
         .filter((season: SeasonConfig) => Number.isFinite(season.id))
         .sort((a: SeasonConfig, b: SeasonConfig) => b.startTime - a.startTime);

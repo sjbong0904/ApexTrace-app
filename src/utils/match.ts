@@ -14,5 +14,7 @@ export interface MatchHistory {
 export interface Season {
     id: number;
     name: string;
-    startTime: number | null; // ISO 문자열 or null
+    startTime: number | null;
+    /** Epoch ms exclusive end; null/undefined = open-ended or unknown */
+    endTime?: number | null;
 }

@@ -512,7 +512,7 @@ const ConfigController = {
         try {
             const { data, error } = await window._supabase
                 .from('seasons')
-                .select('id, name, start_time')
+                .select('id, name, start_time, end_time')
                 .order('id', { ascending: false });
 
             if (!error && data && data.length > 0) {
@@ -520,6 +520,7 @@ const ConfigController = {
                     id: s.id,
                     name: s.name,
                     startTime: s.start_time ? Number(s.start_time) : 0,
+                    endTime: s.end_time != null ? Number(s.end_time) : null,
                 }));
                 console.log("✅ [ConfigController] Seasons loaded from public.seasons");
             }
@@ -548,7 +549,8 @@ const ConfigController = {
                     window.SEASONS = value.map(s => ({
                         id: s.id,
                         name: s.name,
-                        startTime: s.startTime ? new Date(s.startTime).getTime() : 0
+                        startTime: s.startTime ? new Date(s.startTime).getTime() : 0,
+                        endTime: s.endTime != null ? new Date(s.endTime).getTime() : null,
                     }));
                 }
             });

@@ -40,17 +40,19 @@ import HotkeyReminder from './components/HotkeyReminder';
 import AppSelect from './components/AppSelect';
 import { useTranslation } from 'react-i18next';
 import { APP_LANGUAGES } from './constants/languages';
+import { getSelectableSeasons, resolveCurrentSeasonId, resolveSeasonEndMs } from './utils/seasons';
 
 interface Season {
   id: number;
   name: string;
   startTime: number;
+  endTime?: number | null;
 }
 
 const FALLBACK_SEASONS: Season[] = [
-  { id: 3, name: "Season 28 : Split 2", startTime: new Date("2026-03-24T18:00:00Z").getTime() },
-  { id: 2, name: "Season 28 : Split 1", startTime: new Date("2026-02-10T18:00:00Z").getTime() },
-  { id: 1, name: "Season 27 : Split 2", startTime: 0 }
+  { id: 3, name: "Season 28 : Split 2", startTime: new Date("2026-03-24T18:00:00Z").getTime(), endTime: new Date("2026-08-04T18:00:00Z").getTime() },
+  { id: 2, name: "Season 28 : Split 1", startTime: new Date("2026-02-10T18:00:00Z").getTime(), endTime: new Date("2026-03-24T18:00:00Z").getTime() },
+  { id: 1, name: "Season 27 : Split 2", startTime: 0, endTime: new Date("2026-02-10T18:00:00Z").getTime() }
 ];
 
 const ProfileLoadingOverlay = ({ label }: { label: string }) => (
@@ -135,7 +137,9 @@ const App = () => {
     const [isPremium] = useState(true);
     const [history, setHistory] = useState<any[]>([]);
     const [user, setUser] = useState<User>({ name: t('search.defaultName'), level: 0, prestige: 0, rankName: '-', rankScore: 0, legend: 'unknown', avatar: null, uid: null });
-    const [selectedSeasonId, setSelectedSeasonId] = useState<number>(FALLBACK_SEASONS[0].id);
+    const [selectedSeasonId, setSelectedSeasonId] = useState<number>(
+        () => resolveCurrentSeasonId(FALLBACK_SEASONS) ?? FALLBACK_SEASONS[0].id,
+    );
     const [expandedMatchIds, setExpandedMatchIds] = useState<string[]>([]);
     const [loadingDetailMatchId, setLoadingDetailMatchId] = useState<string | null>(null);
     const detailPrefetchRef = useRef<Map<string, Promise<Match | null>>>(new Map());
@@ -170,8 +174,16 @@ const App = () => {
     }, []);
 
     useEffect(() => {
-        setSelectedSeasonId(SEASONS[0].id);
+        const currentId = resolveCurrentSeasonId(SEASONS);
+        if (currentId != null) {
+            setSelectedSeasonId(currentId);
+        }
     }, [SEASONS]);
+
+    const selectableSeasons = useMemo(
+        () => getSelectableSeasons(SEASONS),
+        [SEASONS],
+    );
 
     useEffect(() => {
         setCurrentPage(1);
@@ -773,12 +785,12 @@ const App = () => {
 
             const matchTime = match.startTime || match.endTime || 0;
             const currentSeason = SEASONS.find(s => s.id === selectedSeasonId);
-            const nextSeason = SEASONS.find(s => s.id === selectedSeasonId + 1);
 
             if (!currentSeason) return true;
 
+            const seasonEnd = resolveSeasonEndMs(SEASONS, selectedSeasonId);
             const isAfterStart = matchTime >= currentSeason.startTime;
-            const isBeforeEnd = nextSeason ? matchTime < nextSeason.startTime : true;
+            const isBeforeEnd = seasonEnd != null ? matchTime < seasonEnd : true;
 
             return isAfterStart && isBeforeEnd;
         });
@@ -1260,7 +1272,7 @@ const App = () => {
                                         }
                                     }}
                                 >
-                                    {SEASONS.map(season => (
+                                    {selectableSeasons.map(season => (
                                         <option key={season.id} value={season.id}>{season.name}</option>
                                     ))}
                                 </AppSelect>
