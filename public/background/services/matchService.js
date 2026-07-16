@@ -35,6 +35,7 @@ const MatchFactory = {
             _rosterCache: [], _isVictory: false,
             _squadNames: new Set(initialUser?.name ? [initialUser.name] : []),
             _unknownKillers: [],
+            _pendingKnocks: [],
             _pathSegment: 0,
             _pathRecording: true
         };
@@ -345,7 +346,8 @@ class MatchService {
             'isDead', '_ending', '_saved', '_isVictory', '_guessedRank', '_lastLocationTime',
             '_lastKnownTeams', '_lastUltValue', '_currentPhase', '_rosterCache', '_squadNames',
             '_unknownKillers', 'startPos', 'endPos', '_pathSegment', '_pathRecording',
-            '_squadEliminated', '_lastTeamsAlive', '_matchSummaryRank', '_estimatedPlacement'
+            '_squadEliminated', '_lastTeamsAlive', '_matchSummaryRank', '_estimatedPlacement',
+            '_pendingKnocks'
         ];
         runtimeKeys.forEach((k) => { delete match[k]; });
         if (match.teamStats) {

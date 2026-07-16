@@ -28,6 +28,30 @@ const resolveCombatImpact = (parsed) => {
     return 'unknown';
 };
 
+/**
+ * Locale-agnostic finish detection: GEP often localizes bleed/ring/melee finishes
+ * (e.g. action="출혈") instead of "kill". If we already knocked that victim this match,
+ * treat the unknown action as a finish kill.
+ */
+const ensurePendingKnocks = (match) => {
+    if (!Array.isArray(match._pendingKnocks)) match._pendingKnocks = [];
+    return match._pendingKnocks;
+};
+
+const hasPendingKnock = (match, victim) =>
+    ensurePendingKnocks(match).some((name) => isSamePlayer(name, victim));
+
+const addPendingKnock = (match, victim) => {
+    if (!victim || hasPendingKnock(match, victim)) return;
+    ensurePendingKnocks(match).push(victim);
+};
+
+const clearPendingKnock = (match, victim) => {
+    const pending = ensurePendingKnocks(match);
+    const idx = pending.findIndex((name) => isSamePlayer(name, victim));
+    if (idx >= 0) pending.splice(idx, 1);
+};
+
 /** GEP kill_feed가 동일 넉다운을 연속 발행하는 경우 방지 (구 knockdown 이벤트 + kill_feed 이중 집계 해소) */
 const COMBAT_DEDUPE_MS = 4000;
 
@@ -251,12 +275,6 @@ const handleCombatEvent = (parsed, activeMatch) => {
     const victimRaw = parsed.victimName || parsed.victim || "Unknown";
     const weaponRaw = parsed.weaponName || parsed.weapon || "Unknown";
 
-    const impactKind = resolveCombatImpact(parsed);
-    if (impactKind === 'unknown') return;
-
-    const isFinalKill = impactKind === 'kill';
-    const type = isFinalKill ? 'kill' : 'knockdown';
-
     const normalize = (str) => str ? str.replace(/\[.*?\]/g, '').replace(/\s+/g, '').toLowerCase() : "";
     const myNameNorm = normalize(activeMatch.playerName);
     const localNameNorm = normalize(localRaw);
@@ -276,6 +294,22 @@ const handleCombatEvent = (parsed, activeMatch) => {
         return;
     }
 
+    const victim = window.Utils.cleanName(victimRaw);
+    let impactKind = resolveCombatImpact(parsed);
+    let promotedFromPending = false;
+
+    // Localized finish (bleed/ring/melee text) with no English "kill" — promote via pending knockdown.
+    if (impactKind === 'unknown' && isMeAttacker && victim && hasPendingKnock(activeMatch, victim)) {
+        impactKind = 'kill';
+        promotedFromPending = true;
+        console.log(`[Combat] Promoted localized finish → kill via pending knockdown: ${victim}`);
+    }
+
+    if (impactKind === 'unknown') return;
+
+    const isFinalKill = impactKind === 'kill';
+    const type = isFinalKill ? 'kill' : 'knockdown';
+
     if (!isMeAttacker && type === 'kill') {
         if (attackerRaw && attackerRaw !== "Unknown" && attackerRaw.trim() !== "") {
             const isTeammateAttacker = activeMatch.teamStats && activeMatch.teamStats.some(tm =>
@@ -290,13 +324,21 @@ const handleCombatEvent = (parsed, activeMatch) => {
     }
 
     if (isMeAttacker) {
-        const victim = window.Utils.cleanName(victimRaw);
-        recordCombatLog(activeMatch, {
+        // Promoted finishes already counted via tabs/GEP kill counter — log only to avoid double ++.
+        const statAction = isFinalKill
+            ? (promotedFromPending ? null : 'KILL')
+            : 'KNOCKDOWN';
+        const logged = recordCombatLog(activeMatch, {
             type,
             attacker: activeMatch.playerName,
             victim,
             weapon: window.Utils.normalizeWeapon(weaponRaw)
-        }, isFinalKill ? 'KILL' : 'KNOCKDOWN');
+        }, statAction);
+
+        if (logged) {
+            if (type === 'knockdown') addPendingKnock(activeMatch, victim);
+            else if (type === 'kill') clearPendingKnock(activeMatch, victim);
+        }
     }
 
     if (isMeVictim) {

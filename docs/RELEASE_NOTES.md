@@ -1,5 +1,13 @@
 # ApexTrace Release Notes
 
+## Unreleased
+
+### 수정
+
+- **컴뱃로그 킬 누락** — GEP가 출혈/링 등 finish를 로케일 `action`으로 보낼 때, 내가 넉다운한 victim이면 locale 무관하게 kill로 승격. `tabs.kills`와 컴뱃로그 불일치 완화.
+
+---
+
 ## v0.0.7 — 2026-06-28
 
 ### 새 기능
