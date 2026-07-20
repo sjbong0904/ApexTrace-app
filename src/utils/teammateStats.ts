@@ -1,5 +1,5 @@
 import type { MatchHistory } from './match';
-import { isSamePlayer, isKnownLegend, normalizeLegendKey } from './helpers';
+import { isSamePlayer, isKnownLegend, normalizeLegendKey, getMatchDeaths } from './helpers';
 import { getMatchPlacement, formatLegendDisplayName, formatAvgPlacement } from './statsAggregation';
 
 export type TeammateMatchStat = {
@@ -125,7 +125,7 @@ export const computePlayerPerformanceBaseline = (matches: MatchHistory[]): Playe
         wins += isWin ? 1 : 0;
         kills += match.kills || 0;
         assists += match.assists || 0;
-        deaths += isWin ? 0 : 1;
+        deaths += getMatchDeaths(match);
         damage += match.damage || 0;
         placement += getMatchPlacement(match);
     });

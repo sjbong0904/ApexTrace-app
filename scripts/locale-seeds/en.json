@@ -687,7 +687,7 @@
     "legends": {
       "top5PickRates": "Top 5 Pick Rates",
       "overview": "Overview",
-      "topTeammateLegends": "Teammate Legends TOP 3",
+      "topTeammateLegends": "Teammate Legends",
       "matches": "Matches",
       "winRate": "Win Rate",
       "kd": "K/D",
@@ -712,6 +712,7 @@
       "mostUsed": "🏆 Most Used",
       "pick": "#{{rank}}",
       "matches": "Matches",
+      "usageTime": "Usage",
       "kd": "K/D",
       "kad": "KA/D",
       "winPercent": "Win%",

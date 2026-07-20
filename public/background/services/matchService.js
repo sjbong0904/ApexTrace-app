@@ -21,7 +21,7 @@ const MatchFactory = {
             mode: window.Store?.game?.mode || "Battle Royale",
             legend: initialUser?.legend || null,
             placement: 20,
-            kills: 0, assists: 0, damage: 0, knocks: 0, squadKills: 0, ultimatesUsed: 0, headshots: 0,
+            kills: 0, assists: 0, deaths: 0, damage: 0, knocks: 0, squadKills: 0, ultimatesUsed: 0, headshots: 0,
             isDead: false,
             rank: {
                 name: initialUser?.rankName || "-",
@@ -30,6 +30,7 @@ const MatchFactory = {
             },
             startTime: Date.now(), endTime: 0,
             loadout: { primary: null, secondary: null },
+            weaponCombat: {},
             path: [], events: [], teamStats: [], weaponTimeline: [],
             _lastLocationTime: 0, _lastKnownTeams: 20, _guessedRank: null,
             _rosterCache: [], _isVictory: false,
@@ -212,6 +213,7 @@ class MatchService {
                 if (data.teams) this.updateSession(matchRef, 'TEAMS_ALIVE', data.teams);
                 const apiSquadKills = parseInt(data.squadKills || data.squad_kills || 0);
                 if (apiSquadKills > match.squadKills) match.squadKills = apiSquadKills;
+                if (window.Utils?.syncAssistCombatLogs) window.Utils.syncAssistCombatLogs(match);
                 break;
             }
 
@@ -347,7 +349,7 @@ class MatchService {
             '_lastKnownTeams', '_lastUltValue', '_currentPhase', '_rosterCache', '_squadNames',
             '_unknownKillers', 'startPos', 'endPos', '_pathSegment', '_pathRecording',
             '_squadEliminated', '_lastTeamsAlive', '_matchSummaryRank', '_estimatedPlacement',
-            '_pendingKnocks'
+            '_pendingKnocks', '_lastDamageLogAt'
         ];
         runtimeKeys.forEach((k) => { delete match[k]; });
         if (match.teamStats) {
@@ -422,6 +424,18 @@ class MatchService {
             match._guessedRank = match._guessedRank == null
                 ? match.placement
                 : Math.min(match._guessedRank, match.placement);
+        }
+
+        if (window.EventRouter?.ensureDeathCombatLogForPlayer) {
+            window.EventRouter.ensureDeathCombatLogForPlayer(match);
+        }
+
+        if (window.Utils?.countLocalPlayerDeaths) {
+            match.deaths = window.Utils.countLocalPlayerDeaths(match);
+        }
+
+        if (window.Utils?.syncWeaponCombatFromEvents) {
+            window.Utils.syncWeaponCombatFromEvents(match);
         }
 
         const durationSeconds = (match.endTime - match.startTime) / 1000;

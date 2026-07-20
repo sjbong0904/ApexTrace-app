@@ -317,7 +317,11 @@
       "unknownTitle": "事件狀態：未知",
       "unknownSummary": "無法載入最新的遊戲事件狀態報告。"
     },
-    "severity": { "green": "正常", "yellow": "部分異常", "red": "不可用" },
+    "severity": {
+      "green": "正常",
+      "yellow": "部分異常",
+      "red": "不可用"
+    },
     "panel": {
       "loading": "正在載入遊戲事件狀態...",
       "affectedTitle": "對 ApexTrace 記錄的影響",
@@ -328,16 +332,46 @@
       "updatedAt": "更新於 {{time}}"
     },
     "groups": {
-      "gameMode": { "label": "遊戲模式", "impact": "可能無法偵測 Ranked / Trio / Duo，比賽可能儲存為 BR。" },
-      "combatLogs": { "label": "戰鬥日誌", "impact": "擊殺、擊倒、擊殺 feed 和計分板統計可能缺失或不完整。" },
-      "rank": { "label": "名次", "impact": "最終名次、比賽摘要和勝利判定可能不準確。" },
-      "movementPath": { "label": "移動軌跡", "impact": "地圖移動路徑和分段路線記錄可能不完整。" },
-      "loadout": { "label": "武器配裝", "impact": "武器更換和配裝時間軸記錄可能缺失。" },
-      "teamInfo": { "label": "隊伍資訊", "impact": "隊友名單及存活 / 擊倒 / 死亡狀態可能無法正確更新。" },
-      "legend": { "label": "傳奇", "impact": "比賽開始時選擇的傳奇可能未被記錄。" },
-      "ultimate": { "label": "終極技能", "impact": "終極技能使用次數可能無法追蹤。" },
-      "matchLifecycle": { "label": "比賽開始 / 結束", "impact": "自動偵測比賽開始或結束可能失敗。" },
-      "revive": { "label": "復活 / 重生", "impact": "擊倒復活和重生事件可能未被記錄。" }
+      "gameMode": {
+        "label": "遊戲模式",
+        "impact": "可能無法偵測 Ranked / Trio / Duo，比賽可能儲存為 BR。"
+      },
+      "combatLogs": {
+        "label": "戰鬥日誌",
+        "impact": "擊殺、擊倒、擊殺 feed 和計分板統計可能缺失或不完整。"
+      },
+      "rank": {
+        "label": "名次",
+        "impact": "最終名次、比賽摘要和勝利判定可能不準確。"
+      },
+      "movementPath": {
+        "label": "移動軌跡",
+        "impact": "地圖移動路徑和分段路線記錄可能不完整。"
+      },
+      "loadout": {
+        "label": "武器配裝",
+        "impact": "武器更換和配裝時間軸記錄可能缺失。"
+      },
+      "teamInfo": {
+        "label": "隊伍資訊",
+        "impact": "隊友名單及存活 / 擊倒 / 死亡狀態可能無法正確更新。"
+      },
+      "legend": {
+        "label": "傳奇",
+        "impact": "比賽開始時選擇的傳奇可能未被記錄。"
+      },
+      "ultimate": {
+        "label": "終極技能",
+        "impact": "終極技能使用次數可能無法追蹤。"
+      },
+      "matchLifecycle": {
+        "label": "比賽開始 / 結束",
+        "impact": "自動偵測比賽開始或結束可能失敗。"
+      },
+      "revive": {
+        "label": "復活 / 重生",
+        "impact": "擊倒復活和重生事件可能未被記錄。"
+      }
     }
   },
   "settings": {
@@ -642,7 +676,7 @@
     "legends": {
       "top5PickRates": "前五選用率",
       "overview": "概覽",
-      "topTeammateLegends": "隊友傳奇 TOP 3",
+      "topTeammateLegends": "隊友傳奇",
       "matches": "場次",
       "winRate": "勝率",
       "kd": "K/D",
@@ -667,6 +701,7 @@
       "mostUsed": "🏆 最常用",
       "pick": "第 {{rank}} 名",
       "matches": "場次",
+      "usageTime": "使用時間",
       "kd": "K/D",
       "kad": "KA/D",
       "winPercent": "勝率%",

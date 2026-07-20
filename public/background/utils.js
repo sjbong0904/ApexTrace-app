@@ -315,6 +315,220 @@ const Utils = {
         if (!isNaN(teams) && teams > 0) return teams + 1;
         return null;
     },
+
+    isUsableWeaponId: (weapon) =>
+        Boolean(weapon) && weapon !== 'unknown' && weapon !== 'none' && weapon !== 'Unknown',
+
+    _isSamePlayerName: (name1, name2) => {
+        if (!name1 || !name2) return false;
+        const clean1 = String(name1).replace(/\[.*?\]/g, '').replace(/\s+/g, '').toLowerCase();
+        const clean2 = String(name2).replace(/\[.*?\]/g, '').replace(/\s+/g, '').toLowerCase();
+        return clean1 === clean2;
+    },
+
+    loadoutAtTimestamp: (match, timestamp) => {
+        const timeline = Array.isArray(match?.weaponTimeline)
+            ? [...match.weaponTimeline].sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0))
+            : [];
+        if (timeline.length === 0) {
+            return {
+                primary: Utils.isUsableWeaponId(match?.loadout?.primary) ? match.loadout.primary : null,
+                secondary: Utils.isUsableWeaponId(match?.loadout?.secondary) ? match.loadout.secondary : null,
+            };
+        }
+        let primary = null;
+        let secondary = null;
+        for (const entry of timeline) {
+            if ((entry.timestamp || 0) > timestamp) break;
+            if (entry.primary !== undefined) {
+                primary = Utils.isUsableWeaponId(entry.primary) ? entry.primary : null;
+            }
+            if (entry.secondary !== undefined) {
+                secondary = Utils.isUsableWeaponId(entry.secondary) ? entry.secondary : null;
+            }
+        }
+        return { primary, secondary };
+    },
+
+    /** Full per-match weapon combat summary (hold/kills/deaths/qualify). */
+    computeMatchWeaponCombat: (match) => {
+        const map = {};
+        if (!match) return map;
+        const ensure = (weapon) => {
+            if (!map[weapon]) map[weapon] = { holdMs: 0, kills: 0, deaths: 0, assists: 0, qualify: false };
+            return map[weapon];
+        };
+        const addHold = (weapon, ms) => {
+            if (!Utils.isUsableWeaponId(weapon) || !(ms > 0)) return;
+            ensure(weapon).holdMs += ms;
+        };
+
+        const start = Number(match.startTime) || 0;
+        const end = Number(match.endTime) || start;
+        const timeline = Array.isArray(match.weaponTimeline)
+            ? [...match.weaponTimeline].sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0))
+            : [];
+
+        if (start && end > start) {
+            if (timeline.length === 0) {
+                addHold(match.loadout?.primary, end - start);
+                addHold(match.loadout?.secondary, end - start);
+            } else {
+                let primary = null;
+                let secondary = null;
+                let cursor = start;
+                for (const entry of timeline) {
+                    const t = Math.min(end, Math.max(start, entry.timestamp || start));
+                    if (t > cursor) {
+                        addHold(primary, t - cursor);
+                        addHold(secondary, t - cursor);
+                    }
+                    if (entry.primary !== undefined) {
+                        primary = Utils.isUsableWeaponId(entry.primary) ? entry.primary : null;
+                    }
+                    if (entry.secondary !== undefined) {
+                        secondary = Utils.isUsableWeaponId(entry.secondary) ? entry.secondary : null;
+                    }
+                    cursor = Math.max(cursor, t);
+                }
+                if (end > cursor) {
+                    const fp = Utils.isUsableWeaponId(match.loadout?.primary) ? match.loadout.primary : primary;
+                    const fs = Utils.isUsableWeaponId(match.loadout?.secondary) ? match.loadout.secondary : secondary;
+                    addHold(fp, end - cursor);
+                    addHold(fs, end - cursor);
+                }
+            }
+        }
+
+        const finalPrimary = Utils.isUsableWeaponId(match.loadout?.primary) ? match.loadout.primary : null;
+        const finalSecondary = Utils.isUsableWeaponId(match.loadout?.secondary) ? match.loadout.secondary : null;
+        const finalSet = new Set();
+        if (finalPrimary) { finalSet.add(finalPrimary); ensure(finalPrimary).qualify = true; }
+        if (finalSecondary) { finalSet.add(finalSecondary); ensure(finalSecondary).qualify = true; }
+
+        const playerName = match.playerName || '';
+        const events = Array.isArray(match.events) ? match.events : [];
+        for (const event of events) {
+            if (!event) continue;
+            const type = String(event.type || '').toLowerCase();
+            const ts = Number(event.timestamp) || 0;
+
+            if (type === 'kill' && Utils.isUsableWeaponId(event.weapon)) {
+                if (!playerName || Utils._isSamePlayerName(event.attacker, playerName)) {
+                    ensure(event.weapon).kills += 1;
+                    ensure(event.weapon).qualify = true;
+                }
+            }
+            if (type === 'assist' && Utils.isUsableWeaponId(event.weapon)) {
+                if (!playerName || Utils._isSamePlayerName(event.attacker, playerName)) {
+                    ensure(event.weapon).assists += 1;
+                }
+            }
+
+            const isMyCombat = (type === 'kill' || type === 'knockdown')
+                && (!playerName || Utils._isSamePlayerName(event.attacker, playerName));
+            const isDamageTick = type === 'damage';
+            if ((isMyCombat || isDamageTick) && ts) {
+                const slots = Utils.loadoutAtTimestamp(match, ts);
+                if (Utils.isUsableWeaponId(slots.primary)) ensure(slots.primary).qualify = true;
+                if (Utils.isUsableWeaponId(slots.secondary)) ensure(slots.secondary).qualify = true;
+            }
+
+            if (type === 'death' && ts && playerName && Utils._isSamePlayerName(event.victim, playerName)) {
+                const slots = Utils.loadoutAtTimestamp(match, ts);
+                if (Utils.isUsableWeaponId(slots.primary)) ensure(slots.primary).deaths += 1;
+                if (Utils.isUsableWeaponId(slots.secondary)) ensure(slots.secondary).deaths += 1;
+            }
+        }
+
+        Object.keys(map).forEach((weapon) => {
+            const entry = map[weapon];
+            if (entry.kills > 0 && !finalSet.has(weapon) && entry.deaths === 0) {
+                entry.deaths = 1;
+            }
+            entry.qualify = Boolean(entry.qualify);
+        });
+
+        return map;
+    },
+
+    /** Count local-player death events (finisher + inferred squad-elim). */
+    countLocalPlayerDeaths: (match) => {
+        if (!match) return 0;
+        const playerName = match.playerName;
+        const events = match.events || [];
+        if (!playerName || playerName === 'Unknown') return 0;
+        let count = 0;
+        for (const event of events) {
+            if (String(event?.type || '').toLowerCase() !== 'death') continue;
+            if (Utils._isSamePlayerName(event.victim, playerName)) count += 1;
+        }
+        return count;
+    },
+
+    /** Prefer last combat weapon by local player; fallback to current loadout. */
+    resolveAssistWeapon: (match) => {
+        if (!match) return null;
+        const events = match.events || [];
+        for (let i = events.length - 1; i >= 0; i--) {
+            const event = events[i];
+            if (!event || !Utils.isUsableWeaponId(event.weapon)) continue;
+            const type = String(event.type || '').toLowerCase();
+            if (type !== 'kill' && type !== 'knockdown' && type !== 'assist') continue;
+            return event.weapon;
+        }
+        const primary = match.loadout?.primary;
+        const secondary = match.loadout?.secondary;
+        if (Utils.isUsableWeaponId(primary)) return primary;
+        if (Utils.isUsableWeaponId(secondary)) return secondary;
+        return null;
+    },
+
+    ensureWeaponCombat: (match) => {
+        if (!match.weaponCombat || typeof match.weaponCombat !== 'object') {
+            match.weaponCombat = {};
+        }
+        return match.weaponCombat;
+    },
+
+    bumpWeaponCombat: (match, weapon, field) => {
+        if (!match || !Utils.isUsableWeaponId(weapon)) return;
+        if (field !== 'kills' && field !== 'assists') return;
+        const map = Utils.ensureWeaponCombat(match);
+        if (!map[weapon]) map[weapon] = { holdMs: 0, kills: 0, deaths: 0, assists: 0, qualify: false };
+        map[weapon][field] = (map[weapon][field] || 0) + 1;
+        if (field === 'kills') map[weapon].qualify = true;
+    },
+
+    /** Ensure assist combat-log rows match match.assists (weapon-attributed). */
+    syncAssistCombatLogs: (match) => {
+        if (!match) return;
+        const target = Math.max(0, parseInt(match.assists, 10) || 0);
+        const events = match.events || (match.events = []);
+        const logged = events.filter((e) => String(e?.type || '').toLowerCase() === 'assist').length;
+        const delta = Math.max(0, target - logged);
+        if (delta <= 0) return;
+
+        for (let i = 0; i < delta; i++) {
+            const weapon = Utils.resolveAssistWeapon(match);
+            events.push({
+                type: 'assist',
+                attacker: match.playerName || 'Unknown',
+                victim: '',
+                weapon,
+                timestamp: Date.now(),
+            });
+            Utils.bumpWeaponCombat(match, weapon, 'assists');
+        }
+    },
+
+    /** Recompute SSOT weaponCombat at finalize. */
+    syncWeaponCombatFromEvents: (match) => {
+        if (!match) return {};
+        Utils.syncAssistCombatLogs(match);
+        match.weaponCombat = Utils.computeMatchWeaponCombat(match);
+        return match.weaponCombat;
+    },
 };
 
 window.Utils = Utils;

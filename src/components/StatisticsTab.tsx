@@ -12,7 +12,7 @@ import { useTranslation } from 'react-i18next';
 import type { MatchHistory, Season } from '../utils/match';
 import { normalizeHistoryForFrontend } from '../utils/matchNormalizer';
 import { fetchPlayerStats, type StatisticsMode } from '../utils/playerStatsApi';
-import { isSamePlayer, isKnownLegend, normalizeLegendKey, getTeammateSortKey, getAvgPlacementColor } from '../utils/helpers';
+import { isSamePlayer, isKnownLegend, normalizeLegendKey, getTeammateSortKey, getAvgPlacementColor, getWinRateColor, getKdColor, getKadColor, getAvgDamageColor, getWinRateChipStyle, getMatchDeaths } from '../utils/helpers';
 import {
     formatDuration,
     formatLegendDisplayName,
@@ -57,10 +57,15 @@ import RankProgressChart from './RankProgressChart';
 import PremiumBlurGate from './PremiumBlurGate';
 
 const AvgPlacementCell = ({ value, padding = '10px 12px' }: { value: string; padding?: string }) => (
-    <td style={{ padding, textAlign: 'center', fontWeight: 'bold', color: getAvgPlacementColor(value) }}>
-        #{value}
+    <td style={{ padding, textAlign: 'center', fontWeight: 'bold', color: value === '-' ? 'var(--color-text-faint)' : getAvgPlacementColor(value) }}>
+        {value === '-' ? '-' : `#${value}`}
     </td>
 );
+
+const formatWeaponWinRate = (winRate: string, hasWinRate?: boolean) => {
+    if (hasWinRate === false || winRate === '-') return '-';
+    return `${winRate}%`;
+};
 
 const MAP_IMAGE_BASE = 'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/';
 
@@ -365,13 +370,13 @@ const legendBreakdownPanelStyle: React.CSSProperties = {
 
 const LegendWeaponMapBreakdown = ({ matches, legendName }: { matches: MatchHistory[]; legendName: string }) => {
     const { t } = useTranslation();
-    type WeaponSortCol = 'name' | 'games' | 'winRate' | 'avgPlacement' | 'kd';
+    type WeaponSortCol = 'name' | 'holdMs' | 'winRate' | 'avgPlacement' | 'kd';
     const [weaponSort, setWeaponSort] = useState<TableSortState<WeaponSortCol>>(createDefaultTableSort);
     const weaponStats = useMemo(() => aggregateWeaponStatsForMatches(matches).slice(0, 8), [matches]);
     const sortedWeaponStats = useMemo(
         () => applyTableSort(weaponStats, weaponSort, {
             name: (a, b) => compareWeaponDbOrder(a.id, b.id),
-            games: (a, b) => compareNumbers(a.games, b.games),
+            holdMs: (a, b) => compareNumbers(a.holdMs, b.holdMs),
             winRate: (a, b) => compareNumericStrings(a.winRate, b.winRate),
             avgPlacement: (a, b) => compareAvgPlacement(a.avgPlacement, b.avgPlacement),
             kd: (a, b) => compareNumbers(a.kd, b.kd),
@@ -414,8 +419,8 @@ const LegendWeaponMapBreakdown = ({ matches, legendName }: { matches: MatchHisto
                                     <SortableTh column="name" sortState={weaponSort} onSort={(col) => setWeaponSort((prev) => toggleCatalogNameTableSort(prev, col))} style={{ ...mapBreakdownHeadCellStyle, textAlign: 'left' }}>
                                         {t('statistics.weapons.weapon')}
                                     </SortableTh>
-                                    <SortableTh column="games" sortState={weaponSort} onSort={(col) => setWeaponSort((prev) => toggleCatalogNameTableSort(prev, col))} style={{ ...mapBreakdownHeadCellStyle, textAlign: 'center' }}>
-                                        {t('statistics.weapons.matches')}
+                                    <SortableTh column="holdMs" sortState={weaponSort} onSort={(col) => setWeaponSort((prev) => toggleCatalogNameTableSort(prev, col))} style={{ ...mapBreakdownHeadCellStyle, textAlign: 'center' }}>
+                                        {t('statistics.weapons.usageTime')}
                                     </SortableTh>
                                     <SortableTh column="winRate" sortState={weaponSort} onSort={(col) => setWeaponSort((prev) => toggleCatalogNameTableSort(prev, col))} style={{ ...mapBreakdownHeadCellStyle, textAlign: 'center' }}>
                                         {t('statistics.weapons.winPercent')}
@@ -445,10 +450,10 @@ const LegendWeaponMapBreakdown = ({ matches, legendName }: { matches: MatchHisto
                                                 <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }} title={w.name}>{w.name}</span>
                                             </div>
                                         </td>
-                                        <td style={{ ...mapBreakdownBodyCellStyle, textAlign: 'center', color: 'var(--color-text-dim)' }}>{w.games}</td>
-                                        <td style={{ ...mapBreakdownBodyCellStyle, textAlign: 'center', fontWeight: 'bold', color: parseFloat(w.winRate) >= 10 ? '#4ade80' : 'var(--color-text-muted)' }}>{w.winRate}%</td>
+                                        <td style={{ ...mapBreakdownBodyCellStyle, textAlign: 'center', color: 'var(--color-text-dim)', fontVariantNumeric: 'tabular-nums' }}>{w.holdTime}</td>
+                                        <td style={{ ...mapBreakdownBodyCellStyle, textAlign: 'center', fontWeight: 'bold', color: getWinRateColor(w.winRate, { hasValue: w.hasWinRate }) }}>{formatWeaponWinRate(w.winRate, w.hasWinRate)}</td>
                                         <AvgPlacementCell value={w.avgPlacement} padding="10px 12px" />
-                                        <td style={{ ...mapBreakdownBodyCellStyle, textAlign: 'center', fontWeight: 'bold', color: 'var(--color-warning)' }}>{w.kd}</td>
+                                        <td style={{ ...mapBreakdownBodyCellStyle, textAlign: 'center', fontWeight: 'bold', color: getKdColor(w.kd) }}>{w.kd}</td>
                                     </tr>
                                 ))}
                             </tbody>
@@ -484,9 +489,7 @@ const LegendWeaponMapBreakdown = ({ matches, legendName }: { matches: MatchHisto
                                                 padding: '2px 7px',
                                                 borderRadius: '4px',
                                                 whiteSpace: 'nowrap',
-                                                background: parseFloat(m.winRate) >= 10 ? 'rgba(74, 222, 128, 0.15)' : 'rgba(255,255,255,0.06)',
-                                                color: parseFloat(m.winRate) >= 10 ? '#4ade80' : 'var(--color-text-muted)',
-                                                border: `1px solid ${parseFloat(m.winRate) >= 10 ? 'rgba(74, 222, 128, 0.35)' : 'var(--color-border)'}`,
+                                                ...getWinRateChipStyle(m.winRate),
                                             }}>
                                                 {t('statistics.legends.winRate')} {m.winRate}%
                                             </div>
@@ -669,10 +672,10 @@ const MapLegendBreakdown = ({
                                             <td style={{ ...mapBreakdownBodyCellStyle, textAlign: 'center', color: 'var(--color-text-faint)', fontWeight: 'bold' }}>{i + 1}</td>
                                             {renderMapBreakdownLegendCell(leg.id, leg.name)}
                                             <td style={{ ...mapBreakdownBodyCellStyle, textAlign: 'center', color: 'var(--color-text-dim)' }}>{leg.games}</td>
-                                            <td style={{ ...mapBreakdownBodyCellStyle, textAlign: 'center', fontWeight: 'bold', color: parseFloat(leg.winRate) >= 10 ? '#4ade80' : 'var(--color-text-muted)' }}>{leg.winRate}%</td>
+                                            <td style={{ ...mapBreakdownBodyCellStyle, textAlign: 'center', fontWeight: 'bold', color: getWinRateColor(leg.winRate) }}>{leg.winRate}%</td>
                                             <AvgPlacementCell value={leg.avgPlacement} padding="10px 12px" />
-                                            <td style={{ ...mapBreakdownBodyCellStyle, textAlign: 'center', fontWeight: 'bold', color: 'var(--color-warning)' }}>{leg.kd}</td>
-                                            <td style={{ ...mapBreakdownBodyCellStyle, textAlign: 'center', fontWeight: 'bold', color: '#e056fd' }}>{leg.avgDamage}</td>
+                                            <td style={{ ...mapBreakdownBodyCellStyle, textAlign: 'center', fontWeight: 'bold', color: getKdColor(leg.kd) }}>{leg.kd}</td>
+                                            <td style={{ ...mapBreakdownBodyCellStyle, textAlign: 'center', fontWeight: 'bold', color: getAvgDamageColor(leg.avgDamage) }}>{leg.avgDamage}</td>
                                         </tr>
                                     ))}
                                 </tbody>
@@ -727,7 +730,7 @@ const MapLegendBreakdown = ({
                                             <td style={{ ...mapBreakdownBodyCellStyle, textAlign: 'center', color: 'var(--color-text-faint)', fontWeight: 'bold' }}>{i + 1}</td>
                                             {renderMapBreakdownLegendCell(leg.id, leg.name)}
                                             <td style={{ ...mapBreakdownBodyCellStyle, textAlign: 'center', color: 'var(--color-text-dim)' }}>{leg.picks}</td>
-                                            <td style={{ ...mapBreakdownBodyCellStyle, textAlign: 'center', fontWeight: 'bold', color: parseFloat(leg.winRate) >= 10 ? '#4ade80' : 'var(--color-text-muted)' }}>{leg.winRate}%</td>
+                                            <td style={{ ...mapBreakdownBodyCellStyle, textAlign: 'center', fontWeight: 'bold', color: getWinRateColor(leg.winRate) }}>{leg.winRate}%</td>
                                             <AvgPlacementCell value={leg.avgPlacement} padding="10px 12px" />
                                             <td style={{ ...mapBreakdownBodyCellStyle, textAlign: 'center', fontWeight: 'bold', color: '#54a0ff' }}>{leg.pickRate}%</td>
                                         </tr>
@@ -779,6 +782,115 @@ const MapOverviewTopCardStat = ({ label, value, color = 'var(--color-text-primar
     <div style={{ textAlign: 'center', minWidth: 0, flex: 1 }}>
         <div style={{ fontSize: '9px', color: 'var(--color-text-muted)', marginBottom: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{label}</div>
         <div style={{ fontSize: '12px', fontWeight: 'bold', color }}>{value}</div>
+    </div>
+);
+
+const OVERVIEW_RANK_MEDIA_SIZE = 48;
+
+/** Shared Top Legends / Weapons / Teammate-legend rank card — equal height across side-by-side rows. */
+const OverviewRankCard = ({
+    rank,
+    id,
+    name,
+    media,
+    children,
+}: {
+    rank: number;
+    id: string;
+    name: string;
+    media: 'legend' | 'weapon';
+    children: React.ReactNode;
+}) => {
+    const isFirst = rank === 0;
+    const isLegend = media === 'legend';
+    return (
+        <div style={{
+            flex: 1,
+            minWidth: 0,
+            alignSelf: 'stretch',
+            background: 'var(--color-bg-sub-header)',
+            borderRadius: '10px',
+            border: `1px solid ${isFirst ? 'var(--color-warning)' : 'var(--color-border)'}`,
+            padding: '14px 10px',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+        }}>
+            <div style={{
+                width: isLegend ? OVERVIEW_RANK_MEDIA_SIZE : '100%',
+                height: OVERVIEW_RANK_MEDIA_SIZE,
+                boxSizing: 'border-box',
+                borderRadius: isLegend ? '50%' : '8px',
+                overflow: 'hidden',
+                background: isLegend ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.25)',
+                border: isFirst ? '2px solid var(--color-warning)' : '1px solid var(--color-border)',
+                marginBottom: '8px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0,
+            }}>
+                <img
+                    src={`${MAP_IMAGE_BASE}${id}.png`}
+                    alt={name}
+                    style={isLegend
+                        ? { width: '42px', height: '42px', objectFit: 'contain' }
+                        : { maxWidth: '90%', maxHeight: '36px', objectFit: 'contain' }}
+                    onError={(e) => {
+                        if (isLegend) e.currentTarget.src = `${MAP_IMAGE_BASE}unknown.png`;
+                        else e.currentTarget.style.display = 'none';
+                    }}
+                />
+            </div>
+            <div style={{
+                fontSize: '11px',
+                fontWeight: 'bold',
+                color: 'var(--color-text-dim)',
+                textAlign: 'center',
+                width: '100%',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+                marginBottom: '10px',
+                flexShrink: 0,
+            }} title={name}>
+                {name}
+            </div>
+            <div style={{ display: 'flex', width: '100%', gap: '4px', marginTop: 'auto' }}>
+                {children}
+            </div>
+        </div>
+    );
+};
+
+const OverviewRankCardRow = ({ children }: { children: React.ReactNode }) => (
+    <div style={{ display: 'flex', gap: '12px', flex: 1, alignItems: 'stretch', minHeight: 0 }}>
+        {children}
+    </div>
+);
+
+const OverviewRankSection = ({ title, children }: { title: string; children: React.ReactNode }) => (
+    <div style={{ display: 'flex', flexDirection: 'column', minHeight: 0, height: '100%' }}>
+        <h4 style={{ margin: '0 0 14px 0', color: 'var(--color-text-secondary)', fontSize: '13px', flexShrink: 0 }}>{title}</h4>
+        {children}
+    </div>
+);
+
+const OverviewRankEmpty = ({ msg }: { msg: string }) => (
+    <div style={{
+        flex: 1,
+        padding: '24px 12px',
+        textAlign: 'center',
+        color: 'var(--color-text-faint)',
+        fontSize: '12px',
+        background: 'var(--color-bg-sub-header)',
+        borderRadius: '10px',
+        border: '1px solid var(--color-border)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+    }}>
+        {msg}
     </div>
 );
 
@@ -907,13 +1019,13 @@ const OverviewRadarChart = ({
         switch (hoveredKey) {
             case 'combat':
                 rows.push(
-                    <RadarTooltipRow key="kd" label={t('statistics.maps.kdRatio')} value={stats.kd} color="var(--color-warning)" />,
-                    isPremium ? <RadarTooltipRow key="kad" label={t('statistics.weapons.kad')} value={stats.kda} color="#54a0ff" /> : null,
+                    <RadarTooltipRow key="kd" label={t('statistics.maps.kdRatio')} value={stats.kd} color={getKdColor(stats.kd)} />,
+                    isPremium ? <RadarTooltipRow key="kad" label={t('statistics.weapons.kad')} value={stats.kda} color={getKadColor(stats.kda)} /> : null,
                 );
                 break;
             case 'damage':
                 rows.push(
-                    <RadarTooltipRow key="avg" label={t('statistics.maps.avgDamage')} value={stats.avgDamage.toLocaleString()} color="#e056fd" />,
+                    <RadarTooltipRow key="avg" label={t('statistics.maps.avgDamage')} value={stats.avgDamage.toLocaleString()} color={getAvgDamageColor(stats.avgDamage)} />,
                     <div key="total" style={{ fontSize: '10px', color: 'var(--color-text-faint)', marginTop: '2px' }}>
                         {t('statistics.overview.totalDamage', { count: stats.totalDamage })}
                     </div>,
@@ -1408,11 +1520,11 @@ const OverviewView = ({
                     borderBottom: '1px solid var(--color-border)',
                 }}>
                     <MapOverviewStat label={t('statistics.maps.totalMatches')} value={stats.matches} />
-                    <MapOverviewStat label={t('statistics.maps.winRate')} value={`${stats.winRate}%`} color={parseFloat(stats.winRate) >= 10 ? '#4ade80' : 'var(--color-text-primary)'} />
+                    <MapOverviewStat label={t('statistics.maps.winRate')} value={`${stats.winRate}%`} color={getWinRateColor(stats.winRate)} />
                     <MapOverviewStat label={t('statistics.common.avgPlacementShort')} value={`#${stats.avgPlacement}`} color={getAvgPlacementColor(stats.avgPlacement)} />
-                    <MapOverviewStat label={t('statistics.maps.kdRatio')} value={stats.kd} color="var(--color-warning)" />
-                    <MapOverviewStat label={t('statistics.maps.avgDamage')} value={stats.avgDamage} color="#e056fd" />
-                    <MapOverviewStat label={t('statistics.weapons.kad')} value={stats.kda} color="#54a0ff" />
+                    <MapOverviewStat label={t('statistics.maps.kdRatio')} value={stats.kd} color={getKdColor(stats.kd)} />
+                    <MapOverviewStat label={t('statistics.maps.avgDamage')} value={stats.avgDamage} color={getAvgDamageColor(stats.avgDamage)} />
+                    <MapOverviewStat label={t('statistics.weapons.kad')} value={stats.kda} color={getKadColor(stats.kda)} />
                     <MapOverviewStat label={t('statistics.maps.avgSurvival')} value={stats.avgTime} color="#54a0ff" />
                 </div>
 
@@ -1592,120 +1704,45 @@ const MapOverviewPanel = ({
                 borderBottom: '1px solid var(--color-border)',
             }}>
                 <MapOverviewStat label={t('statistics.maps.totalMatches')} value={stats.matches} />
-                <MapOverviewStat label={t('statistics.maps.winRate')} value={`${stats.winRate}%`} color={parseFloat(stats.winRate) >= 10 ? '#4ade80' : 'var(--color-text-primary)'} />
+                <MapOverviewStat label={t('statistics.maps.winRate')} value={`${stats.winRate}%`} color={getWinRateColor(stats.winRate)} />
                 <MapOverviewStat label={t('statistics.common.avgPlacementShort')} value={`#${stats.avgPlacement}`} color={getAvgPlacementColor(stats.avgPlacement)} />
                 <MapOverviewStat label={t('statistics.maps.avgSurvival')} value={stats.avgTime} color="#54a0ff" />
-                <MapOverviewStat label={t('statistics.maps.kdRatio')} value={stats.kd} color="var(--color-warning)" />
-                <MapOverviewStat label={t('statistics.weapons.kad')} value={stats.kda} color="#54a0ff" />
-                <MapOverviewStat label={t('statistics.maps.avgDamage')} value={stats.avgDamage} color="#e056fd" />
+                <MapOverviewStat label={t('statistics.maps.kdRatio')} value={stats.kd} color={getKdColor(stats.kd)} />
+                <MapOverviewStat label={t('statistics.weapons.kad')} value={stats.kda} color={getKadColor(stats.kda)} />
+                <MapOverviewStat label={t('statistics.maps.avgDamage')} value={stats.avgDamage} color={getAvgDamageColor(stats.avgDamage)} />
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', padding: '20px 24px 24px' }}>
-                <div>
-                    <h4 style={{ margin: '0 0 14px 0', color: 'var(--color-text-secondary)', fontSize: '13px' }}>{t('statistics.maps.topLegends')}</h4>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', padding: '20px 24px 24px', alignItems: 'stretch' }}>
+                <OverviewRankSection title={t('statistics.maps.topLegends')}>
                     {topLegends.length > 0 ? (
-                        <div style={{ display: 'flex', gap: '12px' }}>
+                        <OverviewRankCardRow>
                             {topLegends.map((leg, i) => (
-                                <div key={leg.id} style={{
-                                    flex: 1,
-                                    minWidth: 0,
-                                    background: 'var(--color-bg-sub-header)',
-                                    borderRadius: '10px',
-                                    border: `1px solid ${i === 0 ? 'var(--color-warning)' : 'var(--color-border)'}`,
-                                    padding: '14px 10px',
-                                    display: 'flex',
-                                    flexDirection: 'column',
-                                    alignItems: 'center',
-                                }}>
-                                    <div style={{
-                                        width: '48px',
-                                        height: '48px',
-                                        borderRadius: '50%',
-                                        overflow: 'hidden',
-                                        background: 'rgba(255,255,255,0.05)',
-                                        border: i === 0 ? '2px solid var(--color-warning)' : '1px solid var(--color-border)',
-                                        marginBottom: '8px',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                    }}>
-                                        <img
-                                            src={`${MAP_IMAGE_BASE}${leg.id}.png`}
-                                            alt={leg.name}
-                                            style={{ width: '42px', height: '42px', objectFit: 'contain' }}
-                                            onError={(e) => { e.currentTarget.src = `${MAP_IMAGE_BASE}unknown.png`; }}
-                                        />
-                                    </div>
-                                    <div style={{ fontSize: '11px', fontWeight: 'bold', color: 'var(--color-text-dim)', textAlign: 'center', width: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: '10px' }} title={leg.name}>
-                                        {leg.name}
-                                    </div>
-                                    <div style={{ display: 'flex', width: '100%', gap: '4px' }}>
-                                        <MapOverviewTopCardStat label={t('statistics.maps.legendMatches')} value={leg.games} />
-                                        <MapOverviewTopCardStat label={t('statistics.maps.legendWinPercent')} value={`${leg.winRate}%`} color={parseFloat(leg.winRate) >= 10 ? '#4ade80' : 'var(--color-text-primary)'} />
-                                        <MapOverviewTopCardStat label={t('statistics.maps.legendKd')} value={leg.kd} color="var(--color-warning)" />
-                                    </div>
-                                </div>
+                                <OverviewRankCard key={leg.id} rank={i} id={leg.id} name={leg.name} media="legend">
+                                    <MapOverviewTopCardStat label={t('statistics.maps.legendMatches')} value={leg.games} />
+                                    <MapOverviewTopCardStat label={t('statistics.maps.legendWinPercent')} value={`${leg.winRate}%`} color={getWinRateColor(leg.winRate)} />
+                                    <MapOverviewTopCardStat label={t('statistics.maps.legendKd')} value={leg.kd} color={getKdColor(leg.kd)} />
+                                </OverviewRankCard>
                             ))}
-                        </div>
+                        </OverviewRankCardRow>
                     ) : (
-                        <div style={{ padding: '24px 12px', textAlign: 'center', color: 'var(--color-text-faint)', fontSize: '12px', background: 'var(--color-bg-sub-header)', borderRadius: '10px', border: '1px solid var(--color-border)' }}>
-                            {t('statistics.maps.noMyLegendData')}
-                        </div>
+                        <OverviewRankEmpty msg={t('statistics.maps.noMyLegendData')} />
                     )}
-                </div>
+                </OverviewRankSection>
 
-                <div>
-                    <h4 style={{ margin: '0 0 14px 0', color: 'var(--color-text-secondary)', fontSize: '13px' }}>{t('statistics.maps.topWeapons')}</h4>
+                <OverviewRankSection title={t('statistics.maps.topWeapons')}>
                     {topWeapons.length > 0 ? (
-                        <div style={{ display: 'flex', gap: '12px' }}>
+                        <OverviewRankCardRow>
                             {topWeapons.map((w, i) => (
-                                <div key={w.id} style={{
-                                    flex: 1,
-                                    minWidth: 0,
-                                    background: 'var(--color-bg-sub-header)',
-                                    borderRadius: '10px',
-                                    border: `1px solid ${i === 0 ? 'var(--color-warning)' : 'var(--color-border)'}`,
-                                    padding: '14px 10px',
-                                    display: 'flex',
-                                    flexDirection: 'column',
-                                    alignItems: 'center',
-                                }}>
-                                    <div style={{
-                                        width: '100%',
-                                        height: '44px',
-                                        borderRadius: '8px',
-                                        overflow: 'hidden',
-                                        background: 'rgba(0,0,0,0.25)',
-                                        border: i === 0 ? '1px solid var(--color-warning)' : '1px solid var(--color-border)',
-                                        marginBottom: '8px',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                    }}>
-                                        <img
-                                            src={`${MAP_IMAGE_BASE}${w.id}.png`}
-                                            alt={w.name}
-                                            style={{ maxWidth: '90%', maxHeight: '36px', objectFit: 'contain' }}
-                                            onError={(e) => { e.currentTarget.style.display = 'none'; }}
-                                        />
-                                    </div>
-                                    <div style={{ fontSize: '11px', fontWeight: 'bold', color: 'var(--color-text-dim)', textAlign: 'center', width: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: '10px' }} title={w.name}>
-                                        {w.name}
-                                    </div>
-                                    <div style={{ display: 'flex', width: '100%', gap: '4px' }}>
-                                        <MapOverviewTopCardStat label={t('statistics.weapons.matches')} value={w.games} />
-                                        <MapOverviewTopCardStat label={t('statistics.weapons.winPercent')} value={`${w.winRate}%`} color={parseFloat(w.winRate) >= 10 ? '#4ade80' : 'var(--color-text-primary)'} />
-                                        <MapOverviewTopCardStat label={t('statistics.weapons.kd')} value={w.kd} color="var(--color-warning)" />
-                                    </div>
-                                </div>
+                                <OverviewRankCard key={w.id} rank={i} id={w.id} name={w.name} media="weapon">
+                                    <MapOverviewTopCardStat label={t('statistics.weapons.usageTime')} value={w.holdTime} />
+                                    <MapOverviewTopCardStat label={t('statistics.weapons.kd')} value={w.kd} color={getKdColor(w.kd)} />
+                                </OverviewRankCard>
                             ))}
-                        </div>
+                        </OverviewRankCardRow>
                     ) : (
-                        <div style={{ padding: '24px 12px', textAlign: 'center', color: 'var(--color-text-faint)', fontSize: '12px', background: 'var(--color-bg-sub-header)', borderRadius: '10px', border: '1px solid var(--color-border)' }}>
-                            {t('statistics.legends.noWeaponRankData')}
-                        </div>
+                        <OverviewRankEmpty msg={t('statistics.legends.noWeaponRankData')} />
                     )}
-                </div>
+                </OverviewRankSection>
             </div>
         </div>
     );
@@ -1795,120 +1832,44 @@ const LegendOverviewPanel = ({
                 borderBottom: '1px solid var(--color-border)',
             }}>
                 <MapOverviewStat label={t('statistics.legends.matches')} value={stats.matches} />
-                <MapOverviewStat label={t('statistics.legends.winRate')} value={`${stats.winRate}%`} color={parseFloat(stats.winRate) >= 10 ? '#4ade80' : 'var(--color-text-primary)'} />
+                <MapOverviewStat label={t('statistics.legends.winRate')} value={`${stats.winRate}%`} color={getWinRateColor(stats.winRate)} />
                 <MapOverviewStat label={t('statistics.common.avgPlacementShort')} value={`#${stats.avgPlacement}`} color={getAvgPlacementColor(stats.avgPlacement)} />
                 <MapOverviewStat label={t('statistics.legends.avgSurvival')} value={stats.avgTime} color="#54a0ff" />
-                <MapOverviewStat label={t('statistics.legends.kd')} value={stats.kd} color="var(--color-warning)" />
-                <MapOverviewStat label={t('statistics.weapons.kad')} value={stats.kda} color="#54a0ff" />
-                <MapOverviewStat label={t('statistics.legends.avgDamage')} value={stats.avgDamage} color="#e056fd" />
+                <MapOverviewStat label={t('statistics.legends.kd')} value={stats.kd} color={getKdColor(stats.kd)} />
+                <MapOverviewStat label={t('statistics.weapons.kad')} value={stats.kda} color={getKadColor(stats.kda)} />
+                <MapOverviewStat label={t('statistics.legends.avgDamage')} value={stats.avgDamage} color={getAvgDamageColor(stats.avgDamage)} />
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', padding: '20px 24px 24px' }}>
-                <div>
-                    <h4 style={{ margin: '0 0 14px 0', color: 'var(--color-text-secondary)', fontSize: '13px' }}>{t('statistics.legends.topWeapons')}</h4>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', padding: '20px 24px 24px', alignItems: 'stretch' }}>
+                <OverviewRankSection title={t('statistics.legends.topWeapons')}>
                     {topWeapons.length > 0 ? (
-                        <div style={{ display: 'flex', gap: '12px' }}>
+                        <OverviewRankCardRow>
                             {topWeapons.map((w, i) => (
-                                <div key={w.id} style={{
-                                    flex: 1,
-                                    minWidth: 0,
-                                    background: 'var(--color-bg-sub-header)',
-                                    borderRadius: '10px',
-                                    border: `1px solid ${i === 0 ? 'var(--color-warning)' : 'var(--color-border)'}`,
-                                    padding: '14px 10px',
-                                    display: 'flex',
-                                    flexDirection: 'column',
-                                    alignItems: 'center',
-                                }}>
-                                    <div style={{
-                                        width: '100%',
-                                        height: '44px',
-                                        borderRadius: '8px',
-                                        overflow: 'hidden',
-                                        background: 'rgba(0,0,0,0.25)',
-                                        border: i === 0 ? '1px solid var(--color-warning)' : '1px solid var(--color-border)',
-                                        marginBottom: '8px',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                    }}>
-                                        <img
-                                            src={`${MAP_IMAGE_BASE}${w.id}.png`}
-                                            alt={w.name}
-                                            style={{ maxWidth: '90%', maxHeight: '36px', objectFit: 'contain' }}
-                                            onError={(e) => { e.currentTarget.style.display = 'none'; }}
-                                        />
-                                    </div>
-                                    <div style={{ fontSize: '11px', fontWeight: 'bold', color: 'var(--color-text-dim)', textAlign: 'center', width: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: '10px' }} title={w.name}>
-                                        {w.name}
-                                    </div>
-                                    <div style={{ display: 'flex', width: '100%', gap: '4px' }}>
-                                        <MapOverviewTopCardStat label={t('statistics.weapons.matches')} value={w.games} />
-                                        <MapOverviewTopCardStat label={t('statistics.weapons.winPercent')} value={`${w.winRate}%`} color={parseFloat(w.winRate) >= 10 ? '#4ade80' : 'var(--color-text-primary)'} />
-                                        <MapOverviewTopCardStat label={t('statistics.weapons.kd')} value={w.kd} color="var(--color-warning)" />
-                                    </div>
-                                </div>
+                                <OverviewRankCard key={w.id} rank={i} id={w.id} name={w.name} media="weapon">
+                                    <MapOverviewTopCardStat label={t('statistics.weapons.usageTime')} value={w.holdTime} />
+                                    <MapOverviewTopCardStat label={t('statistics.weapons.kd')} value={w.kd} color={getKdColor(w.kd)} />
+                                </OverviewRankCard>
                             ))}
-                        </div>
+                        </OverviewRankCardRow>
                     ) : (
-                        <div style={{ padding: '24px 12px', textAlign: 'center', color: 'var(--color-text-faint)', fontSize: '12px', background: 'var(--color-bg-sub-header)', borderRadius: '10px', border: '1px solid var(--color-border)' }}>
-                            {t('statistics.legends.noWeaponRankData')}
-                        </div>
+                        <OverviewRankEmpty msg={t('statistics.legends.noWeaponRankData')} />
                     )}
-                </div>
+                </OverviewRankSection>
 
-                <div>
-                    <h4 style={{ margin: '0 0 14px 0', color: 'var(--color-text-secondary)', fontSize: '13px' }}>{t('statistics.legends.topTeammateLegends')}</h4>
+                <OverviewRankSection title={t('statistics.legends.topTeammateLegends')}>
                     {topTeammateLegends.length > 0 ? (
-                        <div style={{ display: 'flex', gap: '12px' }}>
+                        <OverviewRankCardRow>
                             {topTeammateLegends.map((leg, i) => (
-                                <div key={leg.id} style={{
-                                    flex: 1,
-                                    minWidth: 0,
-                                    background: 'var(--color-bg-sub-header)',
-                                    borderRadius: '10px',
-                                    border: `1px solid ${i === 0 ? 'var(--color-warning)' : 'var(--color-border)'}`,
-                                    padding: '14px 10px',
-                                    display: 'flex',
-                                    flexDirection: 'column',
-                                    alignItems: 'center',
-                                }}>
-                                    <div style={{
-                                        width: '48px',
-                                        height: '48px',
-                                        borderRadius: '50%',
-                                        overflow: 'hidden',
-                                        background: 'rgba(255,255,255,0.05)',
-                                        border: i === 0 ? '2px solid var(--color-warning)' : '1px solid var(--color-border)',
-                                        marginBottom: '8px',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                    }}>
-                                        <img
-                                            src={`${MAP_IMAGE_BASE}${leg.id}.png`}
-                                            alt={leg.name}
-                                            style={{ width: '42px', height: '42px', objectFit: 'contain' }}
-                                            onError={(e) => { e.currentTarget.src = `${MAP_IMAGE_BASE}unknown.png`; }}
-                                        />
-                                    </div>
-                                    <div style={{ fontSize: '11px', fontWeight: 'bold', color: 'var(--color-text-dim)', textAlign: 'center', width: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginBottom: '10px' }} title={leg.name}>
-                                        {leg.name}
-                                    </div>
-                                    <div style={{ display: 'flex', width: '100%', gap: '4px' }}>
-                                        <MapOverviewTopCardStat label={t('statistics.maps.teammatePicks')} value={leg.picks} />
-                                        <MapOverviewTopCardStat label={t('statistics.maps.pickRate')} value={`${leg.pickRate}%`} color="#54a0ff" />
-                                        <MapOverviewTopCardStat label={t('statistics.maps.legendWinPercent')} value={`${leg.winRate}%`} color={parseFloat(leg.winRate) >= 10 ? '#4ade80' : 'var(--color-text-primary)'} />
-                                    </div>
-                                </div>
+                                <OverviewRankCard key={leg.id} rank={i} id={leg.id} name={leg.name} media="legend">
+                                    <MapOverviewTopCardStat label={t('statistics.maps.teammatePicks')} value={leg.picks} />
+                                    <MapOverviewTopCardStat label={t('statistics.maps.legendWinPercent')} value={`${leg.winRate}%`} color={getWinRateColor(leg.winRate)} />
+                                </OverviewRankCard>
                             ))}
-                        </div>
+                        </OverviewRankCardRow>
                     ) : (
-                        <div style={{ padding: '24px 12px', textAlign: 'center', color: 'var(--color-text-faint)', fontSize: '12px', background: 'var(--color-bg-sub-header)', borderRadius: '10px', border: '1px solid var(--color-border)' }}>
-                            {t('statistics.maps.noTeammatePickData')}
-                        </div>
+                        <OverviewRankEmpty msg={t('statistics.maps.noTeammatePickData')} />
                     )}
-                </div>
+                </OverviewRankSection>
             </div>
         </div>
     );
@@ -2043,16 +2004,15 @@ const LegendsView = ({ data, profileUid, profileName }: { data: MatchHistory[]; 
 
 const WeaponsView = ({ data }: { data: MatchHistory[] }) => {
     const { t } = useTranslation();
-    type WeaponSortCol = 'name' | 'games' | 'winRate' | 'kd' | 'kda' | 'avgPlacement';
+    type WeaponSortCol = 'name' | 'holdMs' | 'winRate' | 'kd' | 'avgPlacement';
     const [weaponSort, setWeaponSort] = useState<TableSortState<WeaponSortCol>>(createDefaultTableSort);
     const weaponStats = useMemo(() => aggregateWeaponStatsForMatches(data), [data]);
     const sortedWeaponStats = useMemo(
         () => applyTableSort(weaponStats, weaponSort, {
             name: (a, b) => compareWeaponDbOrder(a.id, b.id),
-            games: (a, b) => compareNumbers(a.games, b.games),
+            holdMs: (a, b) => compareNumbers(a.holdMs, b.holdMs),
             winRate: (a, b) => compareNumericStrings(a.winRate, b.winRate),
             kd: (a, b) => compareNumbers(a.kd, b.kd),
-            kda: (a, b) => compareNumbers(a.kda, b.kda),
             avgPlacement: (a, b) => compareAvgPlacement(a.avgPlacement, b.avgPlacement),
         }),
         [weaponStats, weaponSort],
@@ -2088,11 +2048,10 @@ const WeaponsView = ({ data }: { data: MatchHistory[] }) => {
                                 }}
                             />
                         </div>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '5px', fontSize: '13px' }}>
-                            <div style={{ textAlign: 'center' }}><div style={{ color: 'var(--color-text-muted)', fontSize: '10px' }}>{t('statistics.weapons.matches')}</div><div style={{ fontWeight: 'bold' }}>{w.games}</div></div>
-                            <div style={{ textAlign: 'center' }}><div style={{ color: 'var(--color-text-muted)', fontSize: '10px' }}>{t('statistics.weapons.kd')}</div>                            <div style={{ fontWeight: 'bold', color: 'var(--color-warning)' }}>{w.kd}</div></div>
-                            <div style={{ textAlign: 'center' }}><div style={{ color: 'var(--color-text-muted)', fontSize: '10px' }}>{t('statistics.weapons.kad')}</div><div style={{ fontWeight: 'bold', color: '#54a0ff' }}>{w.kda}</div></div>
-                            <div style={{ textAlign: 'center' }}><div style={{ color: 'var(--color-text-muted)', fontSize: '10px' }}>{t('statistics.weapons.winPercent')}</div><div style={{ fontWeight: 'bold', color: 'var(--color-text-primary)' }}>{w.winRate}</div></div>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '5px', fontSize: '13px' }}>
+                            <div style={{ textAlign: 'center' }}><div style={{ color: 'var(--color-text-muted)', fontSize: '10px' }}>{t('statistics.weapons.usageTime')}</div><div style={{ fontWeight: 'bold', fontVariantNumeric: 'tabular-nums' }}>{w.holdTime}</div></div>
+                            <div style={{ textAlign: 'center' }}><div style={{ color: 'var(--color-text-muted)', fontSize: '10px' }}>{t('statistics.weapons.kd')}</div><div style={{ fontWeight: 'bold', color: getKdColor(w.kd) }}>{w.kd}</div></div>
+                            <div style={{ textAlign: 'center' }}><div style={{ color: 'var(--color-text-muted)', fontSize: '10px' }}>{t('statistics.weapons.winPercent')}</div><div style={{ fontWeight: 'bold', color: getWinRateColor(w.winRate, { hasValue: w.hasWinRate }) }}>{formatWeaponWinRate(w.winRate, w.hasWinRate)}</div></div>
                         </div>
                     </div>
                 ))}
@@ -2111,24 +2070,14 @@ const WeaponsView = ({ data }: { data: MatchHistory[] }) => {
                                 <SortableTh column="name" sortState={weaponSort} onSort={(col) => setWeaponSort((prev) => toggleCatalogNameTableSort(prev, col))} style={mainTableHeadCellStyle}>
                                     {t('statistics.weapons.weapon')}
                                 </SortableTh>
-                                <SortableTh column="games" sortState={weaponSort} onSort={(col) => setWeaponSort((prev) => toggleCatalogNameTableSort(prev, col))} style={{ ...mainTableHeadCellStyle, textAlign: 'center' }}>
-                                    {t('statistics.weapons.matches')}
+                                <SortableTh column="holdMs" sortState={weaponSort} onSort={(col) => setWeaponSort((prev) => toggleCatalogNameTableSort(prev, col))} style={{ ...mainTableHeadCellStyle, textAlign: 'center' }}>
+                                    {t('statistics.weapons.usageTime')}
                                 </SortableTh>
                                 <SortableTh column="winRate" sortState={weaponSort} onSort={(col) => setWeaponSort((prev) => toggleCatalogNameTableSort(prev, col))} style={{ ...mainTableHeadCellStyle, textAlign: 'center' }}>
                                     {t('statistics.weapons.winRate')}
                                 </SortableTh>
                                 <SortableTh column="kd" sortState={weaponSort} onSort={(col) => setWeaponSort((prev) => toggleCatalogNameTableSort(prev, col))} style={{ ...mainTableHeadCellStyle, textAlign: 'center' }}>
                                     {t('statistics.weapons.kd')}
-                                </SortableTh>
-                                <SortableTh column="kda" sortState={weaponSort} onSort={(col) => setWeaponSort((prev) => toggleCatalogNameTableSort(prev, col))} style={{ ...mainTableHeadCellStyle, textAlign: 'center' }}>
-                                    {t('statistics.weapons.kad')}
-                                    <span
-                                        title={t('statistics.weapons.kadTooltip')}
-                                        style={{ cursor: 'help', marginLeft: '4px', display: 'inline-block', verticalAlign: 'middle' }}
-                                        onClick={(e) => e.stopPropagation()}
-                                    >
-                                        <FaInfoCircle size={12} color="var(--color-text-muted)" />
-                                    </span>
                                 </SortableTh>
                                 <SortableTh column="avgPlacement" sortState={weaponSort} onSort={(col) => setWeaponSort((prev) => toggleCatalogNameTableSort(prev, col))} style={{ ...mainTableHeadCellStyle, textAlign: 'center' }} title={t('statistics.common.avgPlacement')}>
                                     {t('statistics.common.avgPlacementShort')}
@@ -2151,10 +2100,9 @@ const WeaponsView = ({ data }: { data: MatchHistory[] }) => {
                                         <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={w.name}>{w.name}</span>
                                         <WeaponTopLegends legendIds={w.topLegends} />
                                     </td>
-                                    <td style={{ padding: '12px 20px', textAlign: 'center', color: 'var(--color-text-dim)' }}>{w.games}</td>
-                                    <td style={{ padding: '12px 20px', textAlign: 'center', fontWeight: 'bold', color: parseFloat(w.winRate) >= 10 ? '#4ade80' : 'var(--color-text-muted)' }}>{w.winRate}%</td>
-                                    <td style={{ padding: '12px 20px', textAlign: 'center', fontWeight: 'bold', color: 'var(--color-warning)' }}>{w.kd}</td>
-                                    <td style={{ padding: '12px 20px', textAlign: 'center', fontWeight: 'bold', color: '#54a0ff' }}>{w.kda}</td>
+                                    <td style={{ padding: '12px 20px', textAlign: 'center', color: 'var(--color-text-dim)', fontVariantNumeric: 'tabular-nums' }}>{w.holdTime}</td>
+                                    <td style={{ padding: '12px 20px', textAlign: 'center', fontWeight: 'bold', color: getWinRateColor(w.winRate, { hasValue: w.hasWinRate }) }}>{formatWeaponWinRate(w.winRate, w.hasWinRate)}</td>
+                                    <td style={{ padding: '12px 20px', textAlign: 'center', fontWeight: 'bold', color: getKdColor(w.kd) }}>{w.kd}</td>
                                     <AvgPlacementCell value={w.avgPlacement} padding="12px 20px" />
                                 </tr>
                             ))}
@@ -2192,7 +2140,7 @@ const TeammatesView = ({ data, profileUid, profileName }: { data: MatchHistory[]
             const isWin = m.placement === 1;
             const matchKills = m.kills || 0;
             const matchAssists = m.assists || 0;
-            const matchDeath = isWin ? 0 : 1;
+            const matchDeath = getMatchDeaths(m);
             const matchDamage = m.damage || 0;
             const matchPlacement = getMatchPlacement(m);
 
@@ -2523,26 +2471,26 @@ const TeammatesView = ({ data, profileUid, profileName }: { data: MatchHistory[]
                             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, minmax(0, 1fr))', gap: '4px', fontSize: '12px' }}>
                             {renderStatCell(t('statistics.teammates.matches'), tm.games)}
                             {renderStatCell(t('statistics.teammates.kd'), tm.kd, {
-                                valueStyle: { color: 'var(--color-warning)' },
+                                valueStyle: { color: getKdColor(tm.kd) },
                                 showDelta,
                                 delta: overallBaseline ? tm.kd - overallBaseline.kd : undefined,
                                 deltaDigits: 2,
                             })}
                             {renderStatCell(t('statistics.teammates.kad'), tm.kda, {
-                                valueStyle: { color: '#54a0ff' },
+                                valueStyle: { color: getKadColor(tm.kda) },
                                 showDelta,
                                 delta: overallBaseline ? tm.kda - overallBaseline.kda : undefined,
                                 deltaDigits: 2,
                             })}
                             {renderStatCell(t('statistics.teammates.winPercent'), `${tm.winRate}%`, {
-                                valueStyle: { color: 'var(--color-text-primary)' },
+                                valueStyle: { color: getWinRateColor(tmWinRate) },
                                 showDelta,
                                 delta: overallBaseline ? tmWinRate - overallBaseline.winRate : undefined,
                                 deltaDigits: 1,
                                 deltaSuffix: '%p',
                             })}
                             {renderStatCell(t('statistics.teammates.avgDamageShort'), tm.avgDamage, {
-                                valueStyle: { color: '#e056fd' },
+                                valueStyle: { color: getAvgDamageColor(tm.avgDamage) },
                                 labelTitle: t('statistics.teammates.avgDamage'),
                                 showDelta,
                                 delta: overallBaseline ? tm.avgDamage - overallBaseline.avgDamage : undefined,
@@ -2634,19 +2582,19 @@ const TeammatesView = ({ data, profileUid, profileName }: { data: MatchHistory[]
                                     <td style={{ padding: '12px 20px', textAlign: 'center', color: 'var(--color-text-dim)', fontWeight: 'bold', borderLeft: '2px solid var(--color-border)' }}>
                                         {overallBaseline.games}
                                     </td>
-                                    <td style={{ padding: '12px 20px', textAlign: 'center', fontWeight: 'bold', color: 'var(--color-text-muted)' }}>
+                                    <td style={{ padding: '12px 20px', textAlign: 'center', fontWeight: 'bold', color: getWinRateColor(overallBaseline.winRate) }}>
                                         {overallBaseline.winRate.toFixed(1)}%
                                     </td>
-                                    <td style={{ padding: '12px 20px', textAlign: 'center', fontWeight: 'bold', color: 'var(--color-warning)' }}>
+                                    <td style={{ padding: '12px 20px', textAlign: 'center', fontWeight: 'bold', color: getKdColor(overallBaseline.kd) }}>
                                         {overallBaseline.kd.toFixed(2)}
                                     </td>
-                                    <td style={{ padding: '12px 20px', textAlign: 'center', fontWeight: 'bold', color: '#54a0ff' }}>
+                                    <td style={{ padding: '12px 20px', textAlign: 'center', fontWeight: 'bold', color: getKadColor(overallBaseline.kda) }}>
                                         {overallBaseline.kda.toFixed(2)}
                                     </td>
                                     <td style={{ padding: '12px 20px', textAlign: 'center', fontWeight: 'bold', color: getAvgPlacementColor(overallBaseline.avgPlacement) }}>
                                         #{overallBaseline.avgPlacement.toFixed(1)}
                                     </td>
-                                    <td style={{ padding: '12px 20px', textAlign: 'center', fontWeight: 'bold', color: '#e056fd' }}>
+                                    <td style={{ padding: '12px 20px', textAlign: 'center', fontWeight: 'bold', color: getAvgDamageColor(overallBaseline.avgDamage) }}>
                                         {overallBaseline.avgDamage}
                                     </td>
                                 </tr>
@@ -2691,19 +2639,19 @@ const TeammatesView = ({ data, profileUid, profileName }: { data: MatchHistory[]
                                         showDelta,
                                         delta: overallBaseline ? tmWinRate - overallBaseline.winRate : undefined,
                                         deltaDigits: 1,
-                                        valueStyle: { color: tmWinRate >= 10 ? '#4ade80' : 'var(--color-text-muted)' },
+                                        valueStyle: { color: getWinRateColor(tmWinRate) },
                                     })}
                                     {renderTableStatWithComparison(tm.kd, {
                                         showDelta,
                                         delta: overallBaseline ? tmKd - overallBaseline.kd : undefined,
                                         deltaDigits: 2,
-                                        valueStyle: { color: 'var(--color-warning)' },
+                                        valueStyle: { color: getKdColor(tm.kd) },
                                     })}
                                     {renderTableStatWithComparison(tm.kda, {
                                         showDelta,
                                         delta: overallBaseline ? tmKda - overallBaseline.kda : undefined,
                                         deltaDigits: 2,
-                                        valueStyle: { color: '#54a0ff' },
+                                        valueStyle: { color: getKadColor(tm.kda) },
                                     })}
                                     {renderTableStatWithComparison(`#${tm.avgPlacement}`, {
                                         showDelta,
@@ -2716,7 +2664,7 @@ const TeammatesView = ({ data, profileUid, profileName }: { data: MatchHistory[]
                                         showDelta,
                                         delta: overallBaseline ? tm.avgDamage - overallBaseline.avgDamage : undefined,
                                         deltaDigits: 0,
-                                        valueStyle: { color: '#e056fd' },
+                                        valueStyle: { color: getAvgDamageColor(tm.avgDamage) },
                                     })}
                                 </tr>
                                 );

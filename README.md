@@ -237,6 +237,8 @@ Apply migrations in chronological order:
 | `20260628100000_create_seasons.sql` | Season boundaries SSOT (`public.seasons`) |
 | `20260628100100_matches_add_season_id.sql` | `season_id` on `matches` |
 | `20260628100200_create_player_season_stats.sql` | Precomputed season/mode stats for Statistics tab |
+| `20260721010000_matches_add_weapon_combat.sql` | Per-match `weapon_combat` summary JSON |
+| `20260721020000_matches_add_deaths.sql` | Combat-log death count column on `matches` |
 
 Legacy table `match_archives` is managed by the proxy repo and is not recreated here.
 
@@ -247,18 +249,22 @@ Legacy table `match_archives` is managed by the proxy repo and is not recreated 
 - **Match list & map** — movement path overlay per match, ring rounds (when GEP provides data), fullscreen map with `Esc` to exit
 - **Match detail tabs** — Stats + Loadout Timeline (weapon change history)
 - **Statistics** — Overview (5-axis radar, last-20 match trends, free full preview); Maps/Legends/Weapons/Teammates show blurred premium preview with upgrade CTA; season + mode filters; **server-side season stats** via `player_season_stats` (V3)
+- **Weapon combat stats** — hold time (`hh:mm`), event kills, death-slot deaths (+ mid-hold kill correction), win rate / avg placement from qualifying slots; KA/D hidden; per-match `weaponCombat` persisted
+- **K/D deaths** — overall / legend / teammate K/D use combat-log death counts (2 deaths in one match = 2); legacy matches fall back to loss = 1 death
+- **Top Legends / Weapons ranking** — hybrid score `sqrt(usage) × K/D` (legends = games, weapons = hold minutes); same for Overview main picks
+- **Stat color tiers** — win rate, K/D, KA/D, avg damage, avg placement use gray / white / green / gold bands
 - **Teammates tab** — “My stats when playing with X” framing; TOP3 cards with legend podium; detailed table with season-average baseline row, ▲/▼ deltas (5+ games), long-nickname marquee
 - **Rank RP trend chart** — daily snapshots from `daily_rank_snapshots` (Overview, All/Ranked); tier-colored line, hides unranked (0 RP) seasons
 - **Sidebar stats** — recent-20 summary cards (win rate, avg placement, kills, damage, assists, top legend)
-- **Combat log** — Supabase-hosted event icons (kill, knockdown, death, revive, respawn); kill/knockdown/assist/revive events with improved revive/respawn display
-- **Weapons tab** — weapon / hop-up reference
+- **Combat log** — Supabase-hosted event icons (kill, knockdown, death, revive, respawn); kill/knockdown/assist/revive events with improved revive/respawn display; localized GEP finishes promoted via pending knockdowns
+- **Weapons tab** — weapon / hop-up reference; podium win rate kept (≥10% highlighted green); map/legend overview cards omit weapon WR / teammate pick rate (tables keep them)
 - **Settings** — theme (dark/light), in-app hotkey rebinding, tutorial, log folder, **app data reset** (clears local cache and relaunches)
 - **Player search** — autocomplete via proxy, multi-profile local history, rank tier colors
 - **GEP event status** — click the colored dot next to refresh to see which recordings are affected (Game Mode, Combat Logs, Placement, Movement Path, …) via Overwolf's live status API
 - **Game mode fallback** — when GEP omits `game_mode`, real matches with map + teammates are saved as `BR` and shown only in the BR tab
 - **Progressive history sync** — initial 100-match UI load, background archive sync, flush on navigation/filter change
 - **Live match sync** — newly saved matches merge into the UI without flicker when viewing the same player
-- **Close confirm** — optional “don’t ask again” dialog when closing the desktop window
+- **Close confirm** — “hide vs quit” dialog (+ don’t ask again) on desktop X and **Alt+F4** (`is_alt_f4_blocked`); taskbar close still hides to background without prompting
 - **Match detail lazy load** — summary list first; events/path/timeline fetched on expand (V3)
 
 ---

@@ -1,4 +1,5 @@
-import type { Match } from '../types';
+import type { Match, MatchEvent } from '../types';
+import { normalizeWeaponCombat } from './weaponCombat';
 
 type JsonObject = Record<string, unknown>;
 type MaybeMatch = Partial<Match> & JsonObject;
@@ -49,6 +50,11 @@ export const normalizeMatchForFrontend = (input: unknown): Match | null => {
     const matchId = toStringValue(source.matchId ?? source.match_id ?? source.startTime ?? source.start_time);
     if (!matchId) return null;
 
+    const events = toArray<MatchEvent>(source.events);
+    const weaponCombat = normalizeWeaponCombat(
+        source.weaponCombat ?? source.weapon_combat,
+    );
+
     const normalized = {
         ...source,
         matchId,
@@ -60,6 +66,9 @@ export const normalizeMatchForFrontend = (input: unknown): Match | null => {
         placement: source.placement === undefined || source.placement === null ? 0 : source.placement as number | string,
         kills: toNumber(source.kills),
         assists: toNumber(source.assists),
+        deaths: source.deaths === undefined || source.deaths === null
+            ? null
+            : toNumber(source.deaths),
         knocks: toNumber(source.knocks),
         damage: toNumber(source.damage),
         squadKills: toNumber(source.squadKills ?? source.squad_kills),
@@ -80,10 +89,11 @@ export const normalizeMatchForFrontend = (input: unknown): Match | null => {
             primary: (loadout.primary ?? null) as string | null,
             secondary: (loadout.secondary ?? null) as string | null,
         },
+        weaponCombat,
         path: toArray(source.path),
         ringRounds: toArray(source.ringRounds ?? source.ring_rounds),
         weaponTimeline: toArray(source.weaponTimeline ?? source.weapon_timeline),
-        events: toArray(source.events),
+        events,
         teamStats: toArray(source.teamStats ?? source.team_stats),
         teammateKills: toObject(source.teammateKills ?? source.teammate_kills, {}),
         isKillLeader: (source.isKillLeader ?? source.is_kill_leader) as boolean | undefined,

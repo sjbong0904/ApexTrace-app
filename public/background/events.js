@@ -1,5 +1,176 @@
 // src/background/events.js
 let lastMatchEndTime = 0;
+let lastBoundaryRotateAt = 0;
+
+/** Serialize session splits through MatchLifecycle to avoid end/start races with match_end timers. */
+const MatchBoundary = {
+    _rotateDebounceTimer: null,
+    _rotateGeneration: 0,
+    _orphanFinalizeTimer: null,
+    _orphanFinalizeGeneration: 0,
+    _rotateInFlight: false,
+
+    cancelPending() {
+        if (this._rotateDebounceTimer) {
+            clearTimeout(this._rotateDebounceTimer);
+            this._rotateDebounceTimer = null;
+        }
+        this.cancelOrphanFinalize();
+    },
+
+    cancelOrphanFinalize() {
+        if (this._orphanFinalizeTimer) {
+            clearTimeout(this._orphanFinalizeTimer);
+            this._orphanFinalizeTimer = null;
+        }
+        this._orphanFinalizeGeneration += 1;
+    },
+
+    shouldAllowRotate(match, reason) {
+        if (!match || match._ending) return false;
+
+        switch (reason) {
+            case 'pseudo_match_id':
+            case 'respawn':
+                return true;
+            case 'legend_select':
+                if (Date.now() - match.startTime < 90000) return false;
+                return !!match._squadEliminated || isMatchConcluded(match);
+            case 'legend_selection_phase':
+                return isMatchConcluded(match)
+                    || isEliminated(match)
+                    || (Date.now() - match.startTime > 480000);
+            case 'match_start_stale':
+                return isMatchConcluded(match)
+                    || isEliminated(match)
+                    || (Date.now() - match.startTime > 120000);
+            case 'stats_reset':
+                return !!match._squadEliminated || (Date.now() - match.startTime > 480000);
+            default:
+                return false;
+        }
+    },
+
+    scheduleOrphanFinalize(match, delayMs = 120000) {
+        this.cancelOrphanFinalize();
+        const gen = this._orphanFinalizeGeneration;
+        const captured = match;
+
+        this._orphanFinalizeTimer = setTimeout(() => {
+            if (gen !== this._orphanFinalizeGeneration) return;
+            if (!captured || captured._ending) return;
+            if (window.Store?.activeMatch !== captured) return;
+            console.log('[Match] Finalizing orphan session after elimination (no requeue signal)');
+            window.CoreController?.endMatch?.();
+        }, delayMs);
+    },
+
+    onSquadEliminated(match) {
+        this.scheduleOrphanFinalize(match);
+    },
+
+    requestRotate(match, reason) {
+        if (!this.shouldAllowRotate(match, reason)) return;
+
+        this.cancelOrphanFinalize();
+
+        if (this._rotateDebounceTimer) clearTimeout(this._rotateDebounceTimer);
+        const gen = ++this._rotateGeneration;
+        const captured = match;
+
+        this._rotateDebounceTimer = setTimeout(() => {
+            this._rotateDebounceTimer = null;
+            if (gen !== this._rotateGeneration) return;
+            this._executeRotate(captured, reason, gen);
+        }, 350);
+    },
+
+    _executeRotate(triggerMatch, reason, gen) {
+        const lifecycle = window.MatchLifecycle;
+        const controller = window.CoreController;
+        if (!lifecycle?.enqueue || !controller) return;
+
+        lifecycle.enqueue(async () => {
+            if (gen !== this._rotateGeneration) return;
+
+            this._rotateInFlight = true;
+            let rotated = false;
+
+            try {
+                const current = window.Store?.activeMatch;
+
+                if (current === triggerMatch && !current._ending) {
+                    console.log(`[Match] Rotating session (${reason})`);
+                    await controller.endMatch();
+                    rotated = true;
+                } else if (triggerMatch && !triggerMatch._ending) {
+                    console.warn(`[Match] Finalizing captured session before rotate (${reason})`);
+                    await controller.finalizeMatchSession(triggerMatch);
+                    rotated = true;
+                }
+
+                if (gen !== this._rotateGeneration) return;
+                if (window.Store?.activeMatch) return;
+
+                if (rotated) {
+                    lastMatchEndTime = 0;
+                    lastBoundaryRotateAt = Date.now();
+                    await controller.startMatch();
+                }
+            } finally {
+                this._rotateInFlight = false;
+            }
+        });
+    },
+
+    handlePseudoMatchId(match, rawId) {
+        const nextId = rawId == null || rawId === '' ? null : String(rawId);
+        const prevId = match._gepPseudoMatchId ?? null;
+        if (nextId === prevId) return;
+
+        if (prevId && nextId && !match._ending) {
+            console.log(`[Match] pseudo_match_id changed (${prevId.slice(0, 8)}… → ${nextId.slice(0, 8)}…)`);
+            this.requestRotate(match, 'pseudo_match_id');
+        }
+
+        match._gepPseudoMatchId = nextId;
+    },
+
+    handleLegendSelect(match, payload) {
+        const isLocal = payload?.is_local === true
+            || payload?.is_local === 'true'
+            || payload?.is_local === 1
+            || String(payload?.is_local) === '1';
+        if (!isLocal) return;
+        this.requestRotate(match, 'legend_select');
+    },
+
+    handleTabsReset(match, tabs) {
+        const kills = parseInt(tabs.kills, 10);
+        const damage = parseInt(tabs.damage, 10);
+        if (isNaN(kills) && isNaN(damage)) return;
+
+        const prevKills = match._boundaryLastKills;
+        const prevDamage = match._boundaryLastDamage;
+
+        if (prevKills != null || prevDamage != null) {
+            const killsReset = !isNaN(kills) && !isNaN(prevKills)
+                && prevKills >= 2
+                && kills <= prevKills - 2;
+            const damageReset = !isNaN(damage) && !isNaN(prevDamage)
+                && prevDamage >= 200
+                && damage < prevDamage * 0.4;
+
+            if (killsReset || damageReset) {
+                console.log('[Match] Stats reset detected — splitting merged GEP session');
+                this.requestRotate(match, 'stats_reset');
+            }
+        }
+
+        if (!isNaN(kills)) match._boundaryLastKills = kills;
+        if (!isNaN(damage)) match._boundaryLastDamage = damage;
+    },
+};
 
 const isSamePlayer = (name1, name2) => {
     if (!name1 || !name2) return false;
@@ -93,6 +264,7 @@ const applyTabsToMatch = (match, tabsRaw) => {
     if (tabs.knockdowns !== undefined) match.knocks = Math.max(match.knocks || 0, parseInt(tabs.knockdowns) || 0);
     const squadKills = parseInt(tabs.squad_kills || tabs.squadKills || 0);
     if (squadKills > (match.squadKills || 0)) match.squadKills = squadKills;
+    if (window.Utils?.syncAssistCombatLogs) window.Utils.syncAssistCombatLogs(match);
 };
 
 const applyMatchSummaryToMatch = (match, raw) => {
@@ -160,6 +332,8 @@ const markSquadEliminated = (match, { refreshGep = true } = {}) => {
     } else if (estimate) {
         console.log(`[Match] Estimated placement ${estimate} at squad elimination`);
     }
+
+    MatchBoundary.onSquadEliminated(match);
 };
 
 const handleTeamInfoUpdate = (match, raw) => {
@@ -234,6 +408,9 @@ const recordCombatLog = (match, eventPayload, statAction) => {
     if (statAction === 'KILL') window.CoreController.updateMatch('KILL');
     else if (statAction === 'KNOCKDOWN') window.CoreController.updateMatch('KNOCKDOWN');
     window.CoreController.addEvent({ ...eventPayload, timestamp: Date.now() });
+    if (type === 'kill' && window.Utils?.bumpWeaponCombat) {
+        window.Utils.bumpWeaponCombat(match, eventPayload.weapon, 'kills');
+    }
     return true;
 };
 
@@ -417,10 +594,17 @@ const EventRouter = {
                     || (Date.now() - activeMatch.startTime > 480000);
 
                 if (shouldStartNew) {
-                    if (activeMatch) window.CoreController.endMatch();
-                    setTimeout(() => window.CoreController.startMatch(), 500);
+                    if (activeMatch) {
+                        MatchBoundary.requestRotate(activeMatch, 'legend_selection_phase');
+                    } else {
+                        setTimeout(() => window.CoreController.startMatch(), 500);
+                    }
                 }
             }
+        }
+
+        if (activeMatch && data.pseudo_match_id !== undefined) {
+            MatchBoundary.handlePseudoMatchId(activeMatch, data.pseudo_match_id);
         }
 
         Object.keys(data).forEach(key => {
@@ -428,6 +612,7 @@ const EventRouter = {
                 try {
                     const p = JSON.parse(data[key]);
                     window.CoreController.updateMatch('ROSTER_INFO', p);
+                    if (activeMatch) MatchBoundary.handleLegendSelect(activeMatch, p);
                 } catch (e) {}
             }
         });
@@ -469,6 +654,7 @@ const EventRouter = {
         if (data.tabs) {
             const tabs = parseTabsPayload(data.tabs);
             if (tabs) {
+                if (activeMatch) MatchBoundary.handleTabsReset(activeMatch, tabs);
                 if (tabs.teams) window.CoreController.updateMatch('TEAMS_ALIVE', tabs.teams);
                 window.CoreController.updateMatch('SYNC_STATS', {
                     kills: tabs.kills,
@@ -570,6 +756,8 @@ const EventRouter = {
 
             if (name === 'match_start') {
                 const now = Date.now();
+                if (MatchBoundary._rotateInFlight) return;
+                if (now - lastBoundaryRotateAt < 3000) return;
                 if (now - lastMatchEndTime < 15000) return;
 
                 const activeMatch = window.Store.activeMatch;
@@ -578,7 +766,7 @@ const EventRouter = {
                         || isEliminated(activeMatch)
                         || (now - activeMatch.startTime > 120000);
                     if (isStale) {
-                        window.CoreController.endMatch().then(() => window.CoreController.startMatch());
+                        MatchBoundary.requestRotate(activeMatch, 'match_start_stale');
                     }
                     return;
                 }
@@ -588,6 +776,8 @@ const EventRouter = {
             }
 
             if (name === 'match_end') {
+                MatchBoundary.cancelPending();
+
                 const activeMatch = window.Store.activeMatch;
 
                 if (activeMatch && (Date.now() - activeMatch.startTime < 120000)) {
@@ -642,6 +832,16 @@ const EventRouter = {
                 const amount = parseFloat(parsed.damageAmount || parsed.amount);
                 if (!isNaN(amount)) {
                     window.CoreController.updateMatch('DAMAGE', { amount });
+                    // Debounced damage markers for weapon-qualify timestamps (hidden from Combat Log UI).
+                    const now = Date.now();
+                    if (!activeMatch._lastDamageLogAt || now - activeMatch._lastDamageLogAt >= 2000) {
+                        activeMatch._lastDamageLogAt = now;
+                        window.CoreController.addEvent({
+                            type: 'damage',
+                            damageAmount: amount,
+                            timestamp: now,
+                        });
+                    }
                 }
             } else if (name === 'kill_feed') {
                 handleCombatEvent(parsed, activeMatch);
@@ -655,6 +855,11 @@ const EventRouter = {
                     ? activeMatch.playerName : 'Me';
                 window.CoreController.addEvent({ type: 'revive', desc: 'Revived', attacker: '', victim: selfName, timestamp: Date.now() });
             } else if (name === 'respawn') {
+                if (activeMatch._squadEliminated) {
+                    console.log('[Match] Respawn after squad elimination — rotating session');
+                    MatchBoundary.requestRotate(activeMatch, 'respawn');
+                    return;
+                }
                 console.log("Respawn Event Detected!");
                 window.CoreController.updateMatch('SET_DEAD', false);
                 const selfName = activeMatch.playerName && activeMatch.playerName !== 'Unknown'
@@ -714,3 +919,4 @@ const EventRouter = {
 };
 
 window.EventRouter = EventRouter;
+window.MatchBoundary = MatchBoundary;

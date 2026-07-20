@@ -18,35 +18,6 @@ const WindowControls = () => {
     const [isMaximized, setIsMaximized] = useState(false);
     const [showCloseDialog, setShowCloseDialog] = useState(false);
 
-    useEffect(() => {
-        overwolf.windows.getCurrentWindow((result) => {
-            if (result.success) {
-                setIsMaximized(
-                    result.window.stateEx === 'maximized' ||
-                    result.window.state === 'Maximized'
-                );
-            }
-        });
-
-        const onWindowStateChanged = (state: any) => {
-            if (state.window_state_ex === 'maximized') setIsMaximized(true);
-            else if (state.window_state_ex === 'normal') setIsMaximized(false);
-        };
-
-        overwolf.windows.onStateChanged.addListener(onWindowStateChanged);
-        return () => overwolf.windows.onStateChanged.removeListener(onWindowStateChanged);
-    }, []);
-
-    const handleMinimize = async () => {
-        const win = await getCurrentWindow();
-        overwolf.windows.minimize(win.id);
-    };
-
-    const handleToggleMaximize = async () => {
-        const win = await getCurrentWindow();
-        isMaximized ? overwolf.windows.restore(win.id) : overwolf.windows.maximize(win.id);
-    };
-
     const performClose = (action: CloseAction) => {
         requestDesktopClose(action);
     };
@@ -64,6 +35,52 @@ const WindowControls = () => {
         if (dontAskAgain) saveClosePreference(action, true);
         setShowCloseDialog(false);
         performClose(action);
+    };
+
+    useEffect(() => {
+        let currentWindowId: string | null = null;
+
+        overwolf.windows.getCurrentWindow((result) => {
+            if (result.success) {
+                currentWindowId = result.window.id;
+                setIsMaximized(
+                    result.window.stateEx === 'maximized' ||
+                    result.window.state === 'Maximized'
+                );
+            }
+        });
+
+        const onWindowStateChanged = (state: any) => {
+            if (state.window_state_ex === 'maximized') setIsMaximized(true);
+            else if (state.window_state_ex === 'normal') setIsMaximized(false);
+        };
+
+        const onAltF4Blocked = (event: overwolf.windows.AltF4BlockedEvent) => {
+            if (currentWindowId && event.id !== currentWindowId) return;
+            const { dontAsk, action } = getClosePreference();
+            if (dontAsk) {
+                requestDesktopClose(action);
+                return;
+            }
+            setShowCloseDialog(true);
+        };
+
+        overwolf.windows.onStateChanged.addListener(onWindowStateChanged);
+        overwolf.windows.onAltF4Blocked.addListener(onAltF4Blocked);
+        return () => {
+            overwolf.windows.onStateChanged.removeListener(onWindowStateChanged);
+            overwolf.windows.onAltF4Blocked.removeListener(onAltF4Blocked);
+        };
+    }, []);
+
+    const handleMinimize = async () => {
+        const win = await getCurrentWindow();
+        overwolf.windows.minimize(win.id);
+    };
+
+    const handleToggleMaximize = async () => {
+        const win = await getCurrentWindow();
+        isMaximized ? overwolf.windows.restore(win.id) : overwolf.windows.maximize(win.id);
     };
 
     const btnStyle: React.CSSProperties = {

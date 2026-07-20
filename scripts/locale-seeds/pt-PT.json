@@ -317,7 +317,11 @@
       "unknownTitle": "Estado dos eventos: Desconhecido",
       "unknownSummary": "Não foi possível carregar o relatório mais recente de estado dos eventos."
     },
-    "severity": { "green": "Saudável", "yellow": "Parcial", "red": "Indisponível" },
+    "severity": {
+      "green": "Saudável",
+      "yellow": "Parcial",
+      "red": "Indisponível"
+    },
     "panel": {
       "loading": "A carregar estado dos eventos de jogo...",
       "affectedTitle": "Impacto no registo do ApexTrace",
@@ -328,16 +332,46 @@
       "updatedAt": "Atualizado às {{time}}"
     },
     "groups": {
-      "gameMode": { "label": "Modo de jogo", "impact": "A deteção de Ranked / Trio / Duo pode falhar. As partidas podem ser guardadas como BR." },
-      "combatLogs": { "label": "Registo de combate", "impact": "Eliminações, derribos, kill feed e estatísticas do marcador podem faltar ou ficar incompletas." },
-      "rank": { "label": "Colocação", "impact": "A colocação final, o resumo da partida e a deteção de vitória podem ser imprecisos." },
-      "movementPath": { "label": "Trajetória", "impact": "O percurso no mapa e o registo por fase podem ficar incompletos." },
-      "loadout": { "label": "Equipamento", "impact": "Mudanças de armas e entradas da linha temporal de equipamento podem faltar." },
-      "teamInfo": { "label": "Info da equipa", "impact": "O roster e os estados vivo / derribado / morto dos companheiros podem não atualizar." },
-      "legend": { "label": "Lenda", "impact": "A lenda escolhida no início da partida pode não ser registada." },
-      "ultimate": { "label": "Uso de ultimate", "impact": "A contagem de ultimates usados pode não ser rastreada." },
-      "matchLifecycle": { "label": "Início / fim da partida", "impact": "A deteção automática de início ou fim da partida pode falhar." },
-      "revive": { "label": "Revive / respawn", "impact": "Revives após derribo e respawns podem não ser registados." }
+      "gameMode": {
+        "label": "Modo de jogo",
+        "impact": "A deteção de Ranked / Trio / Duo pode falhar. As partidas podem ser guardadas como BR."
+      },
+      "combatLogs": {
+        "label": "Registo de combate",
+        "impact": "Eliminações, derribos, kill feed e estatísticas do marcador podem faltar ou ficar incompletas."
+      },
+      "rank": {
+        "label": "Colocação",
+        "impact": "A colocação final, o resumo da partida e a deteção de vitória podem ser imprecisos."
+      },
+      "movementPath": {
+        "label": "Trajetória",
+        "impact": "O percurso no mapa e o registo por fase podem ficar incompletos."
+      },
+      "loadout": {
+        "label": "Equipamento",
+        "impact": "Mudanças de armas e entradas da linha temporal de equipamento podem faltar."
+      },
+      "teamInfo": {
+        "label": "Info da equipa",
+        "impact": "O roster e os estados vivo / derribado / morto dos companheiros podem não atualizar."
+      },
+      "legend": {
+        "label": "Lenda",
+        "impact": "A lenda escolhida no início da partida pode não ser registada."
+      },
+      "ultimate": {
+        "label": "Uso de ultimate",
+        "impact": "A contagem de ultimates usados pode não ser rastreada."
+      },
+      "matchLifecycle": {
+        "label": "Início / fim da partida",
+        "impact": "A deteção automática de início ou fim da partida pode falhar."
+      },
+      "revive": {
+        "label": "Revive / respawn",
+        "impact": "Revives após derribo e respawns podem não ser registados."
+      }
     }
   },
   "settings": {
@@ -642,7 +676,7 @@
     "legends": {
       "top5PickRates": "Top 5 taxas de escolha",
       "overview": "Visão geral",
-      "topTeammateLegends": "Top 3 lendas de colegas",
+      "topTeammateLegends": "Lendas de colegas",
       "matches": "Partidas",
       "winRate": "Taxa de vitória",
       "kd": "K/D",
@@ -667,6 +701,7 @@
       "mostUsed": "🏆 Mais usada",
       "pick": "#{{rank}}",
       "matches": "Partidas",
+      "usageTime": "Tempo",
       "kd": "K/D",
       "kad": "KA/D",
       "winPercent": "Vitória %",

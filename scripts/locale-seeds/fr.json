@@ -317,7 +317,11 @@
       "unknownTitle": "Statut des événements : Inconnu",
       "unknownSummary": "Impossible de charger le dernier rapport d'état des événements de jeu."
     },
-    "severity": { "green": "Sain", "yellow": "Partiel", "red": "Indisponible" },
+    "severity": {
+      "green": "Sain",
+      "yellow": "Partiel",
+      "red": "Indisponible"
+    },
     "panel": {
       "loading": "Chargement de l'état des événements de jeu...",
       "affectedTitle": "Impact sur l'enregistrement ApexTrace",
@@ -328,16 +332,46 @@
       "updatedAt": "Mis à jour à {{time}}"
     },
     "groups": {
-      "gameMode": { "label": "Mode de jeu", "impact": "La détection Ranked / Trio / Duo peut échouer. Les matchs peuvent être enregistrés en BR." },
-      "combatLogs": { "label": "Journal de combat", "impact": "Éliminations, knockdowns, kill feed et stats du tableau peuvent manquer ou être incomplètes." },
-      "rank": { "label": "Classement", "impact": "Le placement final, le résumé de match et la détection de victoire peuvent être inexacts." },
-      "movementPath": { "label": "Trajectoire", "impact": "Le tracé de déplacement sur la carte et par phase peut être incomplet." },
-      "loadout": { "label": "Équipement", "impact": "Les changements d'armes et la timeline d'équipement peuvent manquer." },
-      "teamInfo": { "label": "Infos d'équipe", "impact": "Le roster et les états vivant / knock / mort des coéquipiers peuvent ne pas se mettre à jour." },
-      "legend": { "label": "Légende", "impact": "La légende choisie au début du match peut ne pas être enregistrée." },
-      "ultimate": { "label": "Utilisation ultime", "impact": "Le nombre d'utilisations de l'ultime peut ne pas être suivi." },
-      "matchLifecycle": { "label": "Début / fin de match", "impact": "La détection automatique du début ou de la fin de match peut échouer." },
-      "revive": { "label": "Réa / respawn", "impact": "Les réanimations après knock et les respawns peuvent ne pas être enregistrés." }
+      "gameMode": {
+        "label": "Mode de jeu",
+        "impact": "La détection Ranked / Trio / Duo peut échouer. Les matchs peuvent être enregistrés en BR."
+      },
+      "combatLogs": {
+        "label": "Journal de combat",
+        "impact": "Éliminations, knockdowns, kill feed et stats du tableau peuvent manquer ou être incomplètes."
+      },
+      "rank": {
+        "label": "Classement",
+        "impact": "Le placement final, le résumé de match et la détection de victoire peuvent être inexacts."
+      },
+      "movementPath": {
+        "label": "Trajectoire",
+        "impact": "Le tracé de déplacement sur la carte et par phase peut être incomplet."
+      },
+      "loadout": {
+        "label": "Équipement",
+        "impact": "Les changements d'armes et la timeline d'équipement peuvent manquer."
+      },
+      "teamInfo": {
+        "label": "Infos d'équipe",
+        "impact": "Le roster et les états vivant / knock / mort des coéquipiers peuvent ne pas se mettre à jour."
+      },
+      "legend": {
+        "label": "Légende",
+        "impact": "La légende choisie au début du match peut ne pas être enregistrée."
+      },
+      "ultimate": {
+        "label": "Utilisation ultime",
+        "impact": "Le nombre d'utilisations de l'ultime peut ne pas être suivi."
+      },
+      "matchLifecycle": {
+        "label": "Début / fin de match",
+        "impact": "La détection automatique du début ou de la fin de match peut échouer."
+      },
+      "revive": {
+        "label": "Réa / respawn",
+        "impact": "Les réanimations après knock et les respawns peuvent ne pas être enregistrés."
+      }
     }
   },
   "settings": {
@@ -642,7 +676,7 @@
     "legends": {
       "top5PickRates": "Top 5 taux de sélection",
       "overview": "Aperçu",
-      "topTeammateLegends": "Top 3 légendes coéquipiers",
+      "topTeammateLegends": "Légendes coéquipiers",
       "matches": "Matchs",
       "winRate": "Taux de victoire",
       "kd": "K/D",
@@ -667,6 +701,7 @@
       "mostUsed": "🏆 La plus utilisée",
       "pick": "#{{rank}}",
       "matches": "Matchs",
+      "usageTime": "Temps",
       "kd": "K/D",
       "kad": "KA/D",
       "winPercent": "Victoire %",

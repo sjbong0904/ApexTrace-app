@@ -30,6 +30,19 @@ export interface WeaponTimelineEntry {
     action?: 'pickup' | 'drop' | 'swap' | 'equip' | 'loadout_change' | 'unknown';
 }
 
+export type WeaponCombatEntry = {
+    kills: number;
+    assists: number;
+    /** Total possession time in this match (ms). */
+    holdMs: number;
+    /** K/D deaths attributed this match. */
+    deaths: number;
+    /** Whether this weapon qualifies for win rate / avg placement. */
+    qualify: boolean;
+};
+
+export type WeaponCombatMap = Record<string, WeaponCombatEntry>;
+
 export interface Match {
     matchId: string;
     platformId: string | null;
@@ -42,6 +55,8 @@ export interface Match {
     placement: number | string;
     kills: number;
     assists: number;
+    /** Local player deaths this match (combat-log count). Null/omit = legacy. */
+    deaths?: number | null;
     knocks: number;
     damage: number;
     squadKills: number;
@@ -66,6 +81,9 @@ export interface Match {
         primary: string | null;
         secondary: string | null;
     };
+
+    /** Per-weapon kill/assist counts from combat log (summary-safe). */
+    weaponCombat?: WeaponCombatMap;
     
     path: { x: number; y: number; t?: number; p?: string; s?: number }[];
     ringRounds?: RingRound[];

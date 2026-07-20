@@ -317,7 +317,11 @@
       "unknownTitle": "事件状态：未知",
       "unknownSummary": "无法加载最新的游戏事件状态报告。"
     },
-    "severity": { "green": "正常", "yellow": "部分异常", "red": "不可用" },
+    "severity": {
+      "green": "正常",
+      "yellow": "部分异常",
+      "red": "不可用"
+    },
     "panel": {
       "loading": "正在加载游戏事件状态...",
       "affectedTitle": "对 ApexTrace 记录的影响",
@@ -328,16 +332,46 @@
       "updatedAt": "更新于 {{time}}"
     },
     "groups": {
-      "gameMode": { "label": "游戏模式", "impact": "可能无法检测 Ranked / Trio / Duo，比赛可能保存为 BR。" },
-      "combatLogs": { "label": "战斗日志", "impact": "击杀、击倒、击杀 feed 和计分板统计可能缺失或不完整。" },
-      "rank": { "label": "名次", "impact": "最终名次、比赛摘要和胜利判定可能不准确。" },
-      "movementPath": { "label": "移动轨迹", "impact": "地图移动路径和分段路线记录可能不完整。" },
-      "loadout": { "label": "武器配装", "impact": "武器更换和配装时间线记录可能缺失。" },
-      "teamInfo": { "label": "队伍信息", "impact": "队友名单及存活 / 击倒 / 死亡状态可能无法正确更新。" },
-      "legend": { "label": "传奇", "impact": "比赛开始时选择的传奇可能未被记录。" },
-      "ultimate": { "label": "终极技能", "impact": "终极技能使用次数可能无法追踪。" },
-      "matchLifecycle": { "label": "比赛开始 / 结束", "impact": "自动检测比赛开始或结束可能失败。" },
-      "revive": { "label": "复活 / 重生", "impact": "击倒复活和重生事件可能未被记录。" }
+      "gameMode": {
+        "label": "游戏模式",
+        "impact": "可能无法检测 Ranked / Trio / Duo，比赛可能保存为 BR。"
+      },
+      "combatLogs": {
+        "label": "战斗日志",
+        "impact": "击杀、击倒、击杀 feed 和计分板统计可能缺失或不完整。"
+      },
+      "rank": {
+        "label": "名次",
+        "impact": "最终名次、比赛摘要和胜利判定可能不准确。"
+      },
+      "movementPath": {
+        "label": "移动轨迹",
+        "impact": "地图移动路径和分段路线记录可能不完整。"
+      },
+      "loadout": {
+        "label": "武器配装",
+        "impact": "武器更换和配装时间线记录可能缺失。"
+      },
+      "teamInfo": {
+        "label": "队伍信息",
+        "impact": "队友名单及存活 / 击倒 / 死亡状态可能无法正确更新。"
+      },
+      "legend": {
+        "label": "传奇",
+        "impact": "比赛开始时选择的传奇可能未被记录。"
+      },
+      "ultimate": {
+        "label": "终极技能",
+        "impact": "终极技能使用次数可能无法追踪。"
+      },
+      "matchLifecycle": {
+        "label": "比赛开始 / 结束",
+        "impact": "自动检测比赛开始或结束可能失败。"
+      },
+      "revive": {
+        "label": "复活 / 重生",
+        "impact": "击倒复活和重生事件可能未被记录。"
+      }
     }
   },
   "settings": {
@@ -642,7 +676,7 @@
     "legends": {
       "top5PickRates": "前五选用率",
       "overview": "概览",
-      "topTeammateLegends": "队友传奇 TOP 3",
+      "topTeammateLegends": "队友传奇",
       "matches": "场次",
       "winRate": "胜率",
       "kd": "K/D",
@@ -667,6 +701,7 @@
       "mostUsed": "🏆 最常用",
       "pick": "第 {{rank}} 名",
       "matches": "场次",
+      "usageTime": "使用时间",
       "kd": "K/D",
       "kad": "KA/D",
       "winPercent": "胜率%",

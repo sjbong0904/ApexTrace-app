@@ -7,13 +7,93 @@ export const getRankColor = (rank: number | string) => {
     return 'var(--color-rank-other)';
 };
 
-/** Color for an average placement value (lower is better). */
+/** Shared performance-stat color tiers: low → normal → high → elite. */
+export const STAT_TIER_COLOR = {
+    missing: 'var(--color-text-faint)',
+    low: 'var(--color-text-muted)',
+    normal: 'var(--color-text-primary)',
+    high: '#4ade80',
+    elite: '#fdcb6e',
+} as const;
+
+const parseStatNumber = (value: string | number | null | undefined): number | null => {
+    if (value === null || value === undefined || value === '' || value === '-') return null;
+    const n = typeof value === 'number' ? value : parseFloat(String(value).replace(/%/g, ''));
+    return Number.isFinite(n) ? n : null;
+};
+
+/** Higher is better: [0, lowMax) low · [lowMax, highMin) normal · [highMin, eliteMin) high · ≥eliteMin elite. */
+const colorForHigherIsBetter = (
+    value: string | number | null | undefined,
+    lowMax: number,
+    highMin: number,
+    eliteMin: number,
+): string => {
+    const n = parseStatNumber(value);
+    if (n === null) return STAT_TIER_COLOR.missing;
+    if (n < lowMax) return STAT_TIER_COLOR.low;
+    if (n < highMin) return STAT_TIER_COLOR.normal;
+    if (n < eliteMin) return STAT_TIER_COLOR.high;
+    return STAT_TIER_COLOR.elite;
+};
+
+/** Win rate %: <5 gray · 5–10 white · 10–15 green · ≥15 gold. */
+export const getWinRateColor = (
+    winRate: string | number,
+    opts?: { hasValue?: boolean },
+): string => {
+    if (opts?.hasValue === false) return STAT_TIER_COLOR.missing;
+    return colorForHigherIsBetter(winRate, 5, 10, 15);
+};
+
+/** K/D: <0.8 gray · 0.8–1.2 white · 1.2–2 green · ≥2 gold. */
+export const getKdColor = (kd: string | number): string =>
+    colorForHigherIsBetter(kd, 0.8, 1.2, 2);
+
+/** KA/D: <1 gray · 1–1.5 white · 1.5–2.5 green · ≥2.5 gold. */
+export const getKadColor = (kad: string | number): string =>
+    colorForHigherIsBetter(kad, 1, 1.5, 2.5);
+
+/** Avg damage: <300 gray · 300–500 white · 500–800 green · ≥800 gold. */
+export const getAvgDamageColor = (avgDamage: string | number): string =>
+    colorForHigherIsBetter(avgDamage, 300, 500, 800);
+
+/** Avg placement (lower is better): ≤3 gold · ≤5 green · ≤8 white · >8 gray. */
 export const getAvgPlacementColor = (avgPlacement: string | number): string => {
-    const val = typeof avgPlacement === 'number' ? avgPlacement : parseFloat(avgPlacement);
-    if (isNaN(val)) return 'var(--color-text-muted)';
-    if (val <= 3) return '#fdcb6e';
-    if (val <= 5) return '#4ade80';
-    return 'var(--color-text-muted)';
+    const val = parseStatNumber(avgPlacement);
+    if (val === null) return STAT_TIER_COLOR.missing;
+    if (val <= 3) return STAT_TIER_COLOR.elite;
+    if (val <= 5) return STAT_TIER_COLOR.high;
+    if (val <= 8) return STAT_TIER_COLOR.normal;
+    return STAT_TIER_COLOR.low;
+};
+
+/** Compact win-rate chip (map/legend breakdown badges). */
+export const getWinRateChipStyle = (winRate: string | number): {
+    color: string;
+    background: string;
+    border: string;
+} => {
+    const color = getWinRateColor(winRate);
+    if (color === STAT_TIER_COLOR.elite) {
+        return {
+            color,
+            background: 'rgba(253, 203, 110, 0.15)',
+            border: '1px solid rgba(253, 203, 110, 0.35)',
+        };
+    }
+    if (color === STAT_TIER_COLOR.high) {
+        return {
+            color,
+            background: 'rgba(74, 222, 128, 0.15)',
+            border: '1px solid rgba(74, 222, 128, 0.35)',
+        };
+    }
+    return {
+        color,
+        background: 'rgba(255,255,255,0.06)',
+        border: '1px solid var(--color-border)',
+    };
 };
 
 export type RankTierKey =
@@ -225,6 +305,36 @@ export const normalizeLegendKey = (legend?: string | null): string =>
 export const isKnownLegend = (legend?: string | null): boolean => {
     const key = normalizeLegendKey(legend);
     return key !== '' && key !== 'unknown' && key !== 'none';
+};
+
+/**
+ * K/D death denominator for a match.
+ * Prefers stored/event death count (each finisher / squad-elim death).
+ * Legacy rows without `deaths` fall back to loss=1 / win=0.
+ */
+export const getMatchDeaths = (match: {
+    deaths?: number | null;
+    placement?: number | string | null;
+    events?: Array<{ type?: string; victim?: string }> | null;
+    playerName?: string | null;
+}): number => {
+    if (typeof match.deaths === 'number' && Number.isFinite(match.deaths) && match.deaths >= 0) {
+        return match.deaths;
+    }
+
+    const playerName = match.playerName;
+    const events = match.events;
+    if (playerName && Array.isArray(events) && events.length > 0) {
+        let counted = 0;
+        for (const event of events) {
+            if (String(event?.type || '').toLowerCase() !== 'death') continue;
+            if (isSamePlayer(event.victim, playerName)) counted += 1;
+        }
+        return counted;
+    }
+
+    const placement = match.placement != null ? Number(match.placement) : NaN;
+    return placement === 1 ? 0 : 1;
 };
 
 export const getPlatformInfo = (hw?: number | null) => {

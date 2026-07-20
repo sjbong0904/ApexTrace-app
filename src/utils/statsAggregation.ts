@@ -1,6 +1,7 @@
 import type { MatchHistory } from './match';
-import { isKnownLegend, normalizeLegendKey, toGameElapsedMs } from './helpers';
+import { isKnownLegend, normalizeLegendKey, toGameElapsedMs, getMatchDeaths } from './helpers';
 import { TARGET_MAPS, SHORT_WEAPON_NAMES } from './gameData';
+import { formatHoldDuration, resolveWeaponCombatForMatch } from './weaponMatchStats';
 
 export const formatDuration = (ms: number): string => {
     if (!ms) return "0m 0s";
@@ -27,7 +28,42 @@ export const resolveMapName = (raw: string): string | null => {
     return TARGET_MAPS.find(t => t.toLowerCase() === trimmed.toLowerCase()) ?? trimmed;
 };
 
-export const aggregateLegendStatsForMatches = (matches: MatchHistory[]) => {
+const isUsableWeaponSlot = (fileId: string | null | undefined): fileId is string =>
+    Boolean(fileId) && fileId !== 'unknown' && fileId !== 'none';
+
+/** Usage × performance score for Top Legends / Weapons: sqrt(volume) × kd */
+export const hybridRankScore = (volume: number, kd: number): number => {
+    const v = Math.max(0, Number(volume) || 0);
+    const k = Math.max(0, Number(kd) || 0);
+    return Math.sqrt(v) * k;
+};
+
+const compareWinRateDesc = (a: string, b: string, aHas = true, bHas = true): number => {
+    if (aHas !== bHas) return aHas ? -1 : 1;
+    if (!aHas && !bHas) return 0;
+    const na = parseFloat(a);
+    const nb = parseFloat(b);
+    const aOk = Number.isFinite(na);
+    const bOk = Number.isFinite(nb);
+    if (!aOk && !bOk) return 0;
+    if (!aOk) return 1;
+    if (!bOk) return -1;
+    return nb - na;
+};
+
+export type AggregatedLegendStat = {
+    id: string;
+    name: string;
+    games: number;
+    winRate: string;
+    avgPlacement: string;
+    avgDamage: number;
+    kd: number;
+    kda: number;
+    rankScore: number;
+};
+
+export const aggregateLegendStatsForMatches = (matches: MatchHistory[]): AggregatedLegendStat[] => {
     const map: Record<string, { games: number; wins: number; kills: number; assists: number; deaths: number; damage: number; placement: number }> = {};
 
     matches.forEach(m => {
@@ -43,15 +79,15 @@ export const aggregateLegendStatsForMatches = (matches: MatchHistory[]) => {
         entry.games++;
         entry.kills += m.kills || 0;
         entry.assists += m.assists || 0;
-        entry.deaths += isWin ? 0 : 1;
+        entry.deaths += getMatchDeaths(m);
         entry.damage += m.damage || 0;
         entry.placement += getMatchPlacement(m);
         if (isWin) entry.wins++;
     });
 
     return Object.entries(map).map(([id, v]) => {
-        const kd = v.deaths === 0 ? v.kills.toFixed(2) : (v.kills / v.deaths).toFixed(2);
-        const kda = v.deaths === 0 ? (v.kills + v.assists).toFixed(2) : ((v.kills + v.assists) / v.deaths).toFixed(2);
+        const kdNum = v.deaths === 0 ? v.kills : v.kills / v.deaths;
+        const kdaNum = v.deaths === 0 ? v.kills + v.assists : (v.kills + v.assists) / v.deaths;
         return {
             id,
             name: formatLegendDisplayName(id),
@@ -59,50 +95,108 @@ export const aggregateLegendStatsForMatches = (matches: MatchHistory[]) => {
             winRate: ((v.wins / v.games) * 100).toFixed(1),
             avgPlacement: formatAvgPlacement(v.placement, v.games),
             avgDamage: Math.round(v.damage / v.games),
-            kd: parseFloat(kd),
-            kda: parseFloat(kda),
+            kd: parseFloat(kdNum.toFixed(2)),
+            kda: parseFloat(kdaNum.toFixed(2)),
+            rankScore: hybridRankScore(v.games, kdNum),
         };
     }).sort((a, b) => {
+        if (b.rankScore !== a.rankScore) return b.rankScore - a.rankScore;
         if (b.games !== a.games) return b.games - a.games;
-        const winDiff = parseFloat(b.winRate) - parseFloat(a.winRate);
+        const winDiff = compareWinRateDesc(a.winRate, b.winRate);
         if (winDiff !== 0) return winDiff;
-        if (b.kd !== a.kd) return b.kd - a.kd;
-        return b.avgDamage - a.avgDamage;
+        return a.id.localeCompare(b.id);
     });
 };
 
-export const aggregateWeaponStatsForMatches = (matches: MatchHistory[]) => {
-    const map: Record<string, { games: number; wins: number; kills: number; assists: number; deaths: number; placement: number; legends: Record<string, number> }> = {};
+export type AggregatedWeaponStat = {
+    id: string;
+    name: string;
+    /** Total possession time (ms). */
+    holdMs: number;
+    holdTime: string;
+    /** Matches where weapon qualified for WR/placement. */
+    qualifyGames: number;
+    games: number;
+    winRate: string;
+    avgPlacement: string;
+    kd: number;
+    topLegends: string[];
+    hasWinRate: boolean;
+    rankScore: number;
+};
+
+export const aggregateWeaponStatsForMatches = (matches: MatchHistory[]): AggregatedWeaponStat[] => {
+    const map: Record<string, {
+        holdMs: number;
+        kills: number;
+        deaths: number;
+        qualifyGames: number;
+        wins: number;
+        placement: number;
+        legends: Record<string, number>;
+    }> = {};
 
     matches.forEach(m => {
-        if (!m.loadout) return;
         const isWin = m.placement === 1;
-        const matchKills = m.kills || 0;
-        const matchAssists = m.assists || 0;
-        const matchDeath = isWin ? 0 : 1;
         const matchPlacement = getMatchPlacement(m);
         const legend = isKnownLegend(m.legend) ? normalizeLegendKey(m.legend) : null;
+        const combat = resolveWeaponCombatForMatch(m as MatchHistory & {
+            startTime?: number;
+            endTime?: number;
+            playerName?: string;
+            weaponTimeline?: unknown;
+        });
 
-        (['primary', 'secondary'] as const).forEach(slot => {
-            const fileId = m.loadout![slot];
-            if (!fileId || fileId === 'unknown' || fileId === 'none') return;
+        const combatKeys = Object.keys(combat);
+        const hasRich = combatKeys.some(k =>
+            combat[k].holdMs > 0 || combat[k].deaths > 0 || combat[k].qualify || combat[k].kills > 0,
+        );
 
-            if (!map[fileId]) map[fileId] = { games: 0, wins: 0, kills: 0, assists: 0, deaths: 0, placement: 0, legends: {} };
+        if (!hasRich) {
+            // Legacy summary: attribute match totals to final loadout slots.
+            const loadoutWeapons = [m.loadout?.primary, m.loadout?.secondary].filter(isUsableWeaponSlot);
+            if (loadoutWeapons.length === 0) return;
+            const matchDeath = getMatchDeaths(m);
+            loadoutWeapons.forEach(fileId => {
+                if (!map[fileId]) {
+                    map[fileId] = { holdMs: 0, kills: 0, deaths: 0, qualifyGames: 0, wins: 0, placement: 0, legends: {} };
+                }
+                const entry = map[fileId];
+                entry.qualifyGames++;
+                entry.kills += m.kills || 0;
+                entry.deaths += matchDeath;
+                entry.placement += matchPlacement;
+                if (isWin) entry.wins++;
+                if (legend) entry.legends[legend] = (entry.legends[legend] || 0) + 1;
+            });
+            return;
+        }
+
+        combatKeys.forEach(fileId => {
+            const c = combat[fileId];
+            if (!map[fileId]) {
+                map[fileId] = { holdMs: 0, kills: 0, deaths: 0, qualifyGames: 0, wins: 0, placement: 0, legends: {} };
+            }
             const entry = map[fileId];
-            entry.games++;
-            entry.kills += matchKills;
-            entry.assists += matchAssists;
-            entry.deaths += matchDeath;
-            entry.placement += matchPlacement;
-            if (isWin) entry.wins++;
-            if (legend) entry.legends[legend] = (entry.legends[legend] || 0) + 1;
+            entry.holdMs += c.holdMs || 0;
+            entry.kills += c.kills || 0;
+            entry.deaths += c.deaths || 0;
+            if (c.qualify) {
+                entry.qualifyGames++;
+                entry.placement += matchPlacement;
+                if (isWin) entry.wins++;
+                if (legend) entry.legends[legend] = (entry.legends[legend] || 0) + 1;
+            } else if (legend && ((c.holdMs || 0) > 0 || (c.kills || 0) > 0)) {
+                entry.legends[legend] = (entry.legends[legend] || 0) + 1;
+            }
         });
     });
 
     return Object.entries(map).map(([k, v]) => {
         const displayName = SHORT_WEAPON_NAMES(k) ?? k.toUpperCase().replace(/-/g, ' ');
-        const kd = v.deaths === 0 ? v.kills.toFixed(2) : (v.kills / v.deaths).toFixed(2);
-        const kda = v.deaths === 0 ? (v.kills + v.assists).toFixed(2) : ((v.kills + v.assists) / v.deaths).toFixed(2);
+        const kdNum = v.deaths === 0 ? v.kills : v.kills / v.deaths;
+        const hasWinRate = v.qualifyGames > 0;
+        const holdMinutes = (v.holdMs || 0) / 60000;
         const topLegends = Object.entries(v.legends)
             .sort((a, b) => b[1] - a[1])
             .slice(0, 3)
@@ -110,17 +204,23 @@ export const aggregateWeaponStatsForMatches = (matches: MatchHistory[]) => {
         return {
             id: k,
             name: displayName,
-            games: v.games,
-            winRate: ((v.wins / v.games) * 100).toFixed(1),
-            avgPlacement: formatAvgPlacement(v.placement, v.games),
-            kd: parseFloat(kd),
-            kda: parseFloat(kda),
+            holdMs: v.holdMs,
+            holdTime: formatHoldDuration(v.holdMs),
+            qualifyGames: v.qualifyGames,
+            games: v.qualifyGames,
+            winRate: hasWinRate ? ((v.wins / v.qualifyGames) * 100).toFixed(1) : '-',
+            avgPlacement: hasWinRate ? formatAvgPlacement(v.placement, v.qualifyGames) : '-',
+            kd: parseFloat(kdNum.toFixed(2)),
             topLegends,
+            hasWinRate,
+            rankScore: hybridRankScore(holdMinutes, kdNum),
         };
     }).sort((a, b) => {
-        if (b.games !== a.games) return b.games - a.games;
-        if (b.kd !== a.kd) return b.kd - a.kd;
-        return parseFloat(b.winRate) - parseFloat(a.winRate);
+        if (b.rankScore !== a.rankScore) return b.rankScore - a.rankScore;
+        if (b.holdMs !== a.holdMs) return b.holdMs - a.holdMs;
+        const winDiff = compareWinRateDesc(a.winRate, b.winRate, a.hasWinRate, b.hasWinRate);
+        if (winDiff !== 0) return winDiff;
+        return a.id.localeCompare(b.id);
     });
 };
 
@@ -153,7 +253,7 @@ export const calculateStats = (matches: MatchHistory[]) => {
     const totalAssists = matches.reduce((sum, m) => sum + (m.assists || 0), 0);
     const totalWins = matches.filter(m => m.placement === 1).length;
     const totalTop5 = matches.filter(m => (m.placement ?? 20) <= 5).length;
-    const totalDeaths = totalMatches - totalWins;
+    const totalDeaths = matches.reduce((sum, m) => sum + getMatchDeaths(m), 0);
     const totalTime = matches.reduce(
         (sum, m: any) => sum + toGameElapsedMs((m.endTime || Date.now()) - m.startTime),
         0,
@@ -161,19 +261,8 @@ export const calculateStats = (matches: MatchHistory[]) => {
     const totalPlacement = matches.reduce((sum, m) => sum + (m.placement ?? 20), 0);
     const maxKills = Math.max(...matches.map(m => m.kills || 0));
     const totalsquadKills = matches.reduce((sum, m: any) => sum + (m.squadKills || 0), 0);
-    const legendCounts: Record<string, number> = {};
-    matches.forEach(m => {
-        if (!isKnownLegend(m.legend)) return;
-        const l = normalizeLegendKey(m.legend);
-        legendCounts[l] = (legendCounts[l] || 0) + 1;
-    });
-    const mostLegend = Object.entries(legendCounts).sort((a, b) => b[1] - a[1])[0];
-    const weaponCounts: Record<string, number> = {};
-    matches.forEach(m => {
-        if (m.loadout?.primary) weaponCounts[m.loadout.primary] = (weaponCounts[m.loadout.primary] || 0) + 1;
-        if (m.loadout?.secondary) weaponCounts[m.loadout.secondary] = (weaponCounts[m.loadout.secondary] || 0) + 1;
-    });
-    const mostWeapon = Object.entries(weaponCounts).sort((a, b) => b[1] - a[1])[0];
+    const topLegend = aggregateLegendStatsForMatches(matches)[0];
+    const topWeapon = aggregateWeaponStatsForMatches(matches)[0];
     const myContribution = totalKills + (totalAssists * 0.5);
     const actualSquadKills = totalsquadKills > 0 ? totalsquadKills : (totalKills || 1);
     const contributionRate = (myContribution / actualSquadKills) * 100;
@@ -193,8 +282,8 @@ export const calculateStats = (matches: MatchHistory[]) => {
         avgTimeSec: Math.round(totalTime / totalMatches / 1000),
         avgmin: Math.floor(Math.round(totalTime / totalMatches / 1000) / 60),
         avgsec: Math.round(Math.round(totalTime / totalMatches / 1000) % 60),
-        mostLegend: mostLegend ? mostLegend[0] : '-',
-        mostWeapon: mostWeapon ? mostWeapon[0].replace('weapon_', '').toUpperCase() : '-',
+        mostLegend: topLegend ? topLegend.id : '-',
+        mostWeapon: topWeapon ? topWeapon.id.replace('weapon_', '').toUpperCase() : '-',
         avgKills: (totalKills / totalMatches).toFixed(1),
         avgPlacement: (totalPlacement / totalMatches).toFixed(1),
         maxKills,

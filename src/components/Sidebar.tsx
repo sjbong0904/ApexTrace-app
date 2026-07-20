@@ -184,9 +184,25 @@ const Sidebar: React.FC<SidebarProps> = ({
                 const key = rawName;
                 if (!weaponStats[key]) weaponStats[key] = { count: 0, kills: 0, damage: 0 };
                 weaponStats[key].count++;
-                weaponStats[key].kills += k;
                 weaponStats[key].damage += d;
             });
+            const combat = match.weaponCombat || {};
+            const combatKeys = Object.keys(combat);
+            if (combatKeys.length > 0) {
+                combatKeys.forEach(key => {
+                    if (!weaponStats[key]) weaponStats[key] = { count: 0, kills: 0, damage: 0 };
+                    // Dropped weapons with kills still count as a pick for tag math.
+                    if (weaponStats[key].count === 0) weaponStats[key].count = 1;
+                    weaponStats[key].kills += combat[key]?.kills || 0;
+                });
+            } else {
+                // Legacy matches without weaponCombat: keep previous loadout attribution.
+                [match.loadout?.primary, match.loadout?.secondary].forEach(rawName => {
+                    if (!rawName || rawName === 'unknown' || rawName === 'none') return;
+                    if (!weaponStats[rawName]) weaponStats[rawName] = { count: 0, kills: 0, damage: 0 };
+                    weaponStats[rawName].kills += k;
+                });
+            }
         });
 
         const avgKills = totalKills / totalGames;

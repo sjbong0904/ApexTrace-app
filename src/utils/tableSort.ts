@@ -44,7 +44,16 @@ export const compareStrings = (a: string, b: string) =>
 
 export const compareNumbers = (a: number, b: number) => a - b;
 
-export const compareNumericStrings = (a: string, b: string) => parseFloat(a) - parseFloat(b);
+export const compareNumericStrings = (a: string, b: string) => {
+    const na = parseFloat(a);
+    const nb = parseFloat(b);
+    const aOk = Number.isFinite(na);
+    const bOk = Number.isFinite(nb);
+    if (!aOk && !bOk) return 0;
+    if (!aOk) return 1; // dashes / invalid sort last in asc (caller may flip)
+    if (!bOk) return -1;
+    return na - nb;
+};
 
 /** Lower placement rank is better — invert so desc shows #1 first. */
 export const compareAvgPlacement = (a: string, b: string) => compareNumericStrings(b, a);

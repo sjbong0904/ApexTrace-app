@@ -317,7 +317,11 @@
       "unknownTitle": "Status de eventos: Desconhecido",
       "unknownSummary": "Não foi possível carregar o relatório mais recente de status dos eventos."
     },
-    "severity": { "green": "Saudável", "yellow": "Parcial", "red": "Indisponível" },
+    "severity": {
+      "green": "Saudável",
+      "yellow": "Parcial",
+      "red": "Indisponível"
+    },
     "panel": {
       "loading": "Carregando status dos eventos de jogo...",
       "affectedTitle": "Impacto no registro do ApexTrace",
@@ -328,16 +332,46 @@
       "updatedAt": "Atualizado às {{time}}"
     },
     "groups": {
-      "gameMode": { "label": "Modo de jogo", "impact": "A detecção de Ranked / Trio / Duo pode falhar. Partidas podem ser salvas como BR." },
-      "combatLogs": { "label": "Registro de combate", "impact": "Abates, derrubadas, kill feed e estatísticas do placar podem faltar ou ficar incompletas." },
-      "rank": { "label": "Colocação", "impact": "A colocação final, o resumo da partida e a detecção de vitória podem ser imprecisos." },
-      "movementPath": { "label": "Trajetória", "impact": "O caminho no mapa e o registro por fase podem ficar incompletos." },
-      "loadout": { "label": "Loadout", "impact": "Trocas de armas e entradas da linha do tempo de loadout podem faltar." },
-      "teamInfo": { "label": "Info do time", "impact": "O roster e os estados vivo / derrubado / morto dos companheiros podem não atualizar." },
-      "legend": { "label": "Lenda", "impact": "A lenda escolhida no início da partida pode não ser registrada." },
-      "ultimate": { "label": "Uso de ultimate", "impact": "A contagem de ultimates usados pode não ser rastreada." },
-      "matchLifecycle": { "label": "Início / fim da partida", "impact": "A detecção automática de início ou fim da partida pode falhar." },
-      "revive": { "label": "Revive / respawn", "impact": "Revives após derrubada e respawns podem não ser registrados." }
+      "gameMode": {
+        "label": "Modo de jogo",
+        "impact": "A detecção de Ranked / Trio / Duo pode falhar. Partidas podem ser salvas como BR."
+      },
+      "combatLogs": {
+        "label": "Registro de combate",
+        "impact": "Abates, derrubadas, kill feed e estatísticas do placar podem faltar ou ficar incompletas."
+      },
+      "rank": {
+        "label": "Colocação",
+        "impact": "A colocação final, o resumo da partida e a detecção de vitória podem ser imprecisos."
+      },
+      "movementPath": {
+        "label": "Trajetória",
+        "impact": "O caminho no mapa e o registro por fase podem ficar incompletos."
+      },
+      "loadout": {
+        "label": "Loadout",
+        "impact": "Trocas de armas e entradas da linha do tempo de loadout podem faltar."
+      },
+      "teamInfo": {
+        "label": "Info do time",
+        "impact": "O roster e os estados vivo / derrubado / morto dos companheiros podem não atualizar."
+      },
+      "legend": {
+        "label": "Lenda",
+        "impact": "A lenda escolhida no início da partida pode não ser registrada."
+      },
+      "ultimate": {
+        "label": "Uso de ultimate",
+        "impact": "A contagem de ultimates usados pode não ser rastreada."
+      },
+      "matchLifecycle": {
+        "label": "Início / fim da partida",
+        "impact": "A detecção automática de início ou fim da partida pode falhar."
+      },
+      "revive": {
+        "label": "Revive / respawn",
+        "impact": "Revives após derrubada e respawns podem não ser registrados."
+      }
     }
   },
   "settings": {
@@ -642,7 +676,7 @@
     "legends": {
       "top5PickRates": "Top 5 taxas de escolha",
       "overview": "Visão geral",
-      "topTeammateLegends": "Top 3 lendas de colegas",
+      "topTeammateLegends": "Lendas de colegas",
       "matches": "Partidas",
       "winRate": "Taxa de vitória",
       "kd": "K/D",
@@ -667,6 +701,7 @@
       "mostUsed": "🏆 Mais usada",
       "pick": "#{{rank}}",
       "matches": "Partidas",
+      "usageTime": "Tempo",
       "kd": "K/D",
       "kad": "KA/D",
       "winPercent": "Vitória %",

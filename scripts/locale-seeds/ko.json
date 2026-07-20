@@ -687,7 +687,7 @@
     "legends": {
       "top5PickRates": "픽률 상위 5",
       "overview": "오버뷰",
-      "topTeammateLegends": "팀원 레전드 TOP 3",
+      "topTeammateLegends": "팀원 레전드",
       "matches": "매치",
       "winRate": "승률",
       "kd": "K/D",
@@ -712,6 +712,7 @@
       "mostUsed": "🏆 가장 많이 사용한 무기",
       "pick": "#{{rank}}",
       "matches": "매치 수",
+      "usageTime": "사용 시간",
       "kd": "K/D",
       "kad": "KA/D",
       "winPercent": "승률",

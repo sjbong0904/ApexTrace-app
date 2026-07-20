@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { MatchHistory } from '../utils/match';
-import { isKnownLegend, normalizeLegendKey, getAvgPlacementColor } from '../utils/helpers';
+import { isKnownLegend, normalizeLegendKey, getAvgPlacementColor, getWinRateColor } from '../utils/helpers';
 
 interface SidebarStatsProps {
     history: MatchHistory[];
@@ -176,7 +176,7 @@ const SidebarStats: React.FC<SidebarStatsProps> = ({ history }) => {
                 <StatCard
                     label={t('sidebarStats.winRate')}
                     value={`${stats.winRate}%`}
-                    color={winRateNum >= 10 ? '#4ade80' : 'var(--color-text-primary)'}
+                    color={getWinRateColor(winRateNum)}
                 />
                 <StatCard
                     label={t('sidebarStats.avgPlacement')}

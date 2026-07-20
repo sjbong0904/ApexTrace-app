@@ -46,6 +46,7 @@
                 "min_size": { "width": 1250, "height": 650 },
                 "topmost": false,
                 "show_in_taskbar": true,
+                "is_alt_f4_blocked": true,
                 "focus_game_takeover": "ReleaseOnHidden"
             },
             "in_game": {
