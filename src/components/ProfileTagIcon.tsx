@@ -8,21 +8,6 @@ interface ProfileTagIconProps {
     fallback: ReactNode;
 }
 
-const parseHexLuminance = (color: string): number => {
-    const hex = color.replace('#', '').trim();
-    if (hex.length !== 6 && hex.length !== 3) return 0.5;
-    const full = hex.length === 3 ? hex.split('').map((c) => c + c).join('') : hex;
-    const r = parseInt(full.slice(0, 2), 16) / 255;
-    const g = parseInt(full.slice(2, 4), 16) / 255;
-    const b = parseInt(full.slice(4, 6), 16) / 255;
-    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
-};
-
-const isLightTagColor = (color: string): boolean => {
-    const normalized = color.trim().toLowerCase();
-    return normalized === '#fff' || normalized === '#ffffff' || parseHexLuminance(normalized) > 0.72;
-};
-
 const WeaponTagIcon = ({ src, color, scale }: { src: string; color: string; scale: number }) => (
     <span
         aria-hidden
@@ -46,7 +31,7 @@ const WeaponTagIcon = ({ src, color, scale }: { src: string; color: string; scal
     />
 );
 
-const LegendTagIcon = ({ src, color }: { src: string; color: string }) => {
+const LegendTagIcon = ({ src }: { src: string }) => {
     const frameStyle: CSSProperties = {
         position: 'relative',
         display: 'inline-block',
@@ -63,31 +48,11 @@ const LegendTagIcon = ({ src, color }: { src: string; color: string }) => {
         objectFit: 'cover',
         objectPosition: 'top center',
         display: 'block',
-        filter: isLightTagColor(color)
-            ? 'grayscale(1) contrast(1.35) brightness(1.2)'
-            : 'grayscale(1) contrast(1.3) brightness(0.92)',
     };
-
-    if (isLightTagColor(color)) {
-        return (
-            <span aria-hidden style={frameStyle}>
-                <img src={src} alt="" style={portraitStyle} />
-            </span>
-        );
-    }
 
     return (
         <span aria-hidden style={frameStyle}>
             <img src={src} alt="" style={portraitStyle} />
-            <span
-                style={{
-                    position: 'absolute',
-                    inset: 0,
-                    backgroundColor: color,
-                    mixBlendMode: 'color',
-                    pointerEvents: 'none',
-                }}
-            />
         </span>
     );
 };
@@ -126,7 +91,7 @@ const ProfileTagIcon = ({ imageId, imageType, color, fallback }: ProfileTagIconP
     }
 
     if (imageType === 'legend') {
-        return <LegendTagIcon src={src} color={color} />;
+        return <LegendTagIcon src={src} />;
     }
 
     return <WeaponTagIcon src={src} color={color} scale={scale} />;

@@ -3,25 +3,28 @@
     "type": "WebApp",
     "meta": {
         "name": "ApexTrace",
-        "version": "0.0.7",
+        "version": "0.0.8",
         "minimum-overwolf-version": "0.160.0",
         "author": "SiNiz",
+        "dock_button_title": "ApexTrace",
         "icon": "icons/IconMouseOver.png",
         "icon_gray": "icons/IconMouseNormal.png",
         "launcher_icon": "icons/launcher_icon.ico",
         "window_icon": "icons/IconMouseOver.png",
-        "description": "Apex Legends Movement Path Tracker"
+        "description": "Track every Apex match - path, loadout timeline, and season stats."
     },
-    "disable_hardware_acceleration": true,
     "permissions": [
         "Hotkeys",
         "GameInfo",
         "FileSystem",
+        "Tray",
+        "Extensions",
+        "Streaming",
         "DesktopStreaming",
-        "Tray"
+        "Profile"
     ],
     "data": {
-        "start_window": "background", 
+        "start_window": "background",
         "windows": {
             "background": {
                 "file": "background.html",
@@ -42,12 +45,11 @@
                 "native_window": true,
                 "desktop_only": true,
                 "keep_window_location": true,
-                "size": { "width": 1540, "height": 850 },
-                "min_size": { "width": 1250, "height": 650 },
+                "size": { "width": 1680, "height": 920 },
+                "min_size": { "width": 1080, "height": 780 },
                 "topmost": false,
                 "show_in_taskbar": true,
-                "is_alt_f4_blocked": true,
-                "focus_game_takeover": "ReleaseOnHidden"
+                "is_alt_f4_blocked": true
             },
             "in_game": {
                 "file": "index.html",
@@ -55,7 +57,7 @@
                 "resizable": true,
                 "in_game_only": true,
                 "size": { "width": 1540, "height": 850 },
-                "min_size": { "width": 1250, "height": 650 },
+                "min_size": { "width": 1080, "height": 650 },
                 "focus_game_takeover": "ReleaseOnHidden",
                 "focus_game_takeover_release_hotkey": "toggle_in_game_window"
             }
@@ -64,7 +66,7 @@
             "toggle_desktop_window": {
                 "title": "Show/Hide ApexTrace Second Screen",
                 "action-type": "custom",
-                "default": "Ctrl+Shift+=", 
+                "default": "Ctrl+Shift+=",
                 "hold": false
             },
             "toggle_in_game_window": {
@@ -96,8 +98,13 @@
         ],
         "externally_connectable": {
             "matches": [
-                "http://localhost:3000/*",
-                "http://127.0.0.1:3000/*"
+                "http://localhost:3000",
+                "http://127.0.0.1:3000",
+                "https://ureuzkxyyozzzluzawwr.supabase.co",
+                "https://trace-proxy-server.vercel.app",
+                "https://cdn.jsdelivr.net",
+                "https://content.overwolf.com",
+                "https://game-events-status.overwolf.com"
             ]
         },
         "uninstall_window": {

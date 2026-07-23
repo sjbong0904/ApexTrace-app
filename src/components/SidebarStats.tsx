@@ -2,9 +2,13 @@ import React, { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { MatchHistory } from '../utils/match';
 import { isKnownLegend, normalizeLegendKey, getAvgPlacementColor, getWinRateColor } from '../utils/helpers';
+import { formatLegendDisplayName } from '../utils/statsAggregation';
 
 interface SidebarStatsProps {
     history: MatchHistory[];
+    layout?: 'panel' | 'inline';
+    /** Tighter cards for narrow side-by-side layouts */
+    dense?: boolean;
 }
 
 const STAT_CARD_STYLE: React.CSSProperties = {
@@ -18,6 +22,8 @@ const STAT_CARD_STYLE: React.CSSProperties = {
     alignItems: 'center',
     justifyContent: 'center',
     minHeight: 0,
+    height: '100%',
+    boxSizing: 'border-box',
     overflow: 'hidden',
 };
 
@@ -25,31 +31,21 @@ const StatCard = ({
     label,
     value,
     color = 'var(--color-text-primary)',
+    dense = false,
 }: {
     label: string;
     value: string | number;
     color?: string;
+    dense?: boolean;
 }) => (
-    <div style={STAT_CARD_STYLE}>
+    <div style={{
+        ...STAT_CARD_STYLE,
+        padding: dense ? '6px 4px' : '8px 6px',
+    }}>
         <div style={{
-            fontSize: '9px',
+            fontSize: dense ? 8 : 9,
             color: 'var(--color-text-muted)',
-            marginBottom: '4px',
-            fontWeight: 600,
-            lineHeight: 1.25,
-        }}>
-            {label}
-        </div>
-        <div style={{ fontSize: '15px', fontWeight: 'bold', color, lineHeight: 1.2 }}>{value}</div>
-    </div>
-);
-
-const LegendCard = ({ label, legendName }: { label: string; legendName: string }) => (
-    <div style={{ ...STAT_CARD_STYLE, padding: '6px 6px 8px', justifyContent: 'flex-start' }}>
-        <div style={{
-            fontSize: '9px',
-            color: 'var(--color-text-muted)',
-            marginBottom: '4px',
+            marginBottom: dense ? 2 : 4,
             fontWeight: 600,
             lineHeight: 1.25,
             flexShrink: 0,
@@ -57,41 +53,83 @@ const LegendCard = ({ label, legendName }: { label: string; legendName: string }
             {label}
         </div>
         <div style={{
-            flex: 1,
-            minHeight: 0,
-            width: '100%',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-        }}>
-            <img
-                src={`https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/${legendName.toLowerCase()}.png`}
-                alt={legendName}
-                style={{ maxHeight: '100%', maxWidth: '78%', objectFit: 'contain' }}
-                onError={(e) => {
-                    (e.target as HTMLImageElement).src =
-                        'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/unknown.png';
-                }}
-            />
-        </div>
-        <div style={{
-            fontSize: '11px',
+            fontSize: dense ? 13 : 15,
             fontWeight: 'bold',
-            color: 'var(--color-text-primary)',
+            color,
             lineHeight: 1.2,
-            marginTop: '2px',
-            maxWidth: '100%',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap',
+            flexShrink: 0,
         }}>
-            {legendName}
+            {value}
         </div>
     </div>
 );
 
-const SidebarStats: React.FC<SidebarStatsProps> = ({ history }) => {
+/** Same footprint as StatCard: label + compact value row (avatar + name). */
+const LegendCard = ({ label, legendName, dense = false }: { label: string; legendName: string; dense?: boolean }) => {
+    const avatarPx = dense ? 18 : 22;
+    const displayName = legendName === '-' ? legendName : formatLegendDisplayName(legendName);
+    const imageKey = legendName === '-' ? 'unknown' : legendName.toLowerCase();
+    return (
+        <div style={{
+            ...STAT_CARD_STYLE,
+            padding: dense ? '6px 4px' : '8px 6px',
+        }}>
+            <div style={{
+                fontSize: dense ? 8 : 9,
+                color: 'var(--color-text-muted)',
+                marginBottom: dense ? 2 : 4,
+                fontWeight: 600,
+                lineHeight: 1.25,
+                flexShrink: 0,
+            }}>
+                {label}
+            </div>
+            <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: dense ? 4 : 6,
+                minWidth: 0,
+                maxWidth: '100%',
+                flexShrink: 0,
+            }}>
+                <img
+                    src={`https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/${imageKey}.png`}
+                    alt={displayName}
+                    style={{
+                        width: avatarPx,
+                        height: avatarPx,
+                        borderRadius: '50%',
+                        objectFit: 'cover',
+                        flexShrink: 0,
+                        border: '1px solid var(--color-border-light)',
+                        background: 'var(--color-bg-deep)',
+                    }}
+                    onError={(e) => {
+                        (e.target as HTMLImageElement).src =
+                            'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/unknown.png';
+                    }}
+                />
+                <span style={{
+                    fontSize: dense ? 11 : 13,
+                    fontWeight: 'bold',
+                    color: 'var(--color-text-primary)',
+                    lineHeight: 1.2,
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                    minWidth: 0,
+                }}>
+                    {displayName}
+                </span>
+            </div>
+        </div>
+    );
+};
+
+const SidebarStats: React.FC<SidebarStatsProps> = ({ history, layout = 'panel', dense = false }) => {
     const { t } = useTranslation();
+    const isInline = layout === 'inline';
 
     const stats = useMemo(() => {
         const recentMatches = history.filter(m => isKnownLegend(m.legend)).slice(0, 20);
@@ -129,13 +167,15 @@ const SidebarStats: React.FC<SidebarStatsProps> = ({ history }) => {
         return (
             <div style={{
                 fontSize: '11px',
-                height: '100%',
+                height: isInline ? 'auto' : '100%',
+                minHeight: isInline ? 120 : undefined,
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'center',
                 justifyContent: 'center',
                 color: 'var(--color-text-faint)',
-                background: 'var(--color-bg-sub-header)',
+                background: isInline ? 'transparent' : 'var(--color-bg-sub-header)',
+                padding: isInline ? 16 : undefined,
             }}>
                 {t('sidebarStats.noMatches')}
             </div>
@@ -143,22 +183,24 @@ const SidebarStats: React.FC<SidebarStatsProps> = ({ history }) => {
     }
 
     const winRateNum = parseFloat(stats.winRate);
+    const cellMinH = dense ? 52 : 60;
 
     return (
         <div style={{
             width: '100%',
             height: '100%',
-            padding: '12px 10px',
+            padding: isInline ? (dense ? '10px 8px' : '12px 12px 10px') : '12px 10px',
             boxSizing: 'border-box',
             display: 'flex',
             flexDirection: 'column',
-            background: 'var(--color-bg-sub-header)',
+            background: isInline ? 'transparent' : 'var(--color-bg-sub-header)',
+            minHeight: 0,
         }}>
             <div style={{
                 fontSize: '10px',
                 fontWeight: 600,
                 color: 'var(--color-text-muted)',
-                marginBottom: '8px',
+                marginBottom: dense ? 6 : 8,
                 flexShrink: 0,
                 letterSpacing: '0.02em',
             }}>
@@ -167,38 +209,51 @@ const SidebarStats: React.FC<SidebarStatsProps> = ({ history }) => {
 
             <div style={{
                 display: 'grid',
-                gridTemplateColumns: '1fr 1fr',
-                gridTemplateRows: 'repeat(3, 1fr)',
-                gap: '6px',
+                /* compact (dense): 2×3; normal/large: 3×2 */
+                gridTemplateColumns: isInline
+                    ? (dense ? 'repeat(2, minmax(0, 1fr))' : 'repeat(3, minmax(0, 1fr))')
+                    : '1fr 1fr',
+                gridTemplateRows: isInline
+                    ? (dense
+                        ? `repeat(3, minmax(${cellMinH}px, 1fr))`
+                        : `repeat(2, minmax(${cellMinH}px, 1fr))`)
+                    : 'repeat(3, 1fr)',
+                gap: dense ? 5 : 8,
                 flex: 1,
                 minHeight: 0,
+                alignItems: 'stretch',
             }}>
                 <StatCard
+                    dense={dense}
                     label={t('sidebarStats.winRate')}
                     value={`${stats.winRate}%`}
                     color={getWinRateColor(winRateNum)}
                 />
                 <StatCard
+                    dense={dense}
                     label={t('sidebarStats.avgPlacement')}
                     value={`#${stats.avgPlacement}`}
                     color={getAvgPlacementColor(stats.avgPlacement)}
                 />
                 <StatCard
+                    dense={dense}
                     label={t('sidebarStats.avgKills')}
                     value={stats.avgKills}
                     color="var(--color-warning)"
                 />
                 <StatCard
+                    dense={dense}
                     label={t('sidebarStats.avgDamage')}
                     value={stats.avgDamage}
                     color="#ffa502"
                 />
                 <StatCard
+                    dense={dense}
                     label={t('sidebarStats.avgAssists')}
                     value={stats.avgAssists}
                     color="#54a0ff"
                 />
-                <LegendCard label={t('sidebarStats.mostPlayed')} legendName={stats.mostLegend} />
+                <LegendCard dense={dense} label={t('sidebarStats.mostPlayed')} legendName={stats.mostLegend} />
             </div>
         </div>
     );

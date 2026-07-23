@@ -15,7 +15,7 @@ const PremiumBlurGate: React.FC<PremiumBlurGateProps> = ({ locked, title, childr
     if (!locked) return <>{children}</>;
 
     const handleUpgrade = () => {
-        alert(t('premium.redirecting'));
+        alert(t('premium.comingSoon'));
     };
 
     return (
@@ -117,7 +117,7 @@ const PremiumBlurGate: React.FC<PremiumBlurGateProps> = ({ locked, title, childr
                             boxShadow: '0 4px 6px rgba(230, 126, 34, 0.3)',
                         }}
                     >
-                        <FaCrown size={compact ? 12 : 14} /> {t('statistics.premiumLock.upgradeToPremium')}
+                        <FaCrown size={compact ? 12 : 14} /> {t('statistics.premiumLock.comingSoonCta')}
                     </button>
                 </div>
             </div>

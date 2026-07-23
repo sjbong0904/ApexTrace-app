@@ -40,6 +40,8 @@
     "minimize": "Minimize",
     "maximize": "Maximize",
     "restore": "Restore",
+    "showProfile": "Profile",
+    "hideProfile": "Hide profile",
     "close": "Close",
     "closeDialog": {
       "title": "Close ApexTrace?",
@@ -93,7 +95,8 @@
     "archiveDesc1": "Recent matches are shown. Older matches are stored in",
     "archiveDescBold": "Archive",
     "subscribe": "Subscribe to Unlock",
-    "redirecting": "Redirecting to subscription page..."
+    "redirecting": "Redirecting to subscription page...",
+    "comingSoon": "Premium is coming soon. Thanks for your interest!"
   },
   "tutorial": {
     "dashboardTitle": "Dashboard",
@@ -329,7 +332,8 @@
       "otherIssuesTitle": "Other affected events ({{count}})",
       "fetchFailed": "Failed to fetch the game event status report.",
       "source": "Source: Overwolf game-events-status API",
-      "updatedAt": "Updated at {{time}}"
+      "updatedAt": "Updated at {{time}}",
+      "obituariesTip": "For full combat / kill feed recording, set Apex Settings → Obituaries to On."
     },
     "groups": {
       "gameMode": {
@@ -759,7 +763,8 @@
       "goBeyond": "Go beyond the basics.",
       "getDetailedInsights": "Get detailed insights on",
       "performance": "performance.",
-      "upgradeToPremium": "Upgrade to Premium"
+      "upgradeToPremium": "Upgrade to Premium",
+      "comingSoonCta": "Premium — Coming Soon"
     },
     "emptyState": {
       "title": "∅ No Data Found"
@@ -787,6 +792,7 @@
   },
   "sidebar": {
     "emptyNotice": "Play one match first to register your account before searching.",
+    "recentPlacements": "Recent placements",
     "tags": {
       "playstyle": {
         "grimReaper": {
@@ -911,5 +917,13 @@
       "sparrow": "Sparrow",
       "axle": "Axle"
     }
+  },
+  "ads": {
+    "railLabel": "Advertisements",
+    "railFooter": "Ads support ApexTrace. Premium coming soon."
+  },
+  "overlayHealth": {
+    "title": "In-game overlay input failed",
+    "message": "Restart your PC, then relaunch Apex Legends and Overwolf. Desktop tracking still works."
   }
 }

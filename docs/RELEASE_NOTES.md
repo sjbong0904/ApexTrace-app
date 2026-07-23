@@ -1,19 +1,35 @@
 # ApexTrace Release Notes
 
-## Unreleased
+## v0.0.8 — 2026-07-23
+
+Overwolf Free 티어 QA 제출용 빌드. 데스크톱 광고 + Free 게이트 고정 (Premium 미리보기 제거).
+
+### 새 기능
+
+- **OwAd 데스크톱 광고 레일** — 오른쪽 `AdsRail`: 상단 **400×60**, 하단 **400×600**. `OwAd.shutdown()` / `containerId` / SDK ready 대기. SETTINGS·검색 모달·종료 다이얼로그·minimize·GEP 드롭다운 시 `display:none` pause.
+- **인라인 프로필 헤더** — 대시보드에 프로필 카드 + 스탯 카드 나란히 (`InlineProfileSection`).
+- **오버레이 입력 실패 배너** — `overlayInputHookError` / `inputFailure` 시 PC 재시작 안내 (`OverlayHealthBanner`).
+- **GEP Obituaries 안내** — 헤더 GEP 상태 패널에 Apex Obituaries On 권장 팁.
+
+### Manifest / 패키지
+
+- `dock_button_title`, 잘못된 `disable_hardware_acceleration` 제거.
+- 권한: `Extensions` / `Streaming` / `Profile` / `DesktopStreaming` (`getMonitorsList`).
+- `externally_connectable` 확장 (Supabase, proxy, OwAd SDK, GEP status, jsDelivr).
+- 데스크톱 기본/최소 크기 조정, 데스크톱에서 `focus_game_takeover` 제거.
+- 제거(uninstall) 시 앱 UI 없이 브라우저 설문만 오픈.
 
 ### 개선
 
-- **무기별 킬/어시·통계 재설계** — 소지 시간(`hh:mm`), 이벤트 킬, 사망 시점 슬롯 데스(+중간 킬 보정 1), 승률/평균 순위는 최종 로드아웃·킬·전투 시점 양 슬롯 qualifying. KA/D 숨김. 매치 `weaponCombat` 요약 저장 (`matches.weapon_combat` / `deaths` 컬럼).
-- **K/D 데스** — 전체/레전드/팀원도 컴뱃로그 사망 횟수 기준(한 판 2회 사망 = 2데스). 레거시 매치는 기존 패배=1 폴백.
-- **Top Legends / Weapons** — 하이브리드 순위 `sqrt(사용량) × K/D` (레전드=판수, 무기=소지 분). Overview 메인 픽도 동일.
-- **통계 오버뷰 카드** — 맵/레전드 오버뷰 카드에서 무기 승률·팀원 레전드 픽률 제거(표는 유지). Weapons 탭 포디움 승률은 유지하며 ≥10%면 초록 표시.
-- **스탯 색 티어** — 승률·K/D·KA/D·평균 딜·평균 순위를 회색(낮음)/흰색(보통)/초록(높음)/금색(매우 높음) 4단계로 통일.
-- **Alt+F4 닫기 확인** — 데스크톱 창에서 Alt+F4 시에도 X 버튼과 동일한 종료/백그라운드 유지 확인 다이얼로그 (`is_alt_f4_blocked`).
+- **Free 고정** — 설정 Premium 미리보기 토글·localStorage override 제거. `isPremium=false` (광고 ON + 분석 탭 잠금). 구독 연동 시 같은 플래그로 광고/게이트 일괄 전환.
+- **창 실행** — 독/트레이 토글, Discord 초대 `skip_in_game_notification`, 트레이 destroy 시 리스너 정리, 게임 종료 시 desktop restore가 `_isWindowOpen` 동기화.
+- **광고·UI 안전** — 리사이즈 핸들 z-index/광고 레일 inset, 인게임에서 광고 미마운트, 네트워크·오버레이 배너 스택, `tryLoadSeasons` 취소·재시도 상한, AdUnit OwAd 대기 abort.
+- **최소 높이** — 창 높이 ≤800일 때 프로필 태그 최대 3개로 프로필/스탯 카드 높이 맞춤.
+- **무기 데이터** — fallback/타입 분리, `seed:weapons` 스크립트.
 
-### 수정
+### 문서
 
-- **컴뱃로그 킬 누락** — GEP가 출혈/링 등 finish를 로케일 `action`으로 보낼 때, 내가 넉다운한 victim이면 locale 무관하게 kill로 승격. `tabs.kills`와 컴뱃로그 불일치 완화.
+- [docs/launch/](launch/) — Overwolf QA 체크리스트, 스토어 카피, 인프라·오가닉 런칭 키트, future OW features.
 
 ---
 
@@ -23,8 +39,8 @@
 
 - **Match Data V3 (클라이언트)** — Statistics 탭이 `player_season_stats` 서버 집계를 우선 사용. 매치 목록은 summary-only 동기화, 펼침 시 detail lazy fetch + prefetch. `public.seasons` SSOT 기반 시즌 필터.
 - **팀원별 내 기록** — TOP3 카드(팀원 픽 포디움), 2단 헤더 표(팀원/내 기록), 표 첫 줄에 **나의 시즌 평균** baseline, 5판 이상 함께한 팀원은 **▲/▼** 시즌 평균 대비 표시, 긴 닉네임 marquee.
-- **닫기 확인** — 데스크톱 창 닫기 시 확인 다이얼로그 + “다시 묻지 않기” (`CloseConfirmDialog`).
-- **Supabase 마이그레이션** — `seasons`, `matches.season_id`, `player_season_stats` 스키마 추가.
+- **닫기 확인** — 데스크톱 창 X / Alt+F4 시 종료·백그라운드 유지 확인 다이얼로그 + “다시 묻지 않기” (`CloseConfirmDialog`, `is_alt_f4_blocked`).
+- **Supabase 마이그레이션** — `seasons`, `matches.season_id`, `player_season_stats`, `matches.weapon_combat`, `matches.deaths` 스키마 추가.
 - **개발용 시드** — `npm run seed:teammate-test` / `:clean` (가짜 팀원 매치 삽입·삭제).
 
 ### 개선
@@ -34,6 +50,15 @@
 - **로케일** — 팀원 탭/표 copy 개선, `{{variables}}` 미번역 버그 수정 (seed version 5), 10개 언어 동기화.
 - **매치 상세** — `matchDetail` 유틸, `matchPanelStyles` 공유, `ProfileTagIcon` 사이드바 태그.
 - **배경** — summary/detail API 분리, `apiService` stats 엔드포인트, repository lazy history.
+- **무기별 킬/어시·통계 재설계** — 소지 시간(`hh:mm`), 이벤트 킬, 사망 시점 슬롯 데스(+중간 킬 보정 1), 승률/평균 순위는 최종 로드아웃·킬·전투 시점 양 슬롯 qualifying. KA/D 숨김. 매치 `weaponCombat` 요약 저장.
+- **K/D 데스** — 전체/레전드/팀원도 컴뱃로그 사망 횟수 기준(한 판 2회 사망 = 2데스). 레거시 매치는 기존 패배=1 폴백.
+- **Top Legends / Weapons** — 하이브리드 순위 `sqrt(사용량) × K/D` (레전드=판수, 무기=소지 분). Overview 메인 픽도 동일.
+- **통계 오버뷰 카드** — 맵/레전드 오버뷰 카드에서 무기 승률·팀원 레전드 픽률 제거(표는 유지). Weapons 탭 포디움 승률은 유지하며 ≥10%면 초록 표시.
+- **스탯 색 티어** — 승률·K/D·KA/D·평균 딜·평균 순위를 회색(낮음)/흰색(보통)/초록(높음)/금색(매우 높음) 4단계로 통일.
+
+### 수정
+
+- **컴뱃로그 킬 누락** — GEP가 출혈/링 등 finish를 로케일 `action`으로 보낼 때, 내가 넉다운한 victim이면 locale 무관하게 kill로 승격. `tabs.kills`와 컴뱃로그 불일치 완화.
 
 ### 문서
 

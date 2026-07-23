@@ -20,6 +20,10 @@ export const i18nReady = i18n
             escapeValue: false,
         },
     })
-    .then(() => loadRemoteLanguages());
+    .then(() => loadRemoteLanguages())
+    .then(async () => {
+        const { loadWeaponsFromRemote } = await import('./utils/WeaponsData');
+        await loadWeaponsFromRemote();
+    });
 
 export default i18n;

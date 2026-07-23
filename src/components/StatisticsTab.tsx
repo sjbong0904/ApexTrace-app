@@ -6,7 +6,7 @@ import {
     Line, Bar, BarChart, LineChart, XAxis, YAxis, ReferenceLine
 } from 'recharts';
 import ChartContainer from './ChartContainer';
-import { FaLock, FaCrown, FaHistory, FaInfoCircle, FaSync } from 'react-icons/fa';
+import { FaLock, FaHistory, FaInfoCircle, FaSync } from 'react-icons/fa';
 import { COLORS, TARGET_MAPS, MAP_THUMBNAILS, LEGENDS_LIST } from '../utils/gameData';
 import { useTranslation } from 'react-i18next';
 import type { MatchHistory, Season } from '../utils/match';
@@ -1943,7 +1943,10 @@ const LegendsView = ({ data, profileUid, profileName }: { data: MatchHistory[]; 
             const l = normalizeLegendKey(m.legend);
             counts[l] = (counts[l] || 0) + 1;
         });
-        return Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([name, value]) => ({ name, value }));
+        return Object.entries(counts)
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 5)
+            .map(([name, value]) => ({ name: formatLegendDisplayName(name), value }));
     }, [data]);
 
     return (
@@ -1952,6 +1955,7 @@ const LegendsView = ({ data, profileUid, profileName }: { data: MatchHistory[]; 
                 <div style={{ flex: 2, display: 'flex', flexWrap: 'wrap', gap: '8px', padding: '15px', background: 'var(--color-bg-deep)', borderRadius: '10px', border: '1px solid var(--color-border)', maxHeight: '300px', overflowY: 'auto' }}>
                     {LEGENDS_LIST.map(legend => {
                         const isSelected = selectedLegend === legend;
+                        const legendTitle = formatLegendDisplayName(legend);
                         return (
                             <div
                                 key={legend}
@@ -1965,9 +1969,9 @@ const LegendsView = ({ data, profileUid, profileName }: { data: MatchHistory[]; 
                                     transform: isSelected ? 'scale(1.1)' : 'scale(1)',
                                     zIndex: isSelected ? 1 : 0
                                 }}
-                                title={legend}
+                                title={legendTitle}
                             >
-                                <img src={`https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/${legend}.png`} alt={legend} style={{ width: '100%', height: '100%', objectFit: 'cover', transform: 'scale(1.1)' }} onError={(e) => { (e.target as HTMLImageElement).src = 'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/unknown.png'; }} />
+                                <img src={`https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/${legend}.png`} alt={legendTitle} style={{ width: '100%', height: '100%', objectFit: 'cover', transform: 'scale(1.1)' }} onError={(e) => { (e.target as HTMLImageElement).src = 'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/unknown.png'; }} />
                             </div>
                         );
                     })}
@@ -1982,7 +1986,12 @@ const LegendsView = ({ data, profileUid, profileName }: { data: MatchHistory[]; 
                                         {pieData.map((_, index) => <Cell key={`cell-${index}`} fill={COLORS.CHART[index % COLORS.CHART.length]} />)}
                                     </Pie>
                                     <Tooltip contentStyle={{ backgroundColor: 'var(--color-bg-deep)', border: '1px solid var(--color-border-light)', fontSize: '12px' }} itemStyle={{ color: 'var(--color-text-primary)' }} />
-                                    <RechartsLegend layout="vertical" verticalAlign="middle" align="right" wrapperStyle={{ fontSize: '10px' }} />
+                                    <RechartsLegend
+                                        layout="vertical"
+                                        verticalAlign="middle"
+                                        align="right"
+                                        wrapperStyle={{ fontSize: '10px', cursor: 'default', pointerEvents: 'none' }}
+                                    />
                                 </PieChart>
                             </ChartContainer>
                         </div>
@@ -2870,12 +2879,6 @@ const StatisticsTab: React.FC<StatisticsTabProps> = ({
                     </span>
                 )}
             </div>
-
-            {isPremium && (
-                <div style={{ background: 'linear-gradient(90deg, var(--color-success) 0%, var(--color-success-dark) 100%)', color: 'var(--color-text-primary)', fontSize: '12px', fontWeight: 'bold', textAlign: 'center', padding: '8px', borderRadius: '6px', marginBottom: '20px', boxShadow: '0 4px 10px rgba(46, 204, 113, 0.2)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', animation: 'fadeIn 0.5s' }}>
-                    <FaCrown /><span>{t('statistics.betaNotice')} <b>{t('statistics.fullAnalyticsUnlocked')}</b></span>
-                </div>
-            )}
 
             {renderContent()}
         </div>

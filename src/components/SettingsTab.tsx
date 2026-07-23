@@ -433,7 +433,7 @@ const HotkeySettingsRows = () => {
     );
 };
 
-const SettingsTab = (_props: { isPremium?: boolean }) => {
+const SettingsTab = () => {
     const { t } = useTranslation();
     const [appVersion, setAppVersion] = useState('...');
     const [isResetting, setIsResetting] = useState(false);
@@ -445,7 +445,13 @@ const SettingsTab = (_props: { isPremium?: boolean }) => {
     }, []);
 
     const openDiscord = () => {
-        overwolf.utils.openUrlInDefaultBrowser("https://discord.gg/vwGVAFEYyj");
+        const openUrl = overwolf.utils.openUrlInDefaultBrowser as (
+            url: string,
+            options?: { skip_in_game_notification?: boolean },
+        ) => void;
+        openUrl('https://discord.gg/vwGVAFEYyj', {
+            skip_in_game_notification: true,
+        });
     };
 
     const handleOpenLogs = () => {
@@ -457,9 +463,14 @@ const SettingsTab = (_props: { isPremium?: boolean }) => {
         const logPath = `${localAppData}\\Overwolf\\Log\\Apps\\ApexTrace`;
 
         overwolf.utils.openWindowsExplorer(logPath, (result: any) => {
-            if (!result.success) {
-                prompt(t('settings.alerts.openFolderFailed'), logPath);
+            if (result?.success) return;
+
+            const fileUrl = `file:///${String(logPath).replace(/\\/g, '/')}`;
+            if (typeof overwolf.utils.openUrlInDefaultBrowser === 'function') {
+                overwolf.utils.openUrlInDefaultBrowser(fileUrl);
+                return;
             }
+            prompt(t('settings.alerts.openFolderFailed'), logPath);
         });
     };
 

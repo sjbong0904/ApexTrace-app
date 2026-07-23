@@ -6,7 +6,21 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>ApexTrace</title>
 
-    <script src="https://content.overwolf.com/libs/ads/latest/owads.min.js"></script>
+    <script>
+      function onAdsSDKReady() {
+        window.dispatchEvent(new Event('owads-ready'));
+      }
+      function onAdsSDKNotLoaded() {
+        console.error("Couldn't load owads.min.js!");
+        window.dispatchEvent(new Event('owads-failed'));
+      }
+    </script>
+    <script
+      src="https://content.overwolf.com/libs/ads/latest/owads.min.js"
+      async
+      onload="onAdsSDKReady()"
+      onerror="onAdsSDKNotLoaded()"
+    ></script>
   </head>
   <body>
     <div id="root"></div>

@@ -11,7 +11,6 @@ import { formatFullRankName } from '../utils/helpers';
 import { getWeaponTagTheme, getLegendImageId, getWeaponImageId, type WeaponTagTier } from '../utils/weaponTheme';
 import ProfileTagIcon from './ProfileTagIcon';
 
-
 // ✅ 최소 타입 정의
 interface UserData {
     uid: string | null;
@@ -34,6 +33,10 @@ interface SidebarProps {
     onToggleFavorite: () => void;
     onTogglePin: () => void;
     onReturnToPinned: () => void;
+    /** panel = old full-height sidebar; inline = card inside main scroll */
+    layout?: 'panel' | 'inline';
+    /** Smaller avatar/padding for narrow side-by-side layouts */
+    dense?: boolean;
 }
 
 interface PlayerTag {
@@ -133,11 +136,21 @@ const SIDEBAR_STYLES = `
 
 const Sidebar: React.FC<SidebarProps> = ({
     user, history, isFavorite, isPinned, hasPinnedUser,
-    onToggleFavorite, onTogglePin, onReturnToPinned
+    onToggleFavorite, onTogglePin, onReturnToPinned,
+    layout = 'panel',
+    dense = false,
 }) => {
     const { t } = useTranslation();
-    const [viewMode, setViewMode] = useState<'compact' | 'medium'>('medium');
+    const isInline = layout === 'inline';
+    const [viewMode, setViewMode] = useState<'compact' | 'medium'>(() =>
+        typeof window !== 'undefined' && window.innerHeight <= 800 ? 'compact' : 'medium',
+    );
     const nameRef = useRef<HTMLDivElement>(null);
+    const rootRef = useRef<HTMLDivElement>(null);
+    const contentRef = useRef<HTMLDivElement>(null);
+    const effectiveMode = dense || viewMode === 'compact' ? 'compact' : 'medium';
+    /** Min-height windows: fewer tags so profile card height stays near stats card. */
+    const maxTags = effectiveMode === 'compact' ? 3 : 5;
 
     const playerTags = useMemo((): PlayerTag[] => {
         const tags: PlayerTag[] = [];
@@ -157,7 +170,7 @@ const Sidebar: React.FC<SidebarProps> = ({
             });
         }
 
-        if (!history || history.length < 3) return tags;
+        if (!history || history.length < 3) return tags.slice(0, maxTags);
         const recent = history.slice(0, 20);
         const totalGames = recent.length;
 
@@ -305,12 +318,30 @@ const Sidebar: React.FC<SidebarProps> = ({
                 tags.push({ label: `${legendLocalizedName}${t('sidebar.tags.suffix.main')}`, desc: t('sidebar.tags.desc.legendMain'), icon: <FaStar />, color: '#a29bfe', score: 76, imageId: getLegendImageId(name), imageType: 'legend' });
         });
 
-        return tags.sort((a, b) => b.score - a.score).slice(0, 4);
-    }, [history, user.role, t]);
+        const MAX_WEAPON_TAGS = 2;
+        const MAX_LEGEND_TAGS = 1;
+        let weaponCount = 0;
+        let legendCount = 0;
+
+        return tags
+            .sort((a, b) => b.score - a.score)
+            .filter((tag) => {
+                if (tag.imageType === 'weapon') {
+                    if (weaponCount >= MAX_WEAPON_TAGS) return false;
+                    weaponCount += 1;
+                } else if (tag.imageType === 'legend') {
+                    if (legendCount >= MAX_LEGEND_TAGS) return false;
+                    legendCount += 1;
+                }
+                return true;
+            })
+            .slice(0, maxTags);
+    }, [history, user.role, t, maxTags]);
 
     useEffect(() => {
+        // Desktop min_size.height is 780 — treat near-min as compact for layout + tag cap.
         const handleResize = () => {
-            setViewMode(window.innerHeight < 750 ? 'compact' : 'medium');
+            setViewMode(window.innerHeight <= 800 ? 'compact' : 'medium');
         };
         handleResize();
         window.addEventListener('resize', handleResize);
@@ -321,18 +352,29 @@ const Sidebar: React.FC<SidebarProps> = ({
     useLayoutEffect(() => {
         const el = nameRef.current;
         if (!el) return;
-        const maxFontSize = viewMode === 'compact' ? 20 : 24;
+        const maxFontSize = effectiveMode === 'compact' ? 18 : 24;
         let currentSize = maxFontSize;
         el.style.fontSize = `${currentSize}px`;
-        while (el.scrollWidth > el.clientWidth && currentSize > 14) {
+        while (el.scrollWidth > el.clientWidth && currentSize > 12) {
             currentSize--;
             el.style.fontSize = `${currentSize}px`;
         }
-    }, [user.name, viewMode, hasPinnedUser]);
+    }, [user.name, effectiveMode, hasPinnedUser]);
 
     if (!user || !user.uid) {
         return (
-            <div style={{ width: '100%', height: '100%', background: 'var(--color-bg-main)', color: 'var(--color-text-secondary)', display: 'flex', flexDirection: 'column', borderRight: '1px solid var(--color-border)', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{
+                width: '100%',
+                height: isInline ? 'auto' : '100%',
+                minHeight: isInline ? 200 : undefined,
+                background: isInline ? 'transparent' : 'var(--color-bg-main)',
+                color: 'var(--color-text-secondary)',
+                display: 'flex',
+                flexDirection: 'column',
+                borderRight: isInline ? 'none' : '1px solid var(--color-border)',
+                alignItems: 'center',
+                justifyContent: 'center',
+            }}>
                 <div style={{ opacity: 0.3, textAlign: 'center', padding: '20px' }}>
                     <img src="https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/unknown.png" alt="Logo" style={{ width: '80px', marginBottom: '15px', filter: 'grayscale(100%)' }} />
                     <div style={{ fontSize: '18px', fontWeight: 'bold' }}>ApexTrace</div>
@@ -357,42 +399,59 @@ const Sidebar: React.FC<SidebarProps> = ({
         : formatFullRankName(user.rankName, user.rankDiv);
     const legendName = user.legend ? user.legend.toLowerCase() : 'unknown';
     const displayImage = `https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/${legendName}.png`;
-    const avatarSize = viewMode === 'compact' ? '80px' : '100px';
-    const rankIconSize = viewMode === 'compact' ? '30px' : '40px';
-    const containerPadding = viewMode === 'compact' ? '20px 15px' : '30px 20px';
+    const avatarSize = dense ? '56px' : effectiveMode === 'compact' ? '72px' : '100px';
+    const rankIconSize = dense ? '24px' : effectiveMode === 'compact' ? '28px' : '40px';
+    const containerPadding = effectiveMode === 'compact' ? '20px 15px' : '30px 20px';
     const showReturnBtn = !isPinned && hasPinnedUser;
-    const btnSize = 24;
-    const btnGap = 8;
+    const btnSize = dense ? 20 : 24;
+    const btnGap = dense ? 6 : 8;
     const totalLevel = ((user.prestige || 0) * 500) + (user.level || 0);
 
+    const inlinePadding = dense ? '12px 10px' : effectiveMode === 'compact' ? '14px 12px' : '20px 16px';
+    const avatarBorder = dense ? '3px' : '4px';
+    const avatarMarginBottom = dense ? 8 : 15;
+    const rankMarginBottom = dense ? 10 : 20;
+
     return (
-        <div style={{ width: '100%', height: '100%', background: 'var(--color-bg-main)', color: 'var(--color-text-secondary)', display: 'flex', flexDirection: 'column', borderRight: '1px solid var(--color-border)', position: 'relative' }}>
-            {/* ✅ style 태그를 JSX 외부 상수로 분리 */}
+        <div
+            id="sidebar-profile"
+            ref={rootRef}
+            style={{
+                width: '100%',
+                height: isInline ? 'auto' : '100%',
+                background: isInline ? 'transparent' : 'var(--color-bg-main)',
+                color: 'var(--color-text-secondary)',
+                display: 'flex',
+                flexDirection: 'column',
+                borderRight: isInline ? 'none' : '1px solid var(--color-border)',
+                position: 'relative',
+            }}
+        >
             <style>{SIDEBAR_STYLES}</style>
 
-            <div style={{ padding: containerPadding, display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
+            <div ref={contentRef} style={{ padding: isInline ? inlinePadding : containerPadding, display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
 
                 {/* 핀 & 즐겨찾기 */}
-                <div style={{ position: 'absolute', top: '15px', width: '100%', padding: '0 20px', display: 'flex', justifyContent: 'space-between', left: 0, boxSizing: 'border-box', zIndex: 10 }}>
+                <div style={{ position: 'absolute', top: dense ? 8 : 15, width: '100%', padding: dense ? '0 10px' : '0 20px', display: 'flex', justifyContent: 'space-between', left: 0, boxSizing: 'border-box', zIndex: 10, overflow: 'hidden', maxWidth: '100%' }}>
                     <button
                         onClick={onTogglePin}
                         // ✅ 번역 키 적용
                         title={isPinned ? t('controls.unpin') : t('controls.pin')}
-                        style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '20px', color: isPinned ? 'var(--color-success)' : 'var(--color-text-subtle)', transform: isPinned ? 'rotate(-45deg)' : 'rotate(0deg)', transition: 'all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)', padding: '5px', filter: isPinned ? 'drop-shadow(0 0 5px rgba(46, 204, 113, 0.5))' : 'none' }}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: dense ? 16 : 20, color: isPinned ? 'var(--color-success)' : 'var(--color-text-subtle)', transform: isPinned ? 'rotate(-45deg)' : 'rotate(0deg)', transition: 'color 0.2s ease, transform 0.2s ease', padding: '5px', filter: isPinned ? 'drop-shadow(0 0 5px rgba(46, 204, 113, 0.5))' : 'none' }}
                     >
                         <FaThumbtack />
                     </button>
                     <button
                         onClick={onToggleFavorite}
                         title={t('nav.favorites')}
-                        style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '22px', color: isFavorite ? '#f1c40f' : 'var(--color-text-subtle)', transition: 'all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)', transform: 'scale(1)', padding: '5px', filter: isFavorite ? 'drop-shadow(0 0 5px rgba(241, 196, 15, 0.5))' : 'none' }}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: dense ? 18 : 22, color: isFavorite ? '#f1c40f' : 'var(--color-text-subtle)', transition: 'color 0.2s ease', transform: 'none', padding: '5px', filter: isFavorite ? 'drop-shadow(0 0 5px rgba(241, 196, 15, 0.5))' : 'none' }}
                     >
                         {isFavorite ? <FaStar /> : <FaRegStar />}
                     </button>
                 </div>
 
                 {/* 아바타 */}
-                <div style={{ width: avatarSize, height: avatarSize, borderRadius: '50%', border: '4px solid var(--color-border)', overflow: 'hidden', background: 'var(--color-bg-deep)', marginBottom: '15px', marginTop: '10px', boxShadow: '0 8px 20px rgba(0,0,0,0.3)' }}>
+                <div style={{ width: avatarSize, height: avatarSize, borderRadius: '50%', border: `${avatarBorder} solid var(--color-border)`, overflow: 'hidden', background: 'var(--color-bg-deep)', marginBottom: avatarMarginBottom, marginTop: dense ? 4 : 10, boxShadow: '0 8px 20px rgba(0,0,0,0.3)', flexShrink: 0 }}>
                     <img src={displayImage} alt="Legend" style={{ width: '100%', height: '100%', objectFit: 'cover', transform: 'scale(1.1)' }} />
                 </div>
 
@@ -418,18 +477,18 @@ const Sidebar: React.FC<SidebarProps> = ({
                 </div>
 
                 {/* ✅ "Level" 하드코딩 → 번역 키 적용 */}
-                <div style={{ fontSize: '13px', color: 'var(--color-text-muted)', marginBottom: '15px', background: 'var(--color-bg-card)', padding: '2px 10px', borderRadius: '12px' }}>
+                <div style={{ fontSize: dense ? 11 : 13, color: 'var(--color-text-muted)', marginBottom: dense ? 8 : 15, background: 'var(--color-bg-card)', padding: '2px 10px', borderRadius: '12px' }}>
                     {t('favorites.level')} {totalLevel}
                 </div>
 
                 {/* 랭크 */}
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', marginBottom: '20px', background: 'var(--color-bg-card)', border: '1px solid var(--color-border)', padding: '8px 15px', borderRadius: '8px', width: '100%', boxSizing: 'border-box' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: dense ? 6 : 10, marginBottom: rankMarginBottom, background: 'var(--color-bg-card)', border: '1px solid var(--color-border)', padding: dense ? '6px 10px' : '8px 15px', borderRadius: '8px', width: '100%', boxSizing: 'border-box' }}>
                     <img src={rankIcon} alt="Rank" style={{ width: rankIconSize, height: rankIconSize, objectFit: 'contain' }} />
-                    <div style={{ textAlign: 'left' }}>
-                        <div style={{ fontSize: '15px', fontWeight: 'bold', color: 'var(--color-text-secondary)', lineHeight: '1.2' }}>
+                    <div style={{ textAlign: 'left', minWidth: 0 }}>
+                        <div style={{ fontSize: dense ? 12 : 15, fontWeight: 'bold', color: 'var(--color-text-secondary)', lineHeight: '1.2', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                             {displayRankName || t('favorites.unranked')}
                         </div>
-                        <div style={{ fontSize: '12px', color: 'var(--color-warning)', fontWeight: '600' }}>
+                        <div style={{ fontSize: dense ? 11 : 12, color: 'var(--color-warning)', fontWeight: '600' }}>
                             {(user.rankScore || 0).toLocaleString()} RP
                         </div>
                     </div>

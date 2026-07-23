@@ -40,6 +40,8 @@
     "minimize": "最小化",
     "maximize": "最大化",
     "restore": "元のサイズに戻す",
+    "showProfile": "プロフィール",
+    "hideProfile": "プロフィールを閉じる",
     "close": "閉じる",
     "closeDialog": {
       "title": "ApexTraceを閉じますか？",
@@ -93,7 +95,8 @@
     "archiveDesc1": "最近のマッチが表示されています。古いマッチは",
     "archiveDescBold": "アーカイブ",
     "subscribe": "サブスクリプションで解放",
-    "redirecting": "サブスクリプションページへ移動中..."
+    "redirecting": "サブスクリプションページへ移動中...",
+    "comingSoon": "プレミアムは近日公開予定です。ご関心ありがとうございます！"
   },
   "tutorial": {
     "dashboardTitle": "ダッシュボード",
@@ -329,7 +332,8 @@
       "otherIssuesTitle": "その他の影響を受けるイベント ({{count}})",
       "fetchFailed": "ゲームイベント状態レポートの取得に失敗しました。",
       "source": "出典: Overwolf game-events-status API",
-      "updatedAt": "更新: {{time}}"
+      "updatedAt": "更新: {{time}}",
+      "obituariesTip": "戦闘ログ／キルフィードを記録するには、Apexの設定で死亡者情報をオンにしてください。"
     },
     "groups": {
       "gameMode": {
@@ -748,7 +752,8 @@
       "goBeyond": "基本の先へ進みましょう。",
       "getDetailedInsights": "詳細なインサイトを確認",
       "performance": "パフォーマンス。",
-      "upgradeToPremium": "プレミアムにアップグレード"
+      "upgradeToPremium": "プレミアムにアップグレード",
+      "comingSoonCta": "プレミアム — 近日公開"
     },
     "emptyState": {
       "title": "∅ データが見つかりません"
@@ -776,6 +781,7 @@
   },
   "sidebar": {
     "emptyNotice": "アカウントを検索する前に、登録のためマッチを1回プレイしてください。",
+    "recentPlacements": "直近の順位",
     "tags": {
       "playstyle": {
         "grimReaper": {
@@ -900,5 +906,13 @@
       "sparrow": "スパロー",
       "axle": "アクセル"
     }
+  },
+  "ads": {
+    "railLabel": "広告",
+    "railFooter": "広告で ApexTrace を支えています。プレミアムは近日公開。"
+  },
+  "overlayHealth": {
+    "title": "ゲーム内オーバーレイの入力フックに失敗",
+    "message": "PCを再起動し、Apex Legends と Overwolf を起動し直してください。デスクトップ側の記録は動作します。"
   }
 }

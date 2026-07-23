@@ -25,6 +25,7 @@ declare global {
             localUid: string | null;
             getHistory: () => Match[];
             getStatus: () => string;
+            getOverlayHealth?: () => { hookError: boolean; at?: number };
             getIdentityState: () => { state: string; candidates: any[] | null };
             activeMatch?: Match | null;
             searchUser: (query: string, skipDb?: boolean) => Promise<any>;

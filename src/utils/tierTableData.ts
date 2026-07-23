@@ -64,7 +64,11 @@ export const TIER_COLOR_CYCLE = [
 ];
 
 export const formatLegendLabel = (slug: string): string =>
-    slug.split(' ').map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+    slug
+        .split(/\s+/)
+        .filter(Boolean)
+        .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+        .join(' ');
 
 export const getLegendImageUrl = (slug: string): string => `${IMAGE_BASE}/${slug}.png`;
 

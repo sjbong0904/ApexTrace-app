@@ -107,6 +107,108 @@ const WindowController = {
         return a.x === b.x && a.y === b.y && a.width === b.width && a.height === b.height;
     },
 
+    /** Work area inset — keep clear of the Windows taskbar (usually bottom). */
+    _TASKBAR_INSET: 48,
+
+    _displayWorkArea: (display) => {
+        if (!display) return null;
+        const inset = WindowController._TASKBAR_INSET;
+        return {
+            x: Number(display.x) || 0,
+            y: Number(display.y) || 0,
+            width: Math.max(0, Number(display.width) || 0),
+            height: Math.max(0, (Number(display.height) || 0) - inset),
+        };
+    },
+
+    _clampToWorkArea: (width, height, work) => {
+        if (!work) {
+            return {
+                width: Math.floor(width),
+                height: Math.floor(height),
+            };
+        }
+        return {
+            width: Math.floor(Math.min(width, work.width)),
+            height: Math.floor(Math.min(height, work.height)),
+        };
+    },
+
+    _centerInWorkArea: (width, height, work) => {
+        if (!work) return { left: 0, top: 0 };
+        const maxLeft = work.x + Math.max(0, work.width - width);
+        const maxTop = work.y + Math.max(0, work.height - height);
+        const left = work.x + Math.max(0, Math.round((work.width - width) / 2));
+        const top = work.y + Math.max(0, Math.round((work.height - height) / 2));
+        return {
+            left: Math.min(Math.max(left, work.x), maxLeft),
+            top: Math.min(Math.max(top, work.y), maxTop),
+        };
+    },
+
+    /**
+     * Resize (optional preferred size) and center a window inside a display's work area.
+     * @param {string} windowId
+     * @param {object} display
+     * @param {number} preferredWidth
+     * @param {number} preferredHeight
+     * @param {() => void} [done]
+     */
+    _applySizeAndCenter: (windowId, display, preferredWidth, preferredHeight, done) => {
+        const work = WindowController._displayWorkArea(display);
+        const { width, height } = WindowController._clampToWorkArea(
+            preferredWidth,
+            preferredHeight,
+            work,
+        );
+        const { left, top } = WindowController._centerInWorkArea(width, height, work);
+
+        overwolf.windows.changeSize({
+            window_id: windowId,
+            width,
+            height,
+        }, () => {
+            overwolf.windows.changePosition(windowId, left, top, () => {
+                if (typeof done === 'function') done();
+            });
+        });
+    },
+
+    /**
+     * Fit a window to the display it currently sits on (or preferred second screen).
+     * Called from the desktop/in-game UI via getMainWindow().WindowController.
+     */
+    resizeWindowToDisplay: (windowInfo, preferredWidth, preferredHeight) => {
+        if (!windowInfo?.id) return;
+
+        WindowController._getMonitorsList((res) => {
+            const displays = res.success && res.displays?.length ? res.displays : [];
+            if (displays.length === 0) return;
+
+            const boundsDisplay = WindowController._boundsDisplay({
+                left: windowInfo.left,
+                top: windowInfo.top,
+                width: windowInfo.width,
+                height: windowInfo.height,
+            }, displays);
+
+            const apply = (display) => {
+                const targetW = preferredWidth || windowInfo.width || 1540;
+                const targetH = preferredHeight || windowInfo.height || 850;
+                WindowController._applySizeAndCenter(windowInfo.id, display, targetW, targetH);
+            };
+
+            if (boundsDisplay) {
+                apply(boundsDisplay);
+                return;
+            }
+
+            overwolf.games.getRunningGameInfo((gameRes) => {
+                apply(WindowController._selectSecondScreen(displays, gameRes));
+            });
+        });
+    },
+
     _repositionDesktopIfVisible: () => {
         overwolf.windows.obtainDeclaredWindow("desktop", (res) => {
             if (res.status !== "success") return;
@@ -116,25 +218,33 @@ const WindowController = {
         });
     },
 
-    centerWindow: (windowId) => {
+    _getMonitorsList: (callback) => {
         overwolf.utils.getMonitorsList((res) => {
+            if (!res?.success || !res.displays?.length) {
+                console.warn('[Window] getMonitorsList failed:', res?.error || res);
+            }
+            callback(res);
+        });
+    },
+
+    centerWindow: (windowId) => {
+        WindowController._getMonitorsList((res) => {
             if (res.success && res.displays && res.displays.length > 0) {
                 const displays = res.displays;
 
                 overwolf.games.getRunningGameInfo((gameRes) => {
                     const targetDisplay = WindowController._selectSecondScreen(displays, gameRes);
 
-                    // 현재 창의 크기를 가져와서 중앙 좌표 계산
                     overwolf.windows.obtainDeclaredWindow("desktop", (winRes) => {
-                        if (winRes.success) {
-                            const winWidth = winRes.window.width || 1540;
-                            const winHeight = winRes.window.height || 850;
-
-                            const centerX = targetDisplay.x + Math.round((targetDisplay.width - winWidth) / 2);
-                            const centerY = targetDisplay.y + Math.round((targetDisplay.height - winHeight) / 2);
-
-                            overwolf.windows.changePosition(windowId, centerX, Math.max(targetDisplay.y, centerY));
-                        }
+                        if (!winRes.success) return;
+                        const winWidth = winRes.window.width || 1540;
+                        const winHeight = winRes.window.height || 850;
+                        WindowController._applySizeAndCenter(
+                            windowId,
+                            targetDisplay,
+                            winWidth,
+                            winHeight,
+                        );
                     });
                 });
             }
@@ -211,7 +321,7 @@ const WindowController = {
             return;
         }
 
-        overwolf.utils.getMonitorsList((res) => {
+        WindowController._getMonitorsList((res) => {
             const displays = res.success && res.displays?.length ? res.displays : [];
             if (!WindowController._isBoundsVisibleOnDisplays(saved, displays)) {
                 try {
@@ -236,7 +346,28 @@ const WindowController = {
                     return;
                 }
 
-                overwolf.windows.changePosition(windowId, saved.left, saved.top);
+                const display = boundsDisplay || preferredDisplay;
+                const work = WindowController._displayWorkArea(display);
+                const preferredW = Number(saved.width) || 1540;
+                const preferredH = Number(saved.height) || 850;
+                const { width, height } = WindowController._clampToWorkArea(preferredW, preferredH, work);
+
+                let left = Number(saved.left);
+                let top = Number(saved.top);
+                if (work) {
+                    const maxLeft = work.x + Math.max(0, work.width - width);
+                    const maxTop = work.y + Math.max(0, work.height - height);
+                    left = Math.min(Math.max(left, work.x), maxLeft);
+                    top = Math.min(Math.max(top, work.y), maxTop);
+                }
+
+                overwolf.windows.changeSize({
+                    window_id: windowId,
+                    width,
+                    height,
+                }, () => {
+                    overwolf.windows.changePosition(windowId, left, top);
+                });
             });
         });
     },
@@ -330,6 +461,18 @@ const WindowController = {
         overwolf.games.getRunningGameInfo((res) => {
             const inGame = res && res.isRunning && isApexGame(res.classId);
             WindowController.toggleDeclaredWindow(inGame ? "in_game" : "desktop");
+        });
+    },
+
+    /** Show the right window without toggling closed (GameLaunch / install / store). */
+    ensureVisibleWindow: () => {
+        overwolf.games.getRunningGameInfo((res) => {
+            const inGame = res && res.isRunning && isApexGame(res.classId);
+            if (inGame) {
+                WindowController.showSecondScreen();
+            } else {
+                WindowController.openMainWindow();
+            }
         });
     },
 
@@ -454,6 +597,7 @@ const TRAY_MENU = {
 
 const TrayController = {
     _initialized: false,
+    _listenersBound: false,
 
     init: () => {
         if (TrayController._initialized || !overwolf.os?.tray?.setMenu) return;
@@ -467,19 +611,33 @@ const TrayController = {
             console.log('System tray icon ready');
         });
 
-        overwolf.os.tray.onMenuItemClicked.addListener(TrayController._onMenuItemClicked);
-        overwolf.os.tray.onTrayIconClicked.addListener(() => {
-            WindowController.showSecondScreen();
-        });
-        overwolf.os.tray.onTrayIconDoubleClicked.addListener(() => {
-            WindowController.showSecondScreen();
-        });
+        if (!TrayController._listenersBound) {
+            overwolf.os.tray.onMenuItemClicked.addListener(TrayController._onMenuItemClicked);
+            overwolf.os.tray.onTrayIconClicked.addListener(TrayController._onTrayIconClicked);
+            overwolf.os.tray.onTrayIconDoubleClicked.addListener(TrayController._onTrayIconDoubleClicked);
+            TrayController._listenersBound = true;
+        }
     },
 
     destroy: () => {
-        if (!TrayController._initialized || !overwolf.os?.tray?.destroy) return;
-        overwolf.os.tray.destroy();
+        if (TrayController._listenersBound && overwolf.os?.tray) {
+            overwolf.os.tray.onMenuItemClicked.removeListener(TrayController._onMenuItemClicked);
+            overwolf.os.tray.onTrayIconClicked.removeListener(TrayController._onTrayIconClicked);
+            overwolf.os.tray.onTrayIconDoubleClicked.removeListener(TrayController._onTrayIconDoubleClicked);
+            TrayController._listenersBound = false;
+        }
+        if (TrayController._initialized && overwolf.os?.tray?.destroy) {
+            overwolf.os.tray.destroy();
+        }
         TrayController._initialized = false;
+    },
+
+    _onTrayIconClicked: () => {
+        WindowController.showSecondScreen();
+    },
+
+    _onTrayIconDoubleClicked: () => {
+        WindowController.showSecondScreen();
     },
 
     _onMenuItemClicked: (event) => {
@@ -488,7 +646,9 @@ const TrayController = {
                 WindowController.showSecondScreen();
                 break;
             case 'tray_discord':
-                overwolf.utils.openUrlInDefaultBrowser(OFFICIAL_DISCORD_URL);
+                overwolf.utils.openUrlInDefaultBrowser(OFFICIAL_DISCORD_URL, {
+                    skip_in_game_notification: true,
+                });
                 break;
             case 'tray_restart':
                 if (window.Store?.activeMatch && window.CoreController?.endMatch) {
@@ -580,7 +740,9 @@ window.Store = {
     history: [],
     preMatchRoster: [],
     pendingMatches: [],
-    system: { candidates: null }
+    system: { candidates: null },
+    /** Overlay hook health for in-game window (surfaced on desktop/in-game UI). */
+    overlayHealth: { hookError: false, at: 0 }
 };
 
 /** 매치 종료 업로드 큐 — startMatch가 finalize 완료 전에 세션을 덮어쓰지 않도록 함 */
@@ -1218,6 +1380,7 @@ const GameProcessMonitor = {
     
     init: () => {
         overwolf.games.onGameInfoUpdated.addListener((res) => {
+            GameProcessMonitor.updateOverlayHealth(res);
             if (res && res.gameInfo) GameProcessMonitor.checkGameStatus(res.gameInfo);
         });
 
@@ -1228,6 +1391,39 @@ const GameProcessMonitor = {
         GameProcessMonitor.registerFeatures();
     },
 
+    /**
+     * Track Overwolf overlay input-hook failures (FPS exclusive mode).
+     * GEP/desktop still work; in-game window may not receive input until restart.
+     */
+    updateOverlayHealth: (event) => {
+        const gameInfo = event?.gameInfo;
+        const isApex = gameInfo && (
+            isApexGame(gameInfo.classId)
+            || (gameInfo.title && String(gameInfo.title).includes('Apex Legends'))
+        );
+
+        if (!isApex || !gameInfo?.isRunning) {
+            if (window.Store.overlayHealth?.hookError) {
+                window.Store.overlayHealth = { hookError: false, at: Date.now() };
+            }
+            return;
+        }
+
+        const reasons = Array.isArray(event?.reason)
+            ? event.reason
+            : (typeof event?.reason === 'string' && event.reason ? [event.reason] : []);
+
+        const detected = Boolean(event?.overlayInputHookError)
+            || reasons.includes('gameOverlayInputHookFailure')
+            || Boolean(gameInfo.overlayInfo?.inputFailure);
+
+        // Latch true while Apex is running — subsequent focus events often omit the flag.
+        if (detected && !window.Store.overlayHealth?.hookError) {
+            console.warn('[Overlay] hookError detected', reasons, gameInfo.overlayInfo);
+            window.Store.overlayHealth = { hookError: true, at: Date.now() };
+        }
+    },
+
     checkGameStatus: (gameInfo) => {
         if (!gameInfo) return;
 
@@ -1235,6 +1431,10 @@ const GameProcessMonitor = {
         const isRunning = gameInfo.isRunning;
 
         if (isApex && isRunning) {
+            if (gameInfo.overlayInfo?.inputFailure && !window.Store.overlayHealth?.hookError) {
+                console.warn('[Overlay] inputFailure on running game');
+                window.Store.overlayHealth = { hookError: true, at: Date.now() };
+            }
             const wasOffline = window.Store.game.phase === 'OFFLINE';
             if (wasOffline) {
                 window.Store.game.phase = 'LOBBY';
@@ -1255,6 +1455,9 @@ const GameProcessMonitor = {
                 }
             }
         } else if (isApex && !isRunning) {
+            if (window.Store.overlayHealth?.hookError) {
+                window.Store.overlayHealth = { hookError: false, at: Date.now() };
+            }
             if (window.Store.game.phase !== 'OFFLINE') {
                 window.Store.game.phase = 'OFFLINE';
                 WindowController._lastGameMonitorHandle = null;
@@ -1266,15 +1469,11 @@ const GameProcessMonitor = {
                     if (res.status === "success") overwolf.windows.close(res.window.id);
                 });
                 
-                // 이전에 작성했던 바탕화면 창(desktop) 띄우기 로직...
+                // Desktop restore via shared helper so _isWindowOpen stays in sync
                 console.log("Game closed. Restoring desktop window...");
-                overwolf.windows.obtainDeclaredWindow("desktop", (res) => {
-                    if (res.status === "success") {
-                        overwolf.windows.restore(res.window.id, () => {
-                            WindowController._placeDesktopWindow(res.window.id, 'restore');
-                            overwolf.windows.bringToFront(res.window.id, true, () => {});
-                        });
-                    }
+                WindowController._showDeclaredWindow('desktop', {
+                    grabFocus: true,
+                    desktopPlacement: 'restore',
                 });
             }
         }
@@ -1320,6 +1519,7 @@ window.apexData = {
     get user() { return window.Store.user; },
     getHistory: () => window.Store.history,
     getStatus: () => window.Store.game.phase,
+    getOverlayHealth: () => window.Store.overlayHealth || { hookError: false, at: 0 },
     getLocalUid: () => window.Store.system?.localUser?.uid ?? null,
     getIdentityState: () => ({ state: "SEARCH_MODE", candidates: window.Store.system.candidates }),
     searchUser: CoreController.searchUser,
@@ -1369,8 +1569,47 @@ overwolf.settings.hotkeys.onPressed.addListener((event) => {
 
 });
 
-overwolf.extensions.onAppLaunchTriggered.addListener(() => {
-    WindowController.toggleWindow();
+/** Parse onAppLaunchTriggered source from event.origin (?source=) or origin/source fields. */
+const getAppLaunchSource = (event) => {
+    if (!event) return '';
+    if (event.source) return String(event.source).toLowerCase();
+
+    const origin = String(event.origin || '');
+    if (!origin) return '';
+
+    try {
+        const query = origin.includes('?') ? origin.slice(origin.indexOf('?') + 1) : '';
+        if (query) {
+            const fromQuery = new URLSearchParams(query).get('source');
+            if (fromQuery) return fromQuery.toLowerCase();
+        }
+    } catch (_) {
+        // ignore malformed origin
+    }
+
+    // Some clients pass origin as the source name itself (e.g. "urlscheme", "dock").
+    if (/^[a-z0-9-]+$/i.test(origin)) return origin.toLowerCase();
+    return '';
+};
+
+const APP_LAUNCH_TOGGLE_SOURCES = new Set(['dock', 'tray']);
+const APP_LAUNCH_IGNORE_SOURCES = new Set(['hotkey']);
+
+overwolf.extensions.onAppLaunchTriggered.addListener((event) => {
+    const source = getAppLaunchSource(event);
+
+    // Hotkeys are handled by overwolf.settings.hotkeys.onPressed — avoid double toggle.
+    if (APP_LAUNCH_IGNORE_SOURCES.has(source)) return;
+
+    // Dock / tray: user expects show/hide toggle while already running.
+    if (APP_LAUNCH_TOGGLE_SOURCES.has(source)) {
+        WindowController.toggleWindow();
+        return;
+    }
+
+    // GameLaunch, after-install, startup, store, urlscheme, etc. — open/focus only.
+    // Never toggle-closed: init/openMainWindow can race with gamelaunchevent.
+    WindowController.ensureVisibleWindow();
 });
 
 window.addEventListener('beforeunload', () => {

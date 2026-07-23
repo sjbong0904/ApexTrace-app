@@ -3,14 +3,14 @@ import { useTranslation } from 'react-i18next';
 import type { Match } from '../types';
 import { getRankColor } from '../utils/helpers';
 
-const PerformanceTrend = ({ history }: { history: Match[] }) => {
+const PerformanceTrend = ({ history, embedded = false }: { history: Match[]; embedded?: boolean }) => {
     const { t } = useTranslation();
 
     const data = useMemo(() => history.slice(0, 20).reverse(), [history]);
 
     const width = 600;
-    const height = 120;
-    const paddingY = 25;
+    const height = embedded ? 88 : 120;
+    const paddingY = embedded ? 20 : 25;
     const paddingX = 30;
     const maxRank = 20;
 
@@ -33,7 +33,17 @@ const PerformanceTrend = ({ history }: { history: Match[] }) => {
 
     if (data.length === 0) {
         return (
-            <div style={{ width: '100%', height: '100px', background: 'var(--color-bg-card)', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--color-text-subtle)', fontSize: '12px' }}>
+            <div style={{
+                width: '100%',
+                height: embedded ? 72 : 100,
+                borderRadius: embedded ? 0 : 8,
+                background: embedded ? 'transparent' : 'var(--color-bg-card)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: 'var(--color-text-subtle)',
+                fontSize: 12,
+            }}>
                 {t('performanceTrend.noData', 'No match data available')}
             </div>
         );
@@ -59,15 +69,30 @@ const PerformanceTrend = ({ history }: { history: Match[] }) => {
     `;
 
     return (
-        <div style={{ width: '100%', padding: '10px 0' }}>
-            <h3 style={{ marginTop: 0, marginBottom: '10px', color: 'var(--color-text-secondary)', fontSize: '18px' }}>
+        <div style={{ width: '100%', padding: embedded ? 0 : '10px 0' }}>
+            <h3 style={{
+                marginTop: 0,
+                marginBottom: embedded ? 6 : 10,
+                color: 'var(--color-text-secondary)',
+                fontSize: embedded ? 12 : 18,
+                fontWeight: embedded ? 600 : 'bold',
+                letterSpacing: embedded ? '0.02em' : undefined,
+            }}>
                 {t('performanceTrend.title', 'Performance Trend')}
-                <span style={{ fontSize: '12px', color: 'var(--color-text-faint)', fontWeight: 'normal', marginLeft: '8px' }}>
+                <span style={{ fontSize: embedded ? 10 : 12, color: 'var(--color-text-faint)', fontWeight: 'normal', marginLeft: 8 }}>
                     {t('performanceTrend.subtitle', '(Old → Recent)')}
                 </span>
             </h3>
 
-            <div style={{ width: '100%', height: '120px', background: 'var(--color-bg-card)', borderRadius: '8px', position: 'relative', border: '1px solid var(--color-border)', overflow: 'visible' }}>
+            <div style={{
+                width: '100%',
+                height: embedded ? 88 : 120,
+                background: embedded ? 'rgba(255,255,255,0.02)' : 'var(--color-bg-card)',
+                borderRadius: 8,
+                position: 'relative',
+                border: '1px solid var(--color-border)',
+                overflow: 'visible',
+            }}>
                 <div style={{ position: 'absolute', top: `${paddingY}px`, left: '10px', right: '10px', borderTop: '1px dashed var(--color-border-light)', height: '1px' }} />
                 <div style={{ position: 'absolute', top: '50%', left: '10px', right: '10px', borderTop: '1px dashed var(--color-border)', height: '1px' }} />
                 <div style={{ position: 'absolute', bottom: `${paddingY}px`, left: '10px', right: '10px', borderTop: '1px dashed var(--color-border-light)', height: '1px' }} />

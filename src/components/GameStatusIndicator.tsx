@@ -93,6 +93,16 @@ const GameStatusIndicator: React.FC = () => {
         return () => document.removeEventListener('mousedown', handlePointerDown);
     }, [open]);
 
+    // Pause ads while the GEP dropdown can cover the rail (OW ads policy).
+    useEffect(() => {
+        window.dispatchEvent(new CustomEvent('apex-ads-cover', { detail: open }));
+        return () => {
+            if (open) {
+                window.dispatchEvent(new CustomEvent('apex-ads-cover', { detail: false }));
+            }
+        };
+    }, [open]);
+
     const overallState = statusData?.state ?? 0;
     const info = getOverallStatusInfo(overallState, t);
     const groupedIssues = useMemo(
@@ -252,6 +262,23 @@ const GameStatusIndicator: React.FC = () => {
                             })}
                         </div>
                     )}
+
+                    <div
+                        style={{
+                            padding: '10px 12px',
+                            borderRadius: '8px',
+                            background: 'rgba(241, 196, 15, 0.08)',
+                            border: '1px solid rgba(241, 196, 15, 0.25)',
+                            fontSize: '11px',
+                            lineHeight: 1.45,
+                            color: 'var(--color-text-muted)',
+                            marginBottom: '12px',
+                        }}
+                    >
+                        {t('gameStatus.panel.obituariesTip', {
+                            defaultValue: 'For full combat / kill feed recording, set Apex Settings → Obituaries to On.',
+                        })}
+                    </div>
 
                     <div
                         style={{

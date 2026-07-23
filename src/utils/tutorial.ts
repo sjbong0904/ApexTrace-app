@@ -47,11 +47,11 @@ export const startTutorial = () => {
                 },
             },
             {
-                element: '#sidebar-profile',
+                element: '#inline-profile',
                 popover: {
                     title: i18n.t('tutorial.profileTitle'),
                     description: i18n.t('tutorial.profileDesc'),
-                    side: "right",
+                    side: "bottom",
                     align: 'start',
                 },
             },

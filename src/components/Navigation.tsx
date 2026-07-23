@@ -11,7 +11,7 @@ interface NavProps {
 const Navigation = ({ activeTab, onTabChange }: NavProps) => {
     const { t } = useTranslation();
     const { isDark } = useTheme();
-    const [hoveredTab, setHoveredTab] = useState<string | null>(null); // ✅ hover state
+    const [hoveredTab, setHoveredTab] = useState<string | null>(null);
 
     const navItemStyle = (isActive: boolean, tabId: string): React.CSSProperties => ({
         width: '50px',
@@ -38,7 +38,7 @@ const Navigation = ({ activeTab, onTabChange }: NavProps) => {
             <div
                 title={t('nav.matchHistory')}
                 id="nav-dashboard"
-                style={navItemStyle(activeTab === "DASHBOARD", "DASHBOARD")} // ✅ tabId 추가
+                style={navItemStyle(activeTab === "DASHBOARD", "DASHBOARD")}
                 onClick={() => onTabChange("DASHBOARD")}
                 onMouseEnter={() => setHoveredTab("DASHBOARD")}
                 onMouseLeave={() => setHoveredTab(null)}
@@ -49,7 +49,7 @@ const Navigation = ({ activeTab, onTabChange }: NavProps) => {
             <div
                 title={t('nav.statistics')}
                 id="nav-statistics"
-                style={navItemStyle(activeTab === "STATISTICS", "STATISTICS")} // ✅ tabId 추가
+                style={navItemStyle(activeTab === "STATISTICS", "STATISTICS")}
                 onClick={() => onTabChange("STATISTICS")}
                 onMouseEnter={() => setHoveredTab("STATISTICS")}
                 onMouseLeave={() => setHoveredTab(null)}
@@ -62,7 +62,7 @@ const Navigation = ({ activeTab, onTabChange }: NavProps) => {
             <div
                 title={t('nav.favorites')}
                 id="nav-favorites"
-                style={navItemStyle(activeTab === "FAVORITES", "FAVORITES")} // ✅ tabId 추가
+                style={navItemStyle(activeTab === "FAVORITES", "FAVORITES")}
                 onClick={() => onTabChange("FAVORITES")}
                 onMouseEnter={() => setHoveredTab("FAVORITES")}
                 onMouseLeave={() => setHoveredTab(null)}
@@ -96,7 +96,7 @@ const Navigation = ({ activeTab, onTabChange }: NavProps) => {
                 <div
                     title={t('nav.settings')}
                     id="nav-settings"
-                    style={navItemStyle(activeTab === "SETTINGS", "SETTINGS")} // ✅ tabId 추가
+                    style={navItemStyle(activeTab === "SETTINGS", "SETTINGS")}
                     onClick={() => onTabChange("SETTINGS")}
                     onMouseEnter={() => setHoveredTab("SETTINGS")}
                     onMouseLeave={() => setHoveredTab(null)}

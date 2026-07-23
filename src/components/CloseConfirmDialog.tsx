@@ -1,6 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { CloseAction } from '../utils/closePreference';
+
+const ADS_COVER_EVENT = 'apex-ads-cover';
 
 interface CloseConfirmDialogProps {
     onConfirm: (action: CloseAction, dontAskAgain: boolean) => void;
@@ -11,6 +13,14 @@ const CloseConfirmDialog: React.FC<CloseConfirmDialogProps> = ({ onConfirm, onCa
     const { t } = useTranslation();
     const [action, setAction] = useState<CloseAction>('hide');
     const [dontAskAgain, setDontAskAgain] = useState(false);
+
+    // Full-screen overlay covers ad rail — OW: pause ads via display:none while covered.
+    useEffect(() => {
+        window.dispatchEvent(new CustomEvent(ADS_COVER_EVENT, { detail: true }));
+        return () => {
+            window.dispatchEvent(new CustomEvent(ADS_COVER_EVENT, { detail: false }));
+        };
+    }, []);
 
     const optionStyle = (selected: boolean): React.CSSProperties => ({
         display: 'flex',

@@ -40,6 +40,8 @@
     "minimize": "최소화",
     "maximize": "최대화",
     "restore": "이전 크기로",
+    "showProfile": "프로필",
+    "hideProfile": "프로필 닫기",
     "close": "닫기",
     "closeDialog": {
       "title": "ApexTrace를 닫을까요?",
@@ -93,7 +95,8 @@
     "archiveDesc1": "최근 매치가 표시됩니다. 오래된 매치는",
     "archiveDescBold": "아카이브",
     "subscribe": "구독하여 잠금 해제",
-    "redirecting": "구독 페이지로 이동 중..."
+    "redirecting": "구독 페이지로 이동 중...",
+    "comingSoon": "프리미엄은 곧 출시 예정입니다. 관심 가져 주셔서 감사합니다!"
   },
   "tutorial": {
     "dashboardTitle": "대시보드",
@@ -329,7 +332,8 @@
       "otherIssuesTitle": "기타 영향받는 이벤트 ({{count}})",
       "fetchFailed": "게임 이벤트 상태 리포트를 가져오지 못했습니다.",
       "source": "출처: Overwolf game-events-status API",
-      "updatedAt": "갱신: {{time}}"
+      "updatedAt": "갱신: {{time}}",
+      "obituariesTip": "전투·킬피드 기록을 위해 Apex 설정에서 사망 알림을 켜 두세요."
     },
     "groups": {
       "gameMode": {
@@ -759,7 +763,8 @@
       "goBeyond": "기본을 넘어서세요.",
       "getDetailedInsights": "상세 인사이트 확인하기",
       "performance": "퍼포먼스.",
-      "upgradeToPremium": "프리미엄으로 업그레이드"
+      "upgradeToPremium": "프리미엄으로 업그레이드",
+      "comingSoonCta": "프리미엄 — 출시 예정"
     },
     "emptyState": {
       "title": "∅ 데이터를 찾을 수 없음"
@@ -787,6 +792,7 @@
   },
   "sidebar": {
     "emptyNotice": "계정 검색 전, 등록을 위해 매치를 한 번 플레이해 주세요.",
+    "recentPlacements": "최근 전적",
     "tags": {
       "playstyle": {
         "grimReaper": {
@@ -911,5 +917,13 @@
       "sparrow": "스패로우",
       "axle": "액슬"
     }
+  },
+  "ads": {
+    "railLabel": "광고",
+    "railFooter": "광고가 ApexTrace를 지원합니다. 프리미엄은 곧 출시 예정입니다."
+  },
+  "overlayHealth": {
+    "title": "인게임 오버레이 입력 훅 실패",
+    "message": "PC를 재시작한 뒤 Apex와 Overwolf를 다시 실행하세요. 데스크톱 매치 기록은 계속 동작합니다."
   }
 }

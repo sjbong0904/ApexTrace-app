@@ -40,6 +40,8 @@
     "minimize": "最小化",
     "maximize": "最大化",
     "restore": "還原",
+    "showProfile": "個人資料",
+    "hideProfile": "關閉資料",
     "close": "關閉",
     "closeDialog": {
       "title": "關閉 ApexTrace？",
@@ -93,7 +95,8 @@
     "archiveDesc1": "顯示最近對局。較早的對局保存在",
     "archiveDescBold": "歸檔",
     "subscribe": "訂閱以解鎖",
-    "redirecting": "正在跳轉到訂閱頁面..."
+    "redirecting": "正在跳轉到訂閱頁面...",
+    "comingSoon": "Premium 即將推出，感謝關注！"
   },
   "tutorial": {
     "dashboardTitle": "儀表盤",
@@ -329,7 +332,8 @@
       "otherIssuesTitle": "其他受影響事件 ({{count}})",
       "fetchFailed": "取得遊戲事件狀態報告失敗。",
       "source": "來源：Overwolf game-events-status API",
-      "updatedAt": "更新於 {{time}}"
+      "updatedAt": "更新於 {{time}}",
+      "obituariesTip": "若要完整記錄戰鬥／擊殺播報，請在 Apex 設定開啟陣亡訊息。"
     },
     "groups": {
       "gameMode": {
@@ -748,7 +752,8 @@
       "goBeyond": "超越基礎資料。",
       "getDetailedInsights": "取得關於",
       "performance": "表現的詳細洞察。",
-      "upgradeToPremium": "升級至 Premium"
+      "upgradeToPremium": "升級至 Premium",
+      "comingSoonCta": "Premium — 即將推出"
     },
     "emptyState": {
       "title": "∅ 未找到資料"
@@ -776,6 +781,7 @@
   },
   "sidebar": {
     "emptyNotice": "請先進行一場對局以註冊賬號，然後再搜尋。",
+    "recentPlacements": "最近名次",
     "tags": {
       "playstyle": {
         "grimReaper": {
@@ -900,5 +906,13 @@
       "sparrow": "Sparrow",
       "axle": "Axle"
     }
+  },
+  "ads": {
+    "railLabel": "廣告",
+    "railFooter": "廣告支持 ApexTrace。Premium 即將推出。"
+  },
+  "overlayHealth": {
+    "title": "遊戲內覆蓋層輸入掛鉤失敗",
+    "message": "請重新啟動電腦後再開啟 Apex Legends 與 Overwolf。桌面端對戰記錄仍可正常運作。"
   }
 }

@@ -12,7 +12,11 @@ export const formatDuration = (ms: number): string => {
 };
 
 export const formatLegendDisplayName = (legendId: string) =>
-    legendId.split(' ').map(part => part.charAt(0).toUpperCase() + part.slice(1)).join(' ');
+    legendId
+        .split(/\s+/)
+        .filter(Boolean)
+        .map(part => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+        .join(' ');
 
 export const getMatchPlacement = (m: MatchHistory): number => {
     const placement = m.placement;

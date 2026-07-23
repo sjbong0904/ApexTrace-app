@@ -465,7 +465,7 @@ const WeaponsTab = () => {
 
                     <div style={{ display: 'flex', gap: '30px', flexWrap: 'wrap' }}>
                         {/* 왼쪽 — 무기 이미지 & 변형 선택 */}
-                        <div style={{ flex: 1, minWidth: '300px' }}>
+                        <div style={{ flex: 1, minWidth: '240px' }}>
                             <div style={{
                                 background: theme.detailCardBg, borderRadius: '12px', padding: '30px',
                                 border: `2px solid ${themeColor}`, textAlign: 'center', marginBottom: '20px',
@@ -555,7 +555,7 @@ const WeaponsTab = () => {
                         </div>
 
                         {/* 오른쪽 — 스탯 & 부착물 */}
-                        <div style={{ flex: 1.5, minWidth: '300px' }}>
+                        <div style={{ flex: 1.5, minWidth: '240px' }}>
                                     <h3 style={{ borderBottom: `1px solid ${themeColor}66`, paddingBottom: '8px', marginBottom: '20px', color: themeColor, fontSize: '18px' }}>
                                 {t('weapons.weaponStatistics')}
                             </h3>

@@ -40,6 +40,8 @@
     "minimize": "Minimizar",
     "maximize": "Maximizar",
     "restore": "Restaurar",
+    "showProfile": "Perfil",
+    "hideProfile": "Ocultar perfil",
     "close": "Cerrar",
     "closeDialog": {
       "title": "¿Cerrar ApexTrace?",
@@ -93,7 +95,8 @@
     "archiveDesc1": "Se muestran las partidas recientes. Las más antiguas están en",
     "archiveDescBold": "Archivo",
     "subscribe": "Suscríbete para desbloquear",
-    "redirecting": "Redirigiendo a la página de suscripción..."
+    "redirecting": "Redirigiendo a la página de suscripción...",
+    "comingSoon": "Premium llegará pronto. ¡Gracias por tu interés!"
   },
   "tutorial": {
     "dashboardTitle": "Panel",
@@ -329,7 +332,8 @@
       "otherIssuesTitle": "Otros eventos afectados ({{count}})",
       "fetchFailed": "No se pudo obtener el informe de estado de eventos.",
       "source": "Fuente: Overwolf game-events-status API",
-      "updatedAt": "Actualizado a las {{time}}"
+      "updatedAt": "Actualizado a las {{time}}",
+      "obituariesTip": "Para registrar el combate y el feed de bajas completo, activa Obituarios en la configuración de Apex."
     },
     "groups": {
       "gameMode": {
@@ -748,7 +752,8 @@
       "goBeyond": "Ve más allá de lo básico.",
       "getDetailedInsights": "Obtén información detallada sobre",
       "performance": "el rendimiento.",
-      "upgradeToPremium": "Actualizar a Premium"
+      "upgradeToPremium": "Actualizar a Premium",
+      "comingSoonCta": "Premium — Próximamente"
     },
     "emptyState": {
       "title": "∅ No se encontraron datos"
@@ -776,6 +781,7 @@
   },
   "sidebar": {
     "emptyNotice": "Juega una partida primero para registrar tu cuenta antes de buscar.",
+    "recentPlacements": "Posiciones recientes",
     "tags": {
       "playstyle": {
         "grimReaper": {
@@ -900,5 +906,13 @@
       "sparrow": "Sparrow",
       "axle": "Axle"
     }
+  },
+  "ads": {
+    "railLabel": "Anuncios",
+    "railFooter": "Los anuncios sostienen ApexTrace. Premium pronto."
+  },
+  "overlayHealth": {
+    "title": "Fallo del hook de entrada del overlay en el juego",
+    "message": "Reinicia el PC y vuelve a abrir Apex Legends y Overwolf. El seguimiento en escritorio sigue funcionando."
   }
 }
