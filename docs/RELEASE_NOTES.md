@@ -1,5 +1,23 @@
 # ApexTrace Release Notes
 
+## v0.0.9 — 2026-07-27
+
+매치 경계(capture) 로직을 **이상적 GEP 계약** 기준으로 재정리. Overwolf 측에 연속 큐 시 `match_start`/`pseudo`/`legendSelect` 누락 이슈도 제보함.
+
+### 개선
+
+- **1차 경계** — `match_start` / `match_end`를 주 시작·종료 신호로 사용.
+- **2차 경계** — `pseudo_match_id` 부여·클리어·교체, 스쿼드 `legendSelect_*` 채움·null 클리어로 start/end 누락 보정.
+- **3차** — `legend_selection` phase / stats_reset / orphan 타이머.
+- **세션 vs 업로드 분리** — `MatchLifecycle`(핸드오프)과 `MatchUploadQueue`(POST)를 분리해, 이전 판 업로드가 다음 판 캡처를 막지 않음.
+- **시작/종료 레이스 방어** — pending `match_end` 타이머를 rotate 시 취소, 1차 end 대기 중 2차 end/start 보류, 세션 종료 후 `match_start` 15초 가드 완화.
+
+### 문서
+
+- README — 레거시 `match-storage-v2` 링크 정리, 버전 `0.0.9`.
+
+---
+
 ## v0.0.8 — 2026-07-23
 
 Overwolf Free 티어 QA 제출용 빌드. 데스크톱 광고 + Free 게이트 고정 (Premium 미리보기 제거).

@@ -1,7 +1,7 @@
 # ApexTrace
 
 **Repository:** https://github.com/sjbong0904/ApexTrace-app  
-**Current version:** `0.0.8` — see [docs/RELEASE_NOTES.md](docs/RELEASE_NOTES.md)
+**Current version:** `0.0.9` — see [docs/RELEASE_NOTES.md](docs/RELEASE_NOTES.md)
 
 Apex Legends match tracking, movement path visualization, and stats overlay built as an [Overwolf](https://www.overwolf.com/) desktop app. ApexTrace listens to in-game events (GEP), records match data locally, syncs history to the cloud, and presents analytics across a second-screen desktop window and an in-game overlay.
 
@@ -96,7 +96,6 @@ New matches are stored as one row per match in `public.matches`. Legacy `match_a
 
 | Doc | Contents |
 |-----|----------|
-| [docs/match-storage-v2.md](docs/match-storage-v2.md) | v2 `matches` column layout and legacy API contract |
 | [docs/match-data-architecture-v3.md](docs/match-data-architecture-v3.md) | **Shipped:** summary/detail split, seasons SSOT, server-side season stats, loading flows |
 
 ---
@@ -153,13 +152,11 @@ apex-trace/
 │   ├── locale-seeds/          # Translation source JSON (10 languages, BCP 47)
 │   ├── seed-languages.ts      # Push locale seeds → Supabase
 │   ├── seed-teammate-test-data.ts  # Dev-only fake teammate matches for UI testing
-│   ├── generate-zh-tw.mjs     # Regenerate zh-TW from zh-CN
-│   └── generate-locale-migration.mjs
+│   └── generate-zh-tw.mjs     # Regenerate zh-TW from zh-CN
 │
 ├── supabase/migrations/       # Postgres schema (languages, matches v2, seasons, player_season_stats)
 ├── docs/
 │   ├── RELEASE_NOTES.md       # Version changelog
-│   ├── match-storage-v2.md    # Match v2 storage design
 │   └── match-data-architecture-v3.md  # V3 architecture (shipped)
 │
 └── dist/                      # Production build output (gitignored) — load as unpacked extension
@@ -283,7 +280,6 @@ Do not commit `trace-proxy-server/` into this repo (see [`.gitignore`](.gitignor
 ## Documentation
 
 - [Release notes](docs/RELEASE_NOTES.md)
-- [Match Storage V2 design](docs/match-storage-v2.md)
 - [Match Data Architecture V3](docs/match-data-architecture-v3.md)
 
 ---

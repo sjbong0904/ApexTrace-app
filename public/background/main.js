@@ -745,7 +745,7 @@ window.Store = {
     overlayHealth: { hookError: false, at: 0 }
 };
 
-/** 매치 종료 업로드 큐 — startMatch가 finalize 완료 전에 세션을 덮어쓰지 않도록 함 */
+/** Session handoff queue — end/start only. Must not wait on network upload. */
 const MatchLifecycle = {
     _queue: Promise.resolve(),
 
@@ -754,11 +754,19 @@ const MatchLifecycle = {
         this._queue = run.catch((e) => console.error('[MatchLifecycle]', e));
         return run;
     },
-
-    whenIdle() {
-        return this._queue;
-    }
 };
+
+/** Upload / finalize queue — independent of the next match capturing. */
+const MatchUploadQueue = {
+    _queue: Promise.resolve(),
+
+    enqueue(task) {
+        const run = this._queue.then(() => task());
+        this._queue = run.catch((e) => console.error('[MatchUploadQueue]', e));
+        return run;
+    },
+};
+
 
 const GameStatePoller = {
     interval: null,
@@ -816,6 +824,7 @@ const GameStatePoller = {
 };
 window.GameStatePoller = GameStatePoller;
 window.MatchLifecycle = MatchLifecycle;
+window.MatchUploadQueue = MatchUploadQueue;
 
 const PENDING_MATCHES_KEY = 'apex_trace_pending_matches';
 
@@ -1151,7 +1160,7 @@ const CoreController = {
         return isNoStats && (duration < thresholds.min_duration_ms || displacement < thresholds.min_displacement);
     },
 
-    _queueMatchUpload: (match) => MatchLifecycle.enqueue(async () => {
+    _queueMatchUpload: (match) => MatchUploadQueue.enqueue(async () => {
         await new Promise(resolve => setTimeout(resolve, 1500));
 
         if (!match.teammateKills) match.teammateKills = {};
@@ -1212,13 +1221,11 @@ const CoreController = {
     },
 
     startMatch: async (triggerData = null) => {
+        // Detach previous session for upload without blocking the next capture.
         if (window.Store.activeMatch) await CoreController.endMatch();
-        await MatchLifecycle.whenIdle();
 
         window.SyncManager._hwSaved = false;
         window.SyncManager._lastRosterSize = 0;
-        const currentMap = window.Store.game.map;
-        const currentMode = window.Store.game.mode
         const anonymousUser = { uid: null, name: "Unknown", rankScore: 0, rankName: 'Unknown', level: 0 };
 
         const service = window.MatchService;

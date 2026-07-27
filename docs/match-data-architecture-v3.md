@@ -3,7 +3,6 @@
 ApexTrace match data, statistics, and client loading strategy.
 
 **Status:** Shipped. Supabase migrations applied; production proxy deployed at `trace-proxy-server.vercel.app`.  
-**Supersedes (partially):** [match-storage-v2.md](./match-storage-v2.md) read path and client-side statistics aggregation  
 **Related:** `trace-proxy-server/api/history.js`, `src/App.tsx`, `src/components/StatisticsTab.tsx`, `public/background/services/matchService.js`
 
 ---

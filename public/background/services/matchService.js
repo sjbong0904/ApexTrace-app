@@ -349,7 +349,8 @@ class MatchService {
             '_lastKnownTeams', '_lastUltValue', '_currentPhase', '_rosterCache', '_squadNames',
             '_unknownKillers', 'startPos', 'endPos', '_pathSegment', '_pathRecording',
             '_squadEliminated', '_lastTeamsAlive', '_matchSummaryRank', '_estimatedPlacement',
-            '_pendingKnocks', '_lastDamageLogAt'
+            '_pendingKnocks', '_lastDamageLogAt', '_gepPseudoMatchId',
+            '_boundaryLastKills', '_boundaryLastDamage',
         ];
         runtimeKeys.forEach((k) => { delete match[k]; });
         if (match.teamStats) {

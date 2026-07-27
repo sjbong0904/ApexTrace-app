@@ -2,20 +2,52 @@
 let lastMatchEndTime = 0;
 let lastBoundaryRotateAt = 0;
 
-/** Serialize session splits through MatchLifecycle to avoid end/start races with match_end timers. */
+/**
+ * Match boundaries — assumed healthy GEP contract, layered:
+ *
+ *  1차 (primary): match_start / match_end
+ *  2차 (backup):  pseudo_match_id assign/clear/rotate,
+ *                 full squad legendSelect_* fill + clear-to-null
+ *  3차:           legend_selection phase / stats_reset / orphan timer
+ *
+ * Ideal GEP also emits per-match squad legendSelect and a new pseudo id;
+ * start/end may still flake, so 2차가 메꾼다.
+ */
 const MatchBoundary = {
     _rotateDebounceTimer: null,
     _rotateGeneration: 0,
     _orphanFinalizeTimer: null,
     _orphanFinalizeGeneration: 0,
     _rotateInFlight: false,
+    _endDebounceTimer: null,
+    /** match_end 1차 종료용 delayed finalize (rotate/start가 반드시 취소) */
+    _matchEndTimer: null,
+    _matchEndGeneration: 0,
+    /** slot index → last non-null payload (or null after clear) */
+    _selectSlots: Object.create(null),
+    _hadSelectPayload: false,
+    _lastPseudoId: null,
+    ORPHAN_CHECK_MS: 120000,
 
     cancelPending() {
         if (this._rotateDebounceTimer) {
             clearTimeout(this._rotateDebounceTimer);
             this._rotateDebounceTimer = null;
         }
+        if (this._endDebounceTimer) {
+            clearTimeout(this._endDebounceTimer);
+            this._endDebounceTimer = null;
+        }
+        this.cancelMatchEndTimer();
         this.cancelOrphanFinalize();
+    },
+
+    cancelMatchEndTimer() {
+        if (this._matchEndTimer) {
+            clearTimeout(this._matchEndTimer);
+            this._matchEndTimer = null;
+        }
+        this._matchEndGeneration += 1;
     },
 
     cancelOrphanFinalize() {
@@ -26,23 +58,57 @@ const MatchBoundary = {
         this._orphanFinalizeGeneration += 1;
     },
 
+    _isLocalSelect(payload) {
+        return payload?.is_local === true
+            || payload?.is_local === 'true'
+            || payload?.is_local === 1
+            || String(payload?.is_local) === '1';
+    },
+
+    _parseSelectRaw(raw) {
+        if (raw == null || raw === '' || raw === 'null') return null;
+        if (typeof raw === 'object') return raw;
+        try {
+            const parsed = JSON.parse(raw);
+            return parsed == null ? null : parsed;
+        } catch (e) {
+            return null;
+        }
+    },
+
+    _filledSelectCount() {
+        return Object.values(this._selectSlots).filter((v) => v != null).length;
+    },
+
+    _allTrackedSelectsCleared() {
+        // Ideal GEP clears the squad trio together on match end.
+        const trio = ['0', '1', '2'];
+        const hasTrio = trio.every((k) => Object.prototype.hasOwnProperty.call(this._selectSlots, k));
+        if (hasTrio) return trio.every((k) => this._selectSlots[k] == null);
+
+        const keys = Object.keys(this._selectSlots);
+        // Avoid ending on a single-slot flicker before the full clear arrives.
+        if (keys.length < 2) return false;
+        return keys.every((k) => this._selectSlots[k] == null);
+    },
+
     shouldAllowRotate(match, reason) {
         if (!match || match._ending) return false;
 
         switch (reason) {
             case 'pseudo_match_id':
             case 'respawn':
+            case 'legend_select_local':
                 return true;
-            case 'legend_select':
-                if (Date.now() - match.startTime < 90000) return false;
-                return !!match._squadEliminated || isMatchConcluded(match);
             case 'legend_selection_phase':
                 return isMatchConcluded(match)
                     || isEliminated(match)
+                    || !!match._squadEliminated
                     || (Date.now() - match.startTime > 480000);
             case 'match_start_stale':
                 return isMatchConcluded(match)
                     || isEliminated(match)
+                    || !!match._squadEliminated
                     || (Date.now() - match.startTime > 120000);
             case 'stats_reset':
                 return !!match._squadEliminated || (Date.now() - match.startTime > 480000);
@@ -51,7 +117,7 @@ const MatchBoundary = {
         }
     },
 
-    scheduleOrphanFinalize(match, delayMs = 120000) {
+    scheduleOrphanFinalize(match, delayMs = MatchBoundary.ORPHAN_CHECK_MS) {
         this.cancelOrphanFinalize();
         const gen = this._orphanFinalizeGeneration;
         const captured = match;
@@ -60,7 +126,8 @@ const MatchBoundary = {
             if (gen !== this._orphanFinalizeGeneration) return;
             if (!captured || captured._ending) return;
             if (window.Store?.activeMatch !== captured) return;
-            console.log('[Match] Finalizing orphan session after elimination (no requeue signal)');
+            // Ideal GEP clears pseudo + legendSelect on end; if those never arrive, orphan-save.
+            console.log('[Match] Finalizing orphan session after elimination (no end signal)');
             window.CoreController?.endMatch?.();
         }, delayMs);
     },
@@ -69,10 +136,37 @@ const MatchBoundary = {
         this.scheduleOrphanFinalize(match);
     },
 
+    /** End active session without immediately starting the next (null select / null pseudo / match_end). */
+    requestEnd(reason) {
+        const match = window.Store?.activeMatch;
+        if (!match || match._ending) return;
+
+        this.cancelOrphanFinalize();
+        // Don't fight an in-flight 1차 match_end finalize for the same session.
+        if (this._matchEndTimer) return;
+
+        if (this._endDebounceTimer) clearTimeout(this._endDebounceTimer);
+
+        this._endDebounceTimer = setTimeout(() => {
+            this._endDebounceTimer = null;
+            const current = window.Store?.activeMatch;
+            if (!current || current._ending) return;
+            if (this._matchEndTimer) return;
+            console.log(`[Match] Ending session (${reason})`);
+            lastMatchEndTime = Date.now();
+            void window.CoreController?.endMatch?.();
+        }, 200);
+    },
+
     requestRotate(match, reason) {
         if (!this.shouldAllowRotate(match, reason)) return;
 
         this.cancelOrphanFinalize();
+        this.cancelMatchEndTimer();
+        if (this._endDebounceTimer) {
+            clearTimeout(this._endDebounceTimer);
+            this._endDebounceTimer = null;
+        }
 
         if (this._rotateDebounceTimer) clearTimeout(this._rotateDebounceTimer);
         const gen = ++this._rotateGeneration;
@@ -90,6 +184,7 @@ const MatchBoundary = {
         const controller = window.CoreController;
         if (!lifecycle?.enqueue || !controller) return;
 
+        // Session handoff only — uploads must not delay the next capture.
         lifecycle.enqueue(async () => {
             if (gen !== this._rotateGeneration) return;
 
@@ -123,26 +218,102 @@ const MatchBoundary = {
         });
     },
 
-    handlePseudoMatchId(match, rawId) {
-        const nextId = rawId == null || rawId === '' ? null : String(rawId);
-        const prevId = match._gepPseudoMatchId ?? null;
-        if (nextId === prevId) return;
-
-        if (prevId && nextId && !match._ending) {
-            console.log(`[Match] pseudo_match_id changed (${prevId.slice(0, 8)}… → ${nextId.slice(0, 8)}…)`);
-            this.requestRotate(match, 'pseudo_match_id');
-        }
-
-        match._gepPseudoMatchId = nextId;
+    ensureSessionStarted(reason) {
+        if (this._rotateInFlight) return;
+        if (this._rotateDebounceTimer) return;
+        if (window.Store?.activeMatch) return;
+        // 1차 match_end finalize가 아직 대기 중이면 그 세션을 먼저 닫게 둠.
+        if (this._matchEndTimer) return;
+        if (Date.now() - lastBoundaryRotateAt < 500) return;
+        console.log(`[Match] Starting session (${reason})`);
+        lastBoundaryRotateAt = Date.now();
+        void window.CoreController?.startMatch?.();
     },
 
-    handleLegendSelect(match, payload) {
-        const isLocal = payload?.is_local === true
-            || payload?.is_local === 'true'
-            || payload?.is_local === 1
-            || String(payload?.is_local) === '1';
-        if (!isLocal) return;
-        this.requestRotate(match, 'legend_select');
+    /**
+     * 2차: null after a live id ⇒ match over (if match_end flaked).
+     * 2차: id A → id B ⇒ new match.
+     * 2차: null → id with no session ⇒ start (if match_start flaked).
+     */
+    handlePseudoMatchId(rawId) {
+        const nextId = rawId == null || rawId === '' || rawId === 'null' ? null : String(rawId);
+        const match = window.Store?.activeMatch;
+        const prevId = match?._gepPseudoMatchId ?? this._lastPseudoId;
+
+        if (nextId === prevId) {
+            if (match) match._gepPseudoMatchId = nextId;
+            this._lastPseudoId = nextId;
+            return;
+        }
+
+        if (prevId && !nextId) {
+            console.log(`[Match] pseudo_match_id cleared (${String(prevId).slice(0, 8)}…)`);
+            if (match && !match._ending) this.requestEnd('pseudo_cleared');
+            if (match) match._gepPseudoMatchId = null;
+            this._lastPseudoId = null;
+            return;
+        }
+
+        if (prevId && nextId) {
+            console.log(`[Match] pseudo_match_id changed (${String(prevId).slice(0, 8)}… → ${String(nextId).slice(0, 8)}…)`);
+            if (match && !match._ending) {
+                match._gepPseudoMatchId = nextId;
+                this._lastPseudoId = nextId;
+                this.requestRotate(match, 'pseudo_match_id');
+                return;
+            }
+        }
+
+        if (!prevId && nextId) {
+            this.ensureSessionStarted('pseudo_assigned');
+        }
+
+        const active = window.Store?.activeMatch;
+        if (active) active._gepPseudoMatchId = nextId;
+        this._lastPseudoId = nextId;
+    },
+
+    /**
+     * 2차: filled local (+ teammates) ⇒ ensure/rotate if start flaked.
+     * 2차: all legendSelect_* → null ⇒ end if match_end flaked.
+     */
+    handleLegendSelectKey(key, rawValue) {
+        const slot = String(key).replace(/^legendSelect_/, '');
+        const payload = this._parseSelectRaw(rawValue);
+        const hadAny = this._hadSelectPayload || this._filledSelectCount() > 0;
+
+        this._selectSlots[slot] = payload;
+
+        if (payload) {
+            this._hadSelectPayload = true;
+            window.CoreController?.updateMatch?.('ROSTER_INFO', payload);
+
+            const match = window.Store?.activeMatch;
+            const isLocal = this._isLocalSelect(payload);
+
+            if (isLocal) {
+                if (!match) {
+                    this.ensureSessionStarted('legend_select_local');
+                } else if (
+                    !match._ending
+                    && (match._squadEliminated || isEliminated(match) || isMatchConcluded(match))
+                ) {
+                    // New character-select after previous match concluded → hand off.
+                    this.requestRotate(match, 'legend_select_local');
+                }
+            } else if (!match && this._filledSelectCount() >= 1) {
+                // Teammate selects can arrive slightly before local; open session so roster sticks.
+                this.ensureSessionStarted('legend_select_squad');
+            }
+            return;
+        }
+
+        // Cleared slot. Ideal end: every tracked slot null after we had payloads.
+        if (hadAny && this._allTrackedSelectsCleared()) {
+            this._hadSelectPayload = false;
+            console.log('[Match] legendSelect_* cleared');
+            this.requestEnd('legend_select_cleared');
+        }
     },
 
     handleTabsReset(match, tabs) {
@@ -565,7 +736,7 @@ const EventRouter = {
             ...info.info?.damage
         };
 
-        const activeMatch = window.Store.activeMatch;
+        let activeMatch = window.Store.activeMatch;
 
         if (data.phase) {
             const newPhase = data.phase.toLowerCase();
@@ -591,31 +762,31 @@ const EventRouter = {
                     !activeMatch
                     || isMatchConcluded(activeMatch)
                     || isEliminated(activeMatch)
+                    || !!activeMatch._squadEliminated
                     || (Date.now() - activeMatch.startTime > 480000);
 
                 if (shouldStartNew) {
                     if (activeMatch) {
                         MatchBoundary.requestRotate(activeMatch, 'legend_selection_phase');
                     } else {
-                        setTimeout(() => window.CoreController.startMatch(), 500);
+                        MatchBoundary.ensureSessionStarted('legend_selection_phase');
                     }
                 }
             }
         }
 
-        if (activeMatch && data.pseudo_match_id !== undefined) {
-            MatchBoundary.handlePseudoMatchId(activeMatch, data.pseudo_match_id);
+        // pseudo / legendSelect are primary boundaries (even with no activeMatch yet).
+        if (data.pseudo_match_id !== undefined) {
+            MatchBoundary.handlePseudoMatchId(data.pseudo_match_id);
         }
 
-        Object.keys(data).forEach(key => {
+        Object.keys(data).forEach((key) => {
             if (key.startsWith('legendSelect_')) {
-                try {
-                    const p = JSON.parse(data[key]);
-                    window.CoreController.updateMatch('ROSTER_INFO', p);
-                    if (activeMatch) MatchBoundary.handleLegendSelect(activeMatch, p);
-                } catch (e) {}
+                MatchBoundary.handleLegendSelectKey(key, data[key]);
             }
         });
+
+        activeMatch = window.Store.activeMatch;
 
         if (data.map_id || data.map_name) {
             const mapName = window.MapService
@@ -755,29 +926,35 @@ const EventRouter = {
             }
 
             if (name === 'match_start') {
+                // 1차: authoritative start when GEP emits it.
                 const now = Date.now();
                 if (MatchBoundary._rotateInFlight) return;
+                if (MatchBoundary._rotateDebounceTimer) return;
+                if (MatchBoundary._matchEndTimer) return;
                 if (now - lastBoundaryRotateAt < 3000) return;
-                if (now - lastMatchEndTime < 15000) return;
-
+                // Only suppress rapid re-start while a session is already live.
+                // After end (activeMatch null), allow start even within 15s.
                 const activeMatch = window.Store.activeMatch;
+                if (activeMatch && now - lastMatchEndTime < 15000) return;
+
                 if (activeMatch) {
                     const isStale = isMatchConcluded(activeMatch)
                         || isEliminated(activeMatch)
+                        || !!activeMatch._squadEliminated
                         || (now - activeMatch.startTime > 120000);
                     if (isStale) {
                         MatchBoundary.requestRotate(activeMatch, 'match_start_stale');
                     }
                     return;
                 }
-                console.log("Match Start Event!");
+                console.log('[Match] match_start — starting session');
+                lastBoundaryRotateAt = now;
                 window.CoreController.startMatch();
                 return;
             }
 
             if (name === 'match_end') {
-                MatchBoundary.cancelPending();
-
+                // 1차: authoritative end when GEP emits it.
                 const activeMatch = window.Store.activeMatch;
 
                 if (activeMatch && (Date.now() - activeMatch.startTime < 120000)) {
@@ -789,15 +966,25 @@ const EventRouter = {
                     }
                 }
 
-                lastMatchEndTime = Date.now();
                 const matchToEnd = window.Store.activeMatch;
                 if (!matchToEnd) {
                     console.warn('[Match] match_end received with no active session');
                     return;
                 }
 
-                console.log('[Match] match_end received — scheduling finalize');
-                setTimeout(() => {
+                console.log('[Match] match_end — scheduling finalize');
+                MatchBoundary.cancelOrphanFinalize();
+                if (MatchBoundary._endDebounceTimer) {
+                    clearTimeout(MatchBoundary._endDebounceTimer);
+                    MatchBoundary._endDebounceTimer = null;
+                }
+                // Cancel any prior match_end timer; keep a single pending finalize.
+                MatchBoundary.cancelMatchEndTimer();
+                const endGen = MatchBoundary._matchEndGeneration;
+                lastMatchEndTime = Date.now();
+                MatchBoundary._matchEndTimer = setTimeout(() => {
+                    MatchBoundary._matchEndTimer = null;
+                    if (endGen !== MatchBoundary._matchEndGeneration) return;
                     if (matchToEnd._ending) return;
                     if (window.Store.activeMatch === matchToEnd) {
                         window.CoreController.endMatch();
