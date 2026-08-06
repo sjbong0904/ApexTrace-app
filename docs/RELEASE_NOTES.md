@@ -1,5 +1,18 @@
 # ApexTrace Release Notes
 
+## Unreleased
+
+### 개선
+
+- **닉네임 검색** — case-insensitive **exact**만 사용. 현닉(`global_profiles.name`) → 이전닉(`profile_name_aliases`, UID당 3·30일) → ALS. GEP/ALS/keep-alive 닉 변경 시 alias 동기화. 후보 모달에 former-name 표시.
+- **keep-alive** — `updated_at` 오래된 순, 분당 12명·순차 5초 간격(출시 후에도 동일). 만료 alias purge.
+
+### 문서
+
+- [NICKNAME-SEARCH.md](NICKNAME-SEARCH.md)
+
+---
+
 ## v0.0.10 — 2026-08-06
 
 전투 집계·고스트 매치 방어와 문서 정리. GEP 로케일 finish / tabs 미발송 실기 로그 반영.

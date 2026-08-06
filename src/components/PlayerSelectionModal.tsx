@@ -98,6 +98,22 @@ const PlayerSelectionModal: React.FC<PlayerSelectionModalProps> = ({ candidates,
                                 <div style={{ flex: 1, minWidth: 0 }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '2px' }}>
                                         <span style={{ color: 'var(--color-text-primary)', fontWeight: 'bold', fontSize: '16px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{user.name}</span>
+                                        {user.matchType === 'alias' && (
+                                            <span
+                                                style={{
+                                                    flexShrink: 0,
+                                                    fontSize: '10px',
+                                                    fontWeight: 600,
+                                                    color: 'var(--color-text-muted)',
+                                                    background: 'var(--color-bg-nav)',
+                                                    border: '1px solid var(--color-border)',
+                                                    borderRadius: '4px',
+                                                    padding: '1px 6px',
+                                                }}
+                                            >
+                                                {t('playerModal.formerName', 'Former name')}
+                                            </span>
+                                        )}
                                         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--color-bg-nav)', borderRadius: '4px', width: '20px', height: '20px', flexShrink: 0 }} title={platformData.label}>
                                             <PlatformIcon hw={user.hw} />
                                         </div>

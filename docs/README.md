@@ -9,6 +9,7 @@
 | [RELEASE_NOTES.md](./RELEASE_NOTES.md) | 버전 변경 이력 |
 | [ROADMAP.md](./ROADMAP.md) | 제품 향후 계획 + Overwolf API 후보 |
 | [ARCHITECTURE.md](./ARCHITECTURE.md) | 매치 데이터 V3 (summary/detail, seasons, season stats) |
+| [NICKNAME-SEARCH.md](./NICKNAME-SEARCH.md) | 닉변·alias·exact 검색·keep-alive / ALS 예산 |
 | [GEP-BUGS.md](./GEP-BUGS.md) | Apex GEP에서 실측한 버그·quirk |
 | [QA.md](./QA.md) | Overwolf 제출·수동 QA 체크리스트 |
 | [LAUNCH.md](./LAUNCH.md) | Phase 1 런칭: infra → store → organic → week-2 |

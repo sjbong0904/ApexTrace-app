@@ -32,9 +32,16 @@
 
 에이펙스 게임 내 관련 기능으로 앱 쪽 무기 레퍼런스 필요성 소멸 → 시드·탭·관련 코드 제거 예정.
 
+### 예정 (런칭 스케일)
+
+#### 4. ALS 전역 게이트 (닉검색 Phase 2)
+
+검색 미스·프로필 새로고침용 전역 스로틀·singleflight·TTL.  
+닉/alias/keep-alive Phase 1은 [NICKNAME-SEARCH.md](./NICKNAME-SEARCH.md) 참고.
+
 ### 검토중
 
-#### 4. 비-BR 모드 기록 정책 (Other)
+#### 5. 비-BR 모드 기록 정책 (Other)
 
 와일드카드, 건런, 팀 데스매치 등을 `other`로 묶을지 / 모드별 분리 / 미기록 — 미정.  
 결정 후 `matchMode`·필터 탭·시즌 통계 집계 범위를 맞춤.

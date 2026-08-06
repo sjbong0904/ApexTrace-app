@@ -1074,7 +1074,8 @@ const CoreController = {
                     updatedAt: c.updated_at || null,
                     legend: c.legend ? String(c.legend) : null,
                     avatar: c.avatar || null,
-                    hw: (c.hw !== undefined && c.hw !== null) ? String(c.hw) : null
+                    hw: (c.hw !== undefined && c.hw !== null) ? String(c.hw) : null,
+                    matchType: c.matchType === 'alias' ? 'alias' : 'name'
                 }));
                 
                 window.Store.system.candidates = safeCandidates;
