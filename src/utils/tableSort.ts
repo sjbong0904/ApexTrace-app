@@ -27,16 +27,30 @@ export const toggleCatalogNameTableSort = <K extends string>(
     column: K,
 ): TableSortState<K> => toggleTableSort(current, column, column === 'name' ? 'asc' : 'desc');
 
+export type ApplyTableSortOptions<T, K extends string> = {
+    /** Rows that return true stay at the bottom for that column (asc and desc). */
+    isMissing?: Partial<Record<K, (row: T) => boolean>>;
+};
+
 export const applyTableSort = <T, K extends string>(
     rows: readonly T[],
     sortState: TableSortState<K>,
     comparators: Record<K, (a: T, b: T) => number>,
+    options?: ApplyTableSortOptions<T, K>,
 ): T[] => {
     if (!sortState.column) return [...rows];
     const compare = comparators[sortState.column];
     if (!compare) return [...rows];
     const factor = sortState.direction === 'desc' ? -1 : 1;
-    return [...rows].sort((a, b) => compare(a, b) * factor);
+    const isMissing = options?.isMissing?.[sortState.column];
+    return [...rows].sort((a, b) => {
+        if (isMissing) {
+            const aMiss = isMissing(a);
+            const bMiss = isMissing(b);
+            if (aMiss !== bMiss) return aMiss ? 1 : -1;
+        }
+        return compare(a, b) * factor;
+    });
 };
 
 export const compareStrings = (a: string, b: string) =>

@@ -1,5 +1,6 @@
 import type { Match, MatchEvent } from '../types';
 import { normalizeWeaponCombat } from './weaponCombat';
+import { normalizeMapDisplayName } from './helpers';
 
 type JsonObject = Record<string, unknown>;
 type MaybeMatch = Partial<Match> & JsonObject;
@@ -61,7 +62,7 @@ export const normalizeMatchForFrontend = (input: unknown): Match | null => {
         platformId: source.platformId === undefined ? toStringValue(source.uid, '') : source.platformId as string | null,
         playerName: toStringValue(source.playerName, ''),
         mode: toStringValue(source.mode, 'Unknown'),
-        map: toStringValue(source.map, 'Unknown'),
+        map: normalizeMapDisplayName(toStringValue(source.map, 'Unknown')),
         legend: (source.legend === undefined ? null : source.legend) as string | null,
         placement: source.placement === undefined || source.placement === null ? 0 : source.placement as number | string,
         kills: toNumber(source.kills),

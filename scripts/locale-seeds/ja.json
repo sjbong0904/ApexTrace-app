@@ -70,7 +70,19 @@
     "damage": "DAMAGE",
     "kills": "KILLS",
     "assists": "ASSISTS",
-    "knocks": "KNOCKS"
+    "knocks": "KNOCKS",
+    "dataQualityEstimated": "推定",
+    "dataQualityTooltip": "不完全なマッチデータ: {{signals}}",
+    "confidenceLabel": "信頼度 {{n}}%",
+    "missingSignals": {
+      "no_legend_select": "レジェンド選択なし",
+      "pseudo_stale": "マッチID不明確",
+      "no_match_start": "マッチ開始シグナルなし",
+      "boundary_inferred": "マッチ境界を推定",
+      "placement_estimated": "順位推定",
+      "no_squad_legend_select": "スクワッドのレジェンド選択なし",
+      "legend_from_prev_match": "前のマッチのレジェンドを再利用"
+    }
   },
   "matchDetails": {
     "stats": "統計",

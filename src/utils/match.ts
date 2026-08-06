@@ -1,6 +1,8 @@
 import type { MatchEvent } from '../types';
 import type { WeaponCombatMap } from './weaponCombat';
 
+export type MatchDataQuality = 'complete' | 'estimated' | 'unrecoverable';
+
 export interface MatchHistory {
     kills?: number;
     damage?: number;
@@ -21,6 +23,10 @@ export interface MatchHistory {
     weaponTimeline?: import('../types').WeaponTimelineEntry[];
     /** Present on detail-loaded matches; used as fallback for weaponCombat. */
     events?: MatchEvent[];
+    /** Persistable quality — incomplete GEP boundaries still keep the record. */
+    dataQuality?: MatchDataQuality;
+    confidence?: number;
+    missingSignals?: string[];
 }
 
 export interface Season {

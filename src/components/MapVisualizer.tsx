@@ -201,10 +201,14 @@ const MapVisualizer: React.FC<MapVisualizerProps> = ({ match }) => {
         };
     }, []);
 
+    const matchTimeMs = match.startTime ?? match.endTime ?? null;
+
     const mapConfig = useMemo(() => {
-        const config = getMapConfig(match.map);
-        return config;
-    }, [match.map]);
+        const bg = typeof window !== 'undefined'
+            ? (window.overwolf?.windows?.getMainWindow() as { SEASONS?: import('../utils/match').Season[] } | undefined)
+            : undefined;
+        return getMapConfig(match.map, matchTimeMs, bg?.SEASONS);
+    }, [match.map, matchTimeMs]);
 
     const validPath = useMemo(() => {
         if (!match.path || !Array.isArray(match.path)) return [];
@@ -231,10 +235,10 @@ const MapVisualizer: React.FC<MapVisualizerProps> = ({ match }) => {
 
         const pushPathFromPoints = (points: any[]) => {
             if (points.length === 0) return;
-            const startCss = getCssPos(points[0].x, points[0].y, match.map);
+            const startCss = getCssPos(points[0].x, points[0].y, match.map, matchTimeMs);
             let pathStr = `M ${startCss.x} ${startCss.y}`;
             for (let i = 1; i < points.length; i++) {
-                const css = getCssPos(points[i].x, points[i].y, match.map);
+                const css = getCssPos(points[i].x, points[i].y, match.map, matchTimeMs);
                 pathStr += ` L ${css.x} ${css.y}`;
             }
             resultSegments.push(pathStr);
@@ -259,9 +263,9 @@ const MapVisualizer: React.FC<MapVisualizerProps> = ({ match }) => {
                 if (group.points.length === 0) return;
                 if (idx > 0) {
                     const prevLast = groups[idx - 1].points[groups[idx - 1].points.length - 1];
-                    const prevCss = getCssPos(prevLast.x, prevLast.y, match.map);
+                    const prevCss = getCssPos(prevLast.x, prevLast.y, match.map, matchTimeMs);
                     const currFirst = group.points[0];
-                    const currCss = getCssPos(currFirst.x, currFirst.y, match.map);
+                    const currCss = getCssPos(currFirst.x, currFirst.y, match.map, matchTimeMs);
                     const colorIndex = resultSegments.length;
                     const pairIndex = resultMarkers.length / 2;
                     resultMarkers.push({ x: prevCss.x, y: prevCss.y, colorIndex, type: 'death', pairIndex });
@@ -284,12 +288,12 @@ const MapVisualizer: React.FC<MapVisualizerProps> = ({ match }) => {
             // 구 데이터: segment(s) 없으면 거리 기반 폴백
             const JUMP_THRESHOLD = 8.0;
             let prevRaw = filtered[0];
-            let prevCss = getCssPos(prevRaw.x, prevRaw.y, match.map);
+            let prevCss = getCssPos(prevRaw.x, prevRaw.y, match.map, matchTimeMs);
             let currentPathString = `M ${prevCss.x} ${prevCss.y}`;
 
             for (let i = 1; i < filtered.length; i++) {
                 const currRaw = filtered[i];
-                const currCss = getCssPos(currRaw.x, currRaw.y, match.map);
+                const currCss = getCssPos(currRaw.x, currRaw.y, match.map, matchTimeMs);
                 const dist = Math.hypot(currCss.x - prevCss.x, currCss.y - prevCss.y);
 
                 if (dist > JUMP_THRESHOLD) {
@@ -309,7 +313,7 @@ const MapVisualizer: React.FC<MapVisualizerProps> = ({ match }) => {
         }
 
         return { segments: resultSegments, jumpMarkers: resultMarkers, displayPath: filtered };
-    }, [validPath, match.map]);
+    }, [validPath, match.map, matchTimeMs]);
 
     return (
         <div
@@ -405,8 +409,8 @@ const MapVisualizer: React.FC<MapVisualizerProps> = ({ match }) => {
                     {displayPath.length > 0 && (() => {
                         const start = displayPath[0];
                         const end = displayPath[displayPath.length - 1];
-                        const sCss = getCssPos(start.x, start.y, match.map);
-                        const eCss = getCssPos(end.x, end.y, match.map);
+                        const sCss = getCssPos(start.x, start.y, match.map, matchTimeMs);
+                        const eCss = getCssPos(end.x, end.y, match.map, matchTimeMs);
 
                         return (
                             <>

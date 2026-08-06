@@ -1,5 +1,5 @@
 import type { MatchHistory } from './match';
-import { isKnownLegend, normalizeLegendKey, toGameElapsedMs, getMatchDeaths } from './helpers';
+import { isKnownLegend, normalizeLegendKey, toGameElapsedMs, getMatchDeaths, normalizeMapDisplayName } from './helpers';
 import { TARGET_MAPS, SHORT_WEAPON_NAMES } from './gameData';
 import { formatHoldDuration, resolveWeaponCombatForMatch } from './weaponMatchStats';
 
@@ -29,18 +29,32 @@ export const formatAvgPlacement = (totalPlacement: number, count: number): strin
 export const resolveMapName = (raw: string): string | null => {
     const trimmed = raw.trim();
     if (!trimmed || trimmed.toLowerCase() === 'unknown') return null;
-    return TARGET_MAPS.find(t => t.toLowerCase() === trimmed.toLowerCase()) ?? trimmed;
+    const normalized = normalizeMapDisplayName(trimmed);
+    if (normalized === 'Unknown') return null;
+    return TARGET_MAPS.find(t => t.toLowerCase() === normalized.toLowerCase()) ?? normalized;
 };
 
 const isUsableWeaponSlot = (fileId: string | null | undefined): fileId is string =>
     Boolean(fileId) && fileId !== 'unknown' && fileId !== 'none';
 
-/** Usage × performance score for Top Legends / Weapons: sqrt(volume) × kd */
-export const hybridRankScore = (volume: number, kd: number): number => {
+/**
+ * Usage × performance for Top Legends / Weapons.
+ * `priorVolume` shrinks tiny samples (e.g. 4 min hold with KD 8) so they
+ * cannot outrank long-session mains with ordinary KD.
+ * score = volume^0.6 × kd × volume/(volume+prior)
+ */
+export const hybridRankScore = (volume: number, kd: number, priorVolume = 30): number => {
     const v = Math.max(0, Number(volume) || 0);
     const k = Math.max(0, Number(kd) || 0);
-    return Math.sqrt(v) * k;
+    if (v <= 0 || k <= 0) return 0;
+    const reliability = v / (v + Math.max(1, priorVolume));
+    return Math.pow(v, 0.6) * k * reliability;
 };
+
+/** Games prior for legend ranking (~a dozen matches before full weight). */
+export const LEGEND_RANK_PRIOR_GAMES = 12;
+/** Hold-minutes prior for weapon ranking (~45 min before full weight). */
+export const WEAPON_RANK_PRIOR_MINUTES = 45;
 
 const compareWinRateDesc = (a: string, b: string, aHas = true, bHas = true): number => {
     if (aHas !== bHas) return aHas ? -1 : 1;
@@ -67,6 +81,7 @@ export type AggregatedLegendStat = {
     rankScore: number;
 };
 
+/** Legend buckets skip unknown/missing picks. Volume stats (games/kills/damage) include estimated matches. */
 export const aggregateLegendStatsForMatches = (matches: MatchHistory[]): AggregatedLegendStat[] => {
     const map: Record<string, { games: number; wins: number; kills: number; assists: number; deaths: number; damage: number; placement: number }> = {};
 
@@ -101,7 +116,7 @@ export const aggregateLegendStatsForMatches = (matches: MatchHistory[]): Aggrega
             avgDamage: Math.round(v.damage / v.games),
             kd: parseFloat(kdNum.toFixed(2)),
             kda: parseFloat(kdaNum.toFixed(2)),
-            rankScore: hybridRankScore(v.games, kdNum),
+            rankScore: hybridRankScore(v.games, kdNum, LEGEND_RANK_PRIOR_GAMES),
         };
     }).sort((a, b) => {
         if (b.rankScore !== a.rankScore) return b.rankScore - a.rankScore;
@@ -217,7 +232,7 @@ export const aggregateWeaponStatsForMatches = (matches: MatchHistory[]): Aggrega
             kd: parseFloat(kdNum.toFixed(2)),
             topLegends,
             hasWinRate,
-            rankScore: hybridRankScore(holdMinutes, kdNum),
+            rankScore: hybridRankScore(holdMinutes, kdNum, WEAPON_RANK_PRIOR_MINUTES),
         };
     }).sort((a, b) => {
         if (b.rankScore !== a.rankScore) return b.rankScore - a.rankScore;

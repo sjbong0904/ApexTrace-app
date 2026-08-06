@@ -1,7 +1,5 @@
 // src/background/worker.js
-console.log("👷 Worker: Roster Tracker Started (Lite Mode)");
-
-if (typeof Utils === 'undefined') console.error("❌ Utils missing!");
+if (typeof Utils === 'undefined') console.error('❌ Utils missing!');
 
 const getPlatformMap = () => {
     try {

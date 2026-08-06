@@ -380,6 +380,11 @@ const LegendWeaponMapBreakdown = ({ matches, legendName }: { matches: MatchHisto
             winRate: (a, b) => compareNumericStrings(a.winRate, b.winRate),
             avgPlacement: (a, b) => compareAvgPlacement(a.avgPlacement, b.avgPlacement),
             kd: (a, b) => compareNumbers(a.kd, b.kd),
+        }, {
+            isMissing: {
+                winRate: (w) => !w.hasWinRate,
+                avgPlacement: (w) => !w.hasWinRate,
+            },
         }),
         [weaponStats, weaponSort],
     );
@@ -1927,7 +1932,7 @@ const MapsView = ({ data, profileUid, profileName }: { data: MatchHistory[]; pro
 
 const LegendsView = ({ data, profileUid, profileName }: { data: MatchHistory[]; profileUid?: string | null; profileName?: string | null }) => {
     const { t } = useTranslation();
-    const [selectedLegend, setSelectedLegend] = useState<string>('wraith');
+    const [selectedLegend, setSelectedLegend] = useState<string>(() => LEGENDS_LIST[0]);
     const legendMatches = useMemo(
         () => data.filter(m => normalizeLegendKey(m.legend) === selectedLegend.toLowerCase()),
         [data, selectedLegend]
@@ -2023,6 +2028,11 @@ const WeaponsView = ({ data }: { data: MatchHistory[] }) => {
             winRate: (a, b) => compareNumericStrings(a.winRate, b.winRate),
             kd: (a, b) => compareNumbers(a.kd, b.kd),
             avgPlacement: (a, b) => compareAvgPlacement(a.avgPlacement, b.avgPlacement),
+        }, {
+            isMissing: {
+                winRate: (w) => !w.hasWinRate,
+                avgPlacement: (w) => !w.hasWinRate,
+            },
         }),
         [weaponStats, weaponSort],
     );

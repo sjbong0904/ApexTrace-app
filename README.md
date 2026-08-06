@@ -1,7 +1,7 @@
 # ApexTrace
 
 **Repository:** https://github.com/sjbong0904/ApexTrace-app  
-**Current version:** `0.0.9` — see [docs/RELEASE_NOTES.md](docs/RELEASE_NOTES.md)
+**Current version:** `0.0.10` — see [docs/RELEASE_NOTES.md](docs/RELEASE_NOTES.md)
 
 Apex Legends match tracking, movement path visualization, and stats overlay built as an [Overwolf](https://www.overwolf.com/) desktop app. ApexTrace listens to in-game events (GEP), records match data locally, syncs history to the cloud, and presents analytics across a second-screen desktop window and an in-game overlay.
 
@@ -96,7 +96,7 @@ New matches are stored as one row per match in `public.matches`. Legacy `match_a
 
 | Doc | Contents |
 |-----|----------|
-| [docs/match-data-architecture-v3.md](docs/match-data-architecture-v3.md) | **Shipped:** summary/detail split, seasons SSOT, server-side season stats, loading flows |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | **Shipped:** summary/detail split, seasons SSOT, server-side season stats, loading flows |
 
 ---
 
@@ -156,8 +156,12 @@ apex-trace/
 │
 ├── supabase/migrations/       # Postgres schema (languages, matches v2, seasons, player_season_stats)
 ├── docs/
+│   ├── README.md              # Docs hub
 │   ├── RELEASE_NOTES.md       # Version changelog
-│   └── match-data-architecture-v3.md  # V3 architecture (shipped)
+│   ├── ROADMAP.md             # Product + Overwolf API future plans
+│   ├── ARCHITECTURE.md        # Match data V3 (shipped)
+│   ├── QA.md                  # Overwolf manual QA checklist
+│   └── LAUNCH.md              # Phase 1 launch (infra / store / organic / week-2)
 │
 └── dist/                      # Production build output (gitignored) — load as unpacked extension
 ```
@@ -279,8 +283,15 @@ Do not commit `trace-proxy-server/` into this repo (see [`.gitignore`](.gitignor
 
 ## Documentation
 
-- [Release notes](docs/RELEASE_NOTES.md)
-- [Match Data Architecture V3](docs/match-data-architecture-v3.md)
+Internal docs (Korean): **[docs/README.md](docs/README.md)**
+
+| Doc | Purpose |
+|-----|---------|
+| [Release notes](docs/RELEASE_NOTES.md) | Changelog |
+| [Roadmap](docs/ROADMAP.md) | Product + Overwolf API plans |
+| [Architecture](docs/ARCHITECTURE.md) | Match data V3 |
+| [QA](docs/QA.md) | Overwolf manual QA |
+| [Launch](docs/LAUNCH.md) | Phase 1 launch guide |
 
 ---
 

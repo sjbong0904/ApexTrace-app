@@ -413,8 +413,8 @@ const WindowController = {
         if (targetWindow === 'desktop') {
             WindowController._withDeclaredWindowState('desktop', (windowId, state) => {
                 if (WindowController._isWindowShownState(state)) {
+                    // Already visible — focus only; keep current size/position.
                     WindowController._isWindowOpen = true;
-                    WindowController._placeDesktopWindow(windowId, desktopPlacement);
                     overwolf.windows.bringToFront(windowId, grabFocus, () => {});
                     return;
                 }
@@ -486,8 +486,8 @@ const WindowController = {
             const placement = hasSavedBounds ? 'restore' : 'center';
 
             if (WindowController._isWindowShownState(state)) {
+                // Already visible — focus only; keep current size/position.
                 WindowController._isWindowOpen = true;
-                WindowController._placeDesktopWindow(windowId, placement);
                 overwolf.windows.bringToFront(windowId, true, () => {});
                 return;
             }
@@ -759,11 +759,82 @@ const MatchLifecycle = {
 /** Upload / finalize queue — independent of the next match capturing. */
 const MatchUploadQueue = {
     _queue: Promise.resolve(),
+    /** Matches waiting for (or in) upload — GEP may reveal Firing Range only after match_end. */
+    _pending: new Set(),
+    /** How long after queueing we still accept a late #PL_FIRINGRANGE cancel. */
+    FIRING_RANGE_CANCEL_WINDOW_MS: 15000,
 
     enqueue(task) {
         const run = this._queue.then(() => task());
         this._queue = run.catch((e) => console.error('[MatchUploadQueue]', e));
         return run;
+    },
+
+    track(match) {
+        if (!match) return;
+        match._uploadQueuedAt = Date.now();
+        this._pending.add(match);
+    },
+
+    untrack(match) {
+        if (!match) return;
+        this._pending.delete(match);
+    },
+
+    /**
+     * GEP often keeps lobby mode (#PL_TRIO) during Firing Range and only emits
+     * #PL_FIRINGRANGE right after match_end — cancel that pending upload.
+     */
+    cancelForFiringRange() {
+        const now = Date.now();
+        let cancelled = 0;
+
+        for (const match of [...this._pending]) {
+            const queuedAt = match._uploadQueuedAt || 0;
+            if (now - queuedAt > this.FIRING_RANGE_CANCEL_WINDOW_MS) continue;
+
+            match._discardUpload = true;
+            match.mode = 'Firing Range';
+            cancelled += 1;
+            window.Utils.matchLog('Cancelled pending upload (post-end Firing Range)', {
+                matchId: match.matchId,
+                queuedMsAgo: now - queuedAt,
+            });
+        }
+
+        return cancelled;
+    },
+
+    shouldDiscard(match) {
+        if (!match) return true;
+        if (match._discardUpload) return true;
+        if (window.Utils?.isFiringRangeMode?.(match.mode)) return true;
+        if (window.Utils?.isFiringRangeMode?.(window.Store?.game?.mode)) return true;
+        return false;
+    },
+
+    /**
+     * False match_end races: wait briefly; if a same-squad active session appears, drop this POST.
+     */
+    async waitForSuspiciousEndHold(match) {
+        if (!match?._continuationHold) return false;
+        const holdUntil = match._uploadHoldUntil
+            || (Date.now() + (window.MatchBoundary?.SUSPICIOUS_END_HOLD_MS || 75000));
+        match._uploadHoldUntil = holdUntil;
+
+        while (Date.now() < holdUntil) {
+            if (this.shouldDiscard(match)) return true;
+            if (window.MatchBoundary?.hasContinuationEvidence?.(match)) {
+                match._discardUpload = true;
+                window.Utils.matchLog('Cancelled pending upload — continuation evidence during hold', {
+                    matchId: match.matchId,
+                });
+                return true;
+            }
+            await new Promise((resolve) => setTimeout(resolve, 1000));
+        }
+
+        return this.shouldDiscard(match);
     },
 };
 
@@ -790,7 +861,9 @@ const GameStatePoller = {
                     if (mapName) {
                         if (window.Store.game.map !== mapName) window.Store.game.map = mapName;
                         const am = window.Store.activeMatch;
-                        if (am && (!am.map || am.map === 'Unknown')) am.map = mapName;
+                        if (am && (!am.map || window.MapService?.isUnknownMap?.(am.map) || am.map === 'Unknown')) {
+                            am.map = mapName;
+                        }
                     }
                 }
 
@@ -799,6 +872,9 @@ const GameStatePoller = {
                     const modeName = window.Utils ? window.Utils.normalizeMode(rawMode) : rawMode;
                     if (window.Store.game.mode !== modeName) window.Store.game.mode = modeName;
                     if (window.Store.activeMatch && window.Store.activeMatch.mode === 'Unknown') window.Store.activeMatch.mode = modeName;
+                    if (window.Utils?.isFiringRangeMode?.(modeName)) {
+                        window.CoreController?.cancelPendingUploadForFiringRange?.();
+                    }
                 }
 
                 if (window.Store.activeMatch) {
@@ -963,14 +1039,12 @@ const CoreController = {
                 if (window.Store.activeMatch) {
                     const active = window.Store.activeMatch;
                     if (!active.platformId) active.platformId = normalizedUser.uid;
+                    // Name/UID only — never invent legend from profile (Unknown > wrong pick).
                     if (active.playerName === 'Unknown') active.playerName = normalizedUser.name;
-                    if ((!active.legend || active.legend === 'Unknown') && normalizedUser.legend) {
-                        active.legend = window.Utils?.normalizeLegend?.(normalizedUser.legend) || normalizedUser.legend;
-                    }
                 }
             
                 console.log(`[Core] User Profile Loaded from ${source} (Name: ${window.Store.user.name}, History: ${window.Store.history.length})`);
-                return { success: true, data: window.Store.user, history: window.Store.history };
+                return { success: true, data: { ...window.Store.user }, history: window.Store.history };
             } else {
                 return { success: false, message: "Failed to load user profile" };
             }
@@ -981,7 +1055,6 @@ const CoreController = {
     },
 
     searchUser: async (query) => {
-        console.log(`Searching User: ${query}`); 
         if (!query || query.trim().length < 1) return { success: false, message: "Query too short" };
         
         try {
@@ -1025,15 +1098,25 @@ const CoreController = {
 
     handleWorkerIdentity: async (identity) => {
         if (!identity || !identity.uid) return;
-        window.Store.user.uid = identity.uid;
-        window.Store.user.name = identity.name;
 
+        // Always record local identity (match recording / getLocalUid).
         if (!window.Store.system) window.Store.system = {};
         window.Store.system.localUser = { uid: identity.uid, name: identity.name };
-        
-        if (window.Store.user.name === "Search for a player...") {
-             window.Store.user.uid = identity.uid;
-             window.Store.user.name = identity.name;
+
+        // Only overwrite Store.user when viewing local player or no profile is loaded.
+        // Unconditional writes shared the same object with React state and snapped
+        // searched profiles back to the local player during matches.
+        const viewingUid = window.Store.user?.uid;
+        const viewingName = window.Store.user?.name;
+        const isViewingLocalOrEmpty =
+            !viewingUid ||
+            viewingUid === 'null' ||
+            String(viewingUid) === String(identity.uid) ||
+            viewingName === 'Search for a player...';
+
+        if (isViewingLocalOrEmpty) {
+            window.Store.user.uid = identity.uid;
+            window.Store.user.name = identity.name;
         }
 
         if (window.Store.activeMatch) {
@@ -1043,9 +1126,7 @@ const CoreController = {
                 active.playerName = identity.name;
                 window.MatchService.updateSession(active, 'CHECK_ROSTER_AGAIN', null);
             }
-            if ((!active.legend || active.legend === 'Unknown') && window.Store.user?.legend) {
-                active.legend = window.Utils?.normalizeLegend?.(window.Store.user.legend) || window.Store.user.legend;
-            }
+            // Do not copy Store.user.legend — GEP legendSelect is the only trusted source.
         }
         
         if (window.Store.pendingMatches.length > 0) {
@@ -1134,7 +1215,7 @@ const CoreController = {
     _applySaveResult: (result, match) => {
         if (!window.Store.activeMatch) window.Store.preMatchRoster = [];
         if (result.saved && result.uid) CoreController._prependHistory(match, result.uid);
-        else console.warn(`[Match] Not saved: ${result.reason || 'UNKNOWN'}`, {
+        else window.Utils.matchLog(`Not saved: ${result.reason || 'UNKNOWN'}`, {
             matchId: match?.matchId,
             playerName: match?.playerName,
             platformId: match?.platformId,
@@ -1145,6 +1226,11 @@ const CoreController = {
     },
 
     _isJunkMatch: (match) => {
+        if (window.Utils?.shouldDiscardHollowStatGhost?.(match)) return true;
+        // Keepable hollow half of a split — lift kills from combat log before other junk gates.
+        if (window.Utils?.isHollowStatGhost?.(match)) {
+            window.Utils.backfillTabsFromCombatLog?.(match);
+        }
         if (window.Utils?.hasRealMatchEvidence?.(match)) return false;
 
         let displacement = 99999;
@@ -1160,42 +1246,81 @@ const CoreController = {
         return isNoStats && (duration < thresholds.min_duration_ms || displacement < thresholds.min_displacement);
     },
 
-    _queueMatchUpload: (match) => MatchUploadQueue.enqueue(async () => {
-        await new Promise(resolve => setTimeout(resolve, 1500));
+    cancelPendingUploadForFiringRange: () => MatchUploadQueue.cancelForFiringRange(),
 
-        if (!match.teammateKills) match.teammateKills = {};
+    _queueMatchUpload: (match) => {
+        window.MatchBoundary?.markSuspiciousEndIfNeeded?.(match);
+        MatchUploadQueue.track(match);
 
-        if (!match.platformId) {
-            const fallbackUser = window.Store.system?.localUser || window.Store.user;
-            if (fallbackUser?.uid && fallbackUser.uid !== 'null') {
-                match.platformId = fallbackUser.uid;
-                match.playerName = fallbackUser.name || match.playerName;
-            } else {
-                if (match.playerName && match.playerName !== 'Unknown') {
-                    window.Store.pendingMatches.push(match);
-                    persistPendingMatches();
-                    console.warn(`[Match] Deferred save until local UID is resolved: ${match.playerName}`);
-                } else {
-                    console.warn('[Match] Dropped match because no local UID or player name was available', {
+        return MatchUploadQueue.enqueue(async () => {
+            try {
+                await new Promise(resolve => setTimeout(resolve, 1500));
+
+                if (await MatchUploadQueue.waitForSuspiciousEndHold(match)) {
+                    window.Utils.matchLog('Discarded pending upload (hold/cancel)', {
                         matchId: match.matchId,
-                        damage: match.damage,
-                        kills: match.kills
+                        mode: match.mode,
+                        storeMode: window.Store?.game?.mode,
                     });
+                    return;
                 }
-                return;
+
+                if (MatchUploadQueue.shouldDiscard(match)) {
+                    window.Utils.matchLog('Discarded pending upload (Firing Range)', {
+                        matchId: match.matchId,
+                        mode: match.mode,
+                        storeMode: window.Store?.game?.mode,
+                    });
+                    return;
+                }
+
+                if (!match.teammateKills) match.teammateKills = {};
+
+                if (!match.platformId) {
+                    const fallbackUser = window.Store.system?.localUser || window.Store.user;
+                    if (fallbackUser?.uid && fallbackUser.uid !== 'null') {
+                        match.platformId = fallbackUser.uid;
+                        match.playerName = fallbackUser.name || match.playerName;
+                    } else {
+                        if (match.playerName && match.playerName !== 'Unknown') {
+                            window.Store.pendingMatches.push(match);
+                            persistPendingMatches();
+                            window.Utils.matchLog(`Deferred save until local UID is resolved: ${match.playerName}`);
+                        } else {
+                            window.Utils.matchLog('Dropped match because no local UID or player name was available', {
+                                matchId: match.matchId,
+                                damage: match.damage,
+                                kills: match.kills
+                            });
+                        }
+                        return;
+                    }
+                }
+
+                const isUnknownMap = (m) => window.MapService?.isUnknownMap?.(m) || m === 'Unknown';
+                if ((!match.map || isUnknownMap(match.map)) && window.Store.game.map && !isUnknownMap(window.Store.game.map)) {
+                    match.map = window.Store.game.map;
+                }
+                if (match.mode === 'Unknown' && window.Store.game.mode !== 'Unknown') match.mode = window.Store.game.mode;
+
+                if (MatchUploadQueue.shouldDiscard(match)) {
+                    window.Utils.matchLog('Discarded pending upload (Firing Range)', {
+                        matchId: match.matchId,
+                        mode: match.mode,
+                        storeMode: window.Store?.game?.mode,
+                    });
+                    return;
+                }
+
+                window.EventRouter?.ensureDeathCombatLogForPlayer?.(match);
+
+                const result = await window.MatchService.finalizeDetached(match);
+                CoreController._applySaveResult(result, match);
+            } finally {
+                MatchUploadQueue.untrack(match);
             }
-        }
-
-        if ((!match.map || match.map === 'Unknown') && window.Store.game.map && window.Store.game.map !== 'Unknown') {
-            match.map = window.Store.game.map;
-        }
-        if (match.mode === 'Unknown' && window.Store.game.mode !== 'Unknown') match.mode = window.Store.game.mode;
-
-        window.EventRouter?.ensureDeathCombatLogForPlayer?.(match);
-
-        const result = await window.MatchService.finalizeDetached(match);
-        CoreController._applySaveResult(result, match);
-    }),
+        });
+    },
 
     /** Finalize a captured session even if it is no longer Store.activeMatch */
     finalizeMatchSession: async (match) => {
@@ -1206,7 +1331,7 @@ const CoreController = {
 
         match._ending = true;
         if (CoreController._isJunkMatch(match)) {
-            console.warn('[Match] Discarded junk session', {
+            window.Utils.matchLog('Discarded junk session', {
                 matchId: match.matchId,
                 ...(window.Utils?.getMatchEvidenceSummary?.(match) || {}),
             });
@@ -1217,6 +1342,7 @@ const CoreController = {
             return;
         }
 
+        window.MatchBoundary?.rememberClosedSession?.(match);
         return CoreController._queueMatchUpload(match);
     },
 
@@ -1235,6 +1361,13 @@ const CoreController = {
         
         if (window.Store.game.map !== "Unknown") newSession.map = window.Store.game.map;
         if (window.Store.game.mode !== "Unknown") newSession.mode = window.Store.game.mode;
+
+        if (window.MatchBoundary?.consumePendingInferredStart?.()) {
+            window.MatchBoundary.markInferredBoundary(newSession, ['boundary_inferred']);
+        }
+        if (window.MatchBoundary?.consumePendingSquadLegendSelect?.()) {
+            window.MatchBoundary.markSquadLegendSelect(newSession);
+        }
 
         window.Store.activeMatch = newSession;
 
@@ -1305,7 +1438,7 @@ const CoreController = {
         GameStatePoller.stop();
 
         if (CoreController._isJunkMatch(match)) {
-            console.warn('[Match] Discarded junk active session', {
+            window.Utils.matchLog('Discarded junk active session', {
                 matchId: match.matchId,
                 ...(window.Utils?.getMatchEvidenceSummary?.(match) || {}),
             });
@@ -1328,6 +1461,7 @@ const CoreController = {
             return;
         }
 
+        window.MatchBoundary?.rememberClosedSession?.(match);
         return CoreController._queueMatchUpload(match);
     },
     
@@ -1349,6 +1483,7 @@ window.SyncManager = {
         }
 
         if (payload.teammates && window.Store.activeMatch) {
+            // acceptSquadRosterEntry rejects spectated names after freeze / when squad is full.
             payload.teammates.forEach(t => {
                 if (t.name) t.name = window.Utils ? window.Utils.cleanName(t.name) : t.name;
                 window.MatchService.updateSession(window.Store.activeMatch, 'TEAMMATE', t);

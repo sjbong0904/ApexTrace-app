@@ -1,12 +1,51 @@
-# Future Overwolf features (not for current QA)
+# ApexTrace 향후 계획 (Roadmap)
 
-제출·이번 QA 범위 밖. 나중에 제품 단계에서 붙일 수 있는 **미구현** API/플로우만 정리.
+테스트·개발 중 정리한 로드맵.  
+수동 QA·제출 체크는 [QA.md](./QA.md)만 보면 되고, 여기 항목을 고친다고 QA 필수 통과가 바뀌지는 않음.
 
-상태: `후보` = 가능성 있음 · `낮음` = 여유 있을 때 · `보류` = 정책 결정 후
+**상태**
+
+| 라벨 | 의미 |
+|------|------|
+| `예정` | 구현 방향 확정 |
+| `검토중` | 설계/정책 미정 |
+| `삭제 예정` | 제거 방향 |
+| `후보` / `낮음` / `보류` | Overwolf API 쪽 (아래 §B) |
 
 ---
 
-## Premium / 구독 (가능성 높음 — Phase 1.5+)
+## A. 제품
+
+### 예정
+
+#### 1. 매치 히스토리 지도 — 라운드별 링 위치 표시
+
+매치 상세 지도에 **라운드별 링(circle) 위치**를 표시한다.  
+(`ring_rounds` / GEP 제공 여부에 의존; UI에서 라운드 단위로 가시화.)
+
+#### 2. Private mode 스위치
+
+- **위치:** 시즌 드롭다운 옆
+- **동작:** 켜면 매치 기록을 **로컬에만** 저장하고 클라우드(`/history`)에는 올리지 않음
+
+#### 3. WeaponsDB / Weapons UI 삭제
+
+에이펙스 게임 내 관련 기능으로 앱 쪽 무기 레퍼런스 필요성 소멸 → 시드·탭·관련 코드 제거 예정.
+
+### 검토중
+
+#### 4. 비-BR 모드 기록 정책 (Other)
+
+와일드카드, 건런, 팀 데스매치 등을 `other`로 묶을지 / 모드별 분리 / 미기록 — 미정.  
+결정 후 `matchMode`·필터 탭·시즌 통계 집계 범위를 맞춤.
+
+---
+
+## B. Overwolf API / 플랫폼 (QA 범위 밖)
+
+제출·현재 QA 밖. 제품 단계에서 붙일 수 있는 **미구현** API/플로우.
+
+### Premium / 구독 (가능성 높음 — Phase 1.5+)
 
 | 항목 | API / 문서 | 비고 |
 |------|------------|------|
@@ -22,9 +61,7 @@
 
 현재: Free 고정 + 스토어 “coming soon” 게이트만 존재 (로컬 Premium override 제거됨).
 
----
-
-## UX / 오버레이 (후보 · 낮음)
+### UX / 오버레이 (후보 · 낮음)
 
 | 항목 | API / 문서 | 비고 |
 |------|------------|------|
@@ -35,9 +72,7 @@
 | Toast 알림 | `notifications.showToastNotification` | unpacked에서 미동작 주의 |
 | coexistence / 전체화면 최적화 안내 | `overlayInfo` | 이전에 QA용으로 드롭 |
 
----
-
-## 유지보수 / 지원 (낮음)
+### 유지보수 / 지원 (낮음)
 
 | 항목 | API / 문서 | 비고 |
 |------|------------|------|
@@ -46,15 +81,6 @@
 | 로그 zip / 업로드 | `createLogsZip` / `uploadClientLogs` | Discord 지원용 |
 | Discord 미디어 공유 | `social.discord.share*` | 지금은 invite 링크만 |
 
----
-
-## 해당 없음 (의도적 미사용)
+### 해당 없음 (의도적 미사용)
 
 캡처 전용 `overwolf.media`, Logitech, 로컬 `overwolf.web` 서버/WebSocket, simple-io 플러그인(현 `io`로 충분), crypto, crossapp.
-
----
-
-## 현재 QA 체크리스트와의 관계
-
-수동 QA·제출 체크는 [`overwolf-qa-checklist.md`](./overwolf-qa-checklist.md)만 보면 됨.  
-이 문서는 **로드맵용**이며, 여기 항목을 고친다고 QA 필수 통과가 바뀌지는 않음.

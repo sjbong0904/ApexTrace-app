@@ -8,10 +8,9 @@ import MapVisualizer from './components/MapVisualizer';
 import CombatLog from './components/CombatLog';
 import MatchDetailTabs from './components/MatchDetailTabs';
 import StatisticsTab from './components/StatisticsTab';
-import WeaponsTab from './components/weaponsTab';
 import TierTableTab from './components/TierTableTab';
-import { formatRelativeTime, getRankColor, getRelativeTime } from './utils/helpers';
-import { FaSearch, FaSync, FaQuestionCircle, FaList, FaStar, FaChartBar, FaCrosshairs, FaCog, FaThList } from 'react-icons/fa';
+import { formatRelativeTime, getRankColor, getRelativeTime, normalizeMapDisplayName } from './utils/helpers';
+import { FaSearch, FaSync, FaQuestionCircle, FaList, FaStar, FaChartBar, FaCog, FaThList } from 'react-icons/fa';
 import PlayerSelectionModal from './components/PlayerSelectionModal';
 import AdsRail, { ADS_RAIL_WIDTH } from './components/AdsRail';
 import SettingsTab from './components/SettingsTab';
@@ -132,7 +131,7 @@ const App = () => {
     const { t, i18n } = useTranslation(); // 🌟 훅 사용
     const [SEASONS, setSeasons] = useState<Season[]>(FALLBACK_SEASONS);
     /** Free tier only for now (ads on desktop; analytics tabs gated). */
-    const isPremium = false;
+    const isPremium = true;
     /** false until window name is known — avoids mounting AdsRail on in-game briefly */
     const [isDesktopWindow, setIsDesktopWindow] = useState(false);
     const [history, setHistory] = useState<any[]>([]);
@@ -329,7 +328,8 @@ const App = () => {
         options?: { skipTabSwitch?: boolean }
     ) => {
         const previousUserUid = userRef.current?.uid ?? null;
-        setUser(freshUser);
+        // Copy so background Store.user mutations cannot silently alias React state.
+        setUser({ ...freshUser });
 
         setFavorites(prevFavs => {
             const existingIndex = prevFavs.findIndex(f => String(f.uid) === String(freshUser.uid));
@@ -394,6 +394,10 @@ const App = () => {
         window.addEventListener('resize', updateWidth);
         return () => window.removeEventListener('resize', updateWidth);
     }, []);
+
+    useEffect(() => {
+        if (mainTab === 'WEAPONS') setMainTab('DASHBOARD');
+    }, [mainTab]);
 
     useEffect(() => {
         if (!user?.uid || (user.level ?? 0) > 0) return;
@@ -1282,7 +1286,6 @@ const App = () => {
                             {mainTab === "DASHBOARD" ? <><FaList color="var(--color-text-muted)"/> {t('nav.matchHistory')}</> : 
                              mainTab === "FAVORITES" ? <><FaStar color="#e1b12c"/> {t('nav.favorites')}</> :
                              mainTab === "STATISTICS" ? <><FaChartBar color="#e17055"/> {t('nav.statistics')}</> :
-                             mainTab === "WEAPONS" ? <><FaCrosshairs color="#00cec9"/> {t('nav.weapons')}</> :
                              mainTab === "TIER_TABLE" ? <><FaThList color="#a29bfe"/> {t('nav.tierTable')}</> :
                              <><FaCog color="var(--color-text-muted)"/> {t('nav.settings')}</>}
                             </span>
@@ -1351,7 +1354,15 @@ const App = () => {
                         </div>
                     </div>
                 
-                    <div ref={mainScrollRef} style={{ padding: isNarrowLayout ? '16px' : '30px', overflowY: 'auto', overflowX: 'hidden', flex: 1, height: '100%', paddingBottom: isNarrowLayout ? '16px' : '30px', position: 'relative', minWidth: 0 }}>
+                    <div ref={mainScrollRef} style={{
+                        padding: mainTab === 'TIER_TABLE' ? 0 : (isNarrowLayout ? '16px' : '30px'),
+                        overflowY: mainTab === 'TIER_TABLE' ? 'hidden' : 'auto',
+                        overflowX: 'hidden',
+                        flex: 1,
+                        height: '100%',
+                        position: 'relative',
+                        minWidth: 0,
+                    }}>
                         {isProfileLoading && (mainTab === "DASHBOARD" || mainTab === "STATISTICS") && (
                             <ProfileLoadingOverlay label={t('search.loadingProfile')} />
                         )}
@@ -1426,17 +1437,8 @@ const App = () => {
                                 profileName={user.name}
                                 statsRefreshToken={statsRefreshToken}
                             />
-                        ) : mainTab === "WEAPONS" ? (
-                            <WeaponsTab />
                         ) : mainTab === "TIER_TABLE" ? (
-                            <div style={{
-                                margin: '-30px',
-                                marginBottom: '-90px',
-                                width: 'calc(100% + 60px)',
-                                height: 'calc(100% + 120px)',
-                                minHeight: 0,
-                                overflow: 'hidden',
-                            }}>
+                            <div style={{ width: '100%', height: '100%', minHeight: 0, overflow: 'hidden' }}>
                                 <TierTableTab />
                             </div>
                         ) : mainTab === "SETTINGS" ? (
@@ -1484,7 +1486,6 @@ const App = () => {
                                             const timeLabel = formatRelativeTime(timePart, t);
                                             const gameMode = getModeDisplayLabel(match.mode);
                                             const modeColor = getModeColor(match.mode);
-
                                             return (
                                                 <div key={match.matchId} style={{ background: 'var(--color-bg-card)', borderRadius: '8px', overflow: 'hidden', boxShadow: '0 2px 5px rgba(0,0,0,0.2)', border: '1px solid var(--color-border)' }}>
                                                     <div
@@ -1492,9 +1493,11 @@ const App = () => {
                                                         onClick={() => { void handleMatchToggle(match.matchId); }}
                                                         style={{ display: 'flex', alignItems: 'center', padding: isNarrowLayout ? '12px 12px' : '15px 20px', cursor: 'pointer', borderLeft: `6px solid ${getRankColor(displayRank)}`, background: isExpanded ? 'var(--color-bg-card-hover)' : 'var(--color-bg-card)', transition: 'background 0.2s', opacity: loadingDetailMatchId === match.matchId ? 0.75 : 1, minWidth: 0, gap: isNarrowLayout ? '10px' : undefined }}
                                                     >
-                                                        <div style={{ position: 'relative', width: isNarrowLayout ? '42px' : '50px', height: isNarrowLayout ? '42px' : '50px', borderRadius: '10px', background: 'var(--color-bg-sub-header)', overflow: 'hidden', marginRight: isNarrowLayout ? 0 : '20px', border: '2px solid var(--color-border-light)', flexShrink: 0 }}>
-                                                            <img src={`https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/${legendFile}.png`} alt={match.legend || "?"} style={{ width: '100%', height: '100%', objectFit: 'cover', transform: 'scale(1.1)' }} onError={(e) => { (e.target as HTMLImageElement).src = 'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/unknown.png'; }} />
-                                                            <div style={{ position: 'absolute', top: 0, left: 0, background: 'color-mix(in srgb, var(--color-bg-deep) 80%, transparent)', color: 'var(--color-text-secondary)', fontSize: '9px', padding: '2px 4px', borderBottomRightRadius: '5px', fontWeight: 'bold', lineHeight: '1', backdropFilter: 'blur(2px)' }}>{timeLabel}</div>
+                                                        <div style={{ position: 'relative', width: isNarrowLayout ? '42px' : '50px', height: isNarrowLayout ? '42px' : '50px', marginRight: isNarrowLayout ? 0 : '20px', flexShrink: 0 }}>
+                                                            <div style={{ width: '100%', height: '100%', borderRadius: '10px', background: 'var(--color-bg-sub-header)', overflow: 'hidden', border: '2px solid var(--color-border-light)' }}>
+                                                                <img src={`https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/${legendFile}.png`} alt={match.legend || "?"} style={{ width: '100%', height: '100%', objectFit: 'cover', transform: 'scale(1.1)' }} onError={(e) => { (e.target as HTMLImageElement).src = 'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/unknown.png'; }} />
+                                                            </div>
+                                                            <div style={{ position: 'absolute', top: 0, left: 0, background: 'color-mix(in srgb, var(--color-bg-deep) 80%, transparent)', color: 'var(--color-text-secondary)', fontSize: '9px', padding: '2px 4px', borderBottomRightRadius: '5px', fontWeight: 'bold', lineHeight: '1', whiteSpace: 'nowrap', backdropFilter: 'blur(2px)', pointerEvents: 'none' }}>{timeLabel}</div>
                                                         </div>
                                                         <div style={{
                                                             flex: 1,
@@ -1512,7 +1515,7 @@ const App = () => {
                                                                 <div style={{ fontWeight: 'bold', fontSize: isNarrowLayout ? '14px' : '16px', color: 'var(--color-text-primary)' }}>#{displayRank}</div>
                                                             </div>
                                                             <div style={{ minWidth: 0 }}><div style={{ fontSize: '10px', color: 'var(--color-text-muted)' }}>{t('match.gamemode')}</div><div style={{ fontWeight: 'bold', fontSize: isNarrowLayout ? '12px' : '14px', color: modeColor, textTransform: 'uppercase', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={gameMode}>{gameMode}</div></div>
-                                                            <div style={{ overflow: 'hidden', minWidth: 0 }}><div style={{ fontSize: '10px', color: 'var(--color-text-muted)' }}>{t('match.map')}</div><div style={{ fontWeight: 'bold', color: 'var(--color-text-dim)', fontSize: isNarrowLayout ? '12px' : '14px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }} title={match.map}>{match.map}</div></div>
+                                                            <div style={{ overflow: 'hidden', minWidth: 0 }}><div style={{ fontSize: '10px', color: 'var(--color-text-muted)' }}>{t('match.map')}</div><div style={{ fontWeight: 'bold', color: 'var(--color-text-dim)', fontSize: isNarrowLayout ? '12px' : '14px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }} title={normalizeMapDisplayName(match.map)}>{normalizeMapDisplayName(match.map)}</div></div>
                                                             <div><div style={{ fontSize: '10px', color: 'var(--color-text-muted)' }}>{t('match.damage')}</div><div style={{ fontWeight: 'bold', color: 'var(--color-danger)', fontSize: isNarrowLayout ? '14px' : '16px' }}>{Math.round(match.damage)}</div></div>
                                                             <div><div style={{ fontSize: '10px', color: 'var(--color-text-muted)' }}>{t('match.kills')}</div><div style={{ fontWeight: 'bold', color: 'var(--color-text-primary)', fontSize: isNarrowLayout ? '14px' : '16px' }}>{match.kills}</div></div>
                                                             {!isNarrowLayout && (

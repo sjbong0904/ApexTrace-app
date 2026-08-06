@@ -70,7 +70,19 @@
     "damage": "DAMAGE",
     "kills": "KILLS",
     "assists": "ASSISTS",
-    "knocks": "KNOCKS"
+    "knocks": "KNOCKS",
+    "dataQualityEstimated": "Estimado",
+    "dataQualityTooltip": "Dados de partida incompletos: {{signals}}",
+    "confidenceLabel": "Confiança {{n}}%",
+    "missingSignals": {
+      "no_legend_select": "seleção de lenda ausente",
+      "pseudo_stale": "ID da partida incerta",
+      "no_match_start": "início da partida ausente",
+      "boundary_inferred": "limite da partida inferido",
+      "placement_estimated": "colocação estimada",
+      "no_squad_legend_select": "seleção de lenda do esquadrão ausente",
+      "legend_from_prev_match": "lenda reutilizada da partida anterior"
+    }
   },
   "matchDetails": {
     "stats": "Estatísticas",

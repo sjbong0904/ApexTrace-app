@@ -7,7 +7,7 @@ import {
 import { GiBullets, GiGunshot } from 'react-icons/gi';
 import { useTranslation } from 'react-i18next';
 import type { MatchHistory } from '../utils/match';
-import { formatFullRankName } from '../utils/helpers';
+import { formatFullRankName, isKnownLegend } from '../utils/helpers';
 import { getWeaponTagTheme, getLegendImageId, getWeaponImageId, type WeaponTagTier } from '../utils/weaponTheme';
 import ProfileTagIcon from './ProfileTagIcon';
 
@@ -186,11 +186,13 @@ const Sidebar: React.FC<SidebarProps> = ({
             totalKills += k; totalDamage += d; totalPlacement += p; totalAssists += a;
             if (p === 1) totalWins++;
             if (p <= 5) totalTop5++;
-            if (match.legend) {
-                if (!legendStats[match.legend]) legendStats[match.legend] = { count: 0, kills: 0, placement: 0 };
-                legendStats[match.legend].count++;
-                legendStats[match.legend].kills += k;
-                legendStats[match.legend].placement += p;
+            // Unknown/missing legend buckets pollute tags; volume (kills/games) still counts above.
+            const legendName = match.legend;
+            if (legendName && isKnownLegend(legendName)) {
+                if (!legendStats[legendName]) legendStats[legendName] = { count: 0, kills: 0, placement: 0 };
+                legendStats[legendName].count++;
+                legendStats[legendName].kills += k;
+                legendStats[legendName].placement += p;
             }
             [match.loadout?.primary, match.loadout?.secondary].forEach(rawName => {
                 if (!rawName || rawName === 'unknown' || rawName === 'none') return;

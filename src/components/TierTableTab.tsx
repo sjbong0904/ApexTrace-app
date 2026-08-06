@@ -118,6 +118,13 @@ const TierTableTab: React.FC = () => {
                 assignments: { ...prev.assignments, [id]: [] },
             };
         });
+        // Reveal the new bottom row even when the list was scrolled up.
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                const el = captureRef.current;
+                if (el) el.scrollTop = el.scrollHeight;
+            });
+        });
     };
 
     const removeTierRow = (tierId: string) => {
@@ -575,20 +582,26 @@ const TierTableTab: React.FC = () => {
                 />
             )}
             <div style={{
-                padding: '16px 24px',
+                padding: '12px 16px',
                 borderBottom: '1px solid var(--color-border)',
                 display: 'flex',
+                flexWrap: 'wrap',
                 alignItems: 'center',
                 justifyContent: 'space-between',
-                gap: 12,
+                gap: 10,
+                rowGap: 10,
                 flexShrink: 0,
+                position: 'sticky',
+                top: 0,
+                zIndex: 5,
+                background: 'var(--color-bg-panel)',
             }}>
-                <div style={{ display: 'flex', gap: 8 }}>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', minWidth: 0 }}>
                     <button
                         type="button"
                         onClick={() => selectMode('legend')}
                         style={{
-                            padding: '8px 14px',
+                            padding: '8px 12px',
                             borderRadius: 8,
                             border: `1px solid ${mode === 'legend' ? 'var(--color-accent)' : 'var(--color-border-light)'}`,
                             background: mode === 'legend' ? 'rgba(214, 69, 55, 0.15)' : 'transparent',
@@ -599,6 +612,7 @@ const TierTableTab: React.FC = () => {
                             display: 'flex',
                             alignItems: 'center',
                             gap: 6,
+                            whiteSpace: 'nowrap',
                         }}
                     >
                         <FaUser size={12} /> {t('tierTable.legendTier', { defaultValue: 'Legend Tier Table' })}
@@ -607,7 +621,7 @@ const TierTableTab: React.FC = () => {
                         type="button"
                         onClick={() => selectMode('weapon')}
                         style={{
-                            padding: '8px 14px',
+                            padding: '8px 12px',
                             borderRadius: 8,
                             border: `1px solid ${mode === 'weapon' ? '#00cec9' : 'var(--color-border-light)'}`,
                             background: mode === 'weapon' ? 'rgba(0, 206, 201, 0.12)' : 'transparent',
@@ -618,13 +632,14 @@ const TierTableTab: React.FC = () => {
                             display: 'flex',
                             alignItems: 'center',
                             gap: 6,
+                            whiteSpace: 'nowrap',
                         }}
                     >
                         <FaCrosshairs size={12} /> {t('tierTable.weaponTier', { defaultValue: 'Weapon Tier Table' })}
                     </button>
                 </div>
 
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexShrink: 0, marginLeft: 'auto' }}>
                     <button
                         type="button"
                         onClick={resetTable}
@@ -636,6 +651,7 @@ const TierTableTab: React.FC = () => {
                             color: 'var(--color-text-muted)',
                             cursor: 'pointer',
                             fontSize: 12,
+                            whiteSpace: 'nowrap',
                         }}
                     >
                         {t('tierTable.reset', { defaultValue: 'Reset' })}
@@ -645,7 +661,7 @@ const TierTableTab: React.FC = () => {
                         onClick={captureScreenshot}
                         disabled={isCapturing}
                         style={{
-                            padding: '8px 14px',
+                            padding: '8px 12px',
                             borderRadius: 8,
                             border: '1px solid var(--color-accent)',
                             background: 'linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-dark) 100%)',
@@ -657,6 +673,7 @@ const TierTableTab: React.FC = () => {
                             alignItems: 'center',
                             gap: 6,
                             opacity: isCapturing ? 0.7 : 1,
+                            whiteSpace: 'nowrap',
                         }}
                     >
                         <FaCamera size={14} />

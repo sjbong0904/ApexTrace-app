@@ -13,6 +13,15 @@ let lastBoundaryRotateAt = 0;
  * Ideal GEP also emits per-match squad legendSelect and a new pseudo id;
  * start/end may still flake, so 2차가 메꾼다.
  */
+const matchLog = (message, details) => {
+    if (window.Utils?.matchLog) return window.Utils.matchLog(message, details);
+    if (details == null) console.warn('[Match] ' + message);
+    else {
+        try { console.warn('[Match] ' + message + ' ' + JSON.stringify(details)); }
+        catch (e) { console.warn('[Match] ' + message); }
+    }
+};
+
 const MatchBoundary = {
     _rotateDebounceTimer: null,
     _rotateGeneration: 0,
@@ -27,7 +36,25 @@ const MatchBoundary = {
     _selectSlots: Object.create(null),
     _hadSelectPayload: false,
     _lastPseudoId: null,
+    /** Last closed session snapshot — mark inferred/estimated restarts (never merge). */
+    _lastClosedSession: null,
+    _lastLegendSelectionAt: 0,
+    /** Next startMatch should seed boundary_inferred quality flags. */
+    _pendingInferredStart: false,
+    /** Next startMatch saw a squad legendSelect_* (boundary proof, any of 3 slots). */
+    _pendingSquadLegendSelect: false,
     ORPHAN_CHECK_MS: 120000,
+    /** Max gap between closed session and a legendSelect-less restart to treat as inferred. */
+    BOUNDARY_ARTIFACT_GAP_MS: 75000,
+    /** Gap after prior end/elim that suggests ranked requeue vs ~42s respawn. */
+    BOUNDARY_INFER_GAP_MS: 90000,
+    /**
+     * Same-legend requeues often omit local legendSelect. Reuse previous match legend
+     * only when this session starts within this gap after the previous close.
+     */
+    LEGEND_PREV_MATCH_MAX_GAP_MS: 20 * 60 * 1000,
+    /** Hold suspicious ends before POST so false-end races can cancel. */
+    SUSPICIOUS_END_HOLD_MS: 75000,
 
     cancelPending() {
         if (this._rotateDebounceTimer) {
@@ -97,24 +124,179 @@ const MatchBoundary = {
 
         switch (reason) {
             case 'pseudo_match_id':
+                // Never rotate mid-match on pseudo churn (respawn / ranked requeue GEP quirks).
+                return shouldAcceptMatchBoundaryEnd(match);
             case 'respawn':
             case 'legend_select_local':
+                // Local character-select after elim / victory → next lobby.
                 return true;
+            case 'legend_select_squad':
+                // Non-local-only select must not hand off after elim (ghost #20 sessions).
+                // Live requeue path uses shouldRotateForLiveLegendSelect instead.
+                return false;
             case 'legend_selection_phase':
                 return isMatchConcluded(match)
                     || isEliminated(match)
                     || !!match._squadEliminated
                     || (Date.now() - match.startTime > 480000);
             case 'match_start_stale':
+                // GEP always re-emits match_start after legend select (and on some respawns).
+                // Do NOT use empty teamStats as "over" here — that is normal for:
+                //   - solo (0 teammates forever)
+                //   - duo (0–1 until teammate select lands)
+                //   - trio during select before teammates fill roster
+                // Only rotate when the current session is actually finished; the next
+                // lobby is otherwise opened by legend_select_* / stats_requeue.
                 return isMatchConcluded(match)
-                    || isEliminated(match)
                     || !!match._squadEliminated
-                    || (Date.now() - match.startTime > 120000);
+                    || isEliminated(match);
             case 'stats_reset':
+                // Legacy: elim or very long session. Prefer stats_requeue AND-gate below.
                 return !!match._squadEliminated || (Date.now() - match.startTime > 480000);
+            case 'stats_requeue':
+                // Validated in handleTabsReset (phase/revive gate, or hard 0/0/0 reset).
+                return true;
+            case 'inferred_requeue':
+                return !!match._squadEliminated
+                    || isEliminated(match)
+                    || isMatchConcluded(match)
+                    || shouldAcceptMatchBoundaryEnd(match);
             default:
                 return false;
         }
+    },
+
+    markPendingInferredStart(reason) {
+        this._pendingInferredStart = true;
+        matchLog(`Next session will be marked estimated (${reason})`);
+    },
+
+    consumePendingInferredStart() {
+        const pending = !!this._pendingInferredStart;
+        this._pendingInferredStart = false;
+        return pending;
+    },
+
+    markPendingSquadLegendSelect() {
+        this._pendingSquadLegendSelect = true;
+    },
+
+    consumePendingSquadLegendSelect() {
+        const pending = !!this._pendingSquadLegendSelect;
+        this._pendingSquadLegendSelect = false;
+        return pending;
+    },
+
+    /** Boundary evidence: any of legendSelect_0..2 (squad-only GEP keys). */
+    markSquadLegendSelect(match) {
+        if (!match) return;
+        match._hadSquadLegendSelect = true;
+    },
+
+    markInferredBoundary(match, reasons = []) {
+        if (!match) return;
+        match._boundaryInferred = true;
+        const list = Array.isArray(reasons) ? reasons : [reasons];
+        list.forEach((signal) => {
+            if (signal) window.Utils?.addMissingSignal?.(match, signal);
+        });
+        if (!list.includes('boundary_inferred')) {
+            window.Utils?.addMissingSignal?.(match, 'boundary_inferred');
+        }
+    },
+
+    /** Artifact-like restart: keep as estimated instead of discarding. */
+    markInferredBoundaryIfArtifact(match) {
+        if (!isBoundaryArtifactSession(match)) return false;
+        this.markInferredBoundary(match, ['boundary_inferred', 'no_legend_select']);
+        return true;
+    },
+
+    /**
+     * Ranked requeue / weak GEP start — open a new estimated session when signals agree.
+     * Respawn (~42s, squad alive) must not trigger this.
+     */
+    scoreInferNewMatch(match, signals = {}) {
+        if (!match || match._ending) return { ok: false, score: 0, gapMs: 0, blocked: 'no_match' };
+        if (!signals.forceAfterElim && !shouldAcceptMatchBoundaryEnd(match) && !match._squadEliminated) {
+            return { ok: false, score: 0, gapMs: 0, blocked: 'squad_still_active' };
+        }
+
+        let score = 0;
+        const gapMs = signals.gapMs != null
+            ? signals.gapMs
+            : (MatchBoundary._lastClosedSession?.closedAt
+                ? Date.now() - MatchBoundary._lastClosedSession.closedAt
+                : 0);
+
+        if (gapMs >= MatchBoundary.BOUNDARY_INFER_GAP_MS) score += 2;
+        if (signals.tabsReset) score += 2;
+        if (signals.mapChanged) score += 2;
+        if (signals.squadChanged) score += 2;
+        if (signals.legendSelection) score += 1;
+        if (signals.afterElimination || match._squadEliminated) score += 1;
+        if (signals.noLegendSelect && !match._hadSquadLegendSelect) score += 1;
+
+        return { ok: score >= 3, score, gapMs, blocked: null };
+    },
+
+    shouldInferNewMatch(match, signals = {}) {
+        return this.scoreInferNewMatch(match, signals).ok;
+    },
+
+    maybeInferRotate(match, signals = {}, reason = 'inferred_requeue') {
+        const verdict = this.scoreInferNewMatch(match, signals);
+        if (!match || !verdict.ok) {
+            if (match && (signals.mapChanged || signals.squadChanged || signals.tabsReset)) {
+                const skipKey = `${reason}|${verdict.blocked}|${verdict.score}|${!!signals.mapChanged}|${!!signals.squadChanged}`;
+                if (this._lastInferSkipKey !== skipKey) {
+                    this._lastInferSkipKey = skipKey;
+                    matchLog('Infer rotate skipped', {
+                        reason,
+                        score: verdict.score,
+                        need: 3,
+                        blocked: verdict.blocked,
+                        gapMs: verdict.gapMs,
+                        signals,
+                    });
+                }
+            }
+            return false;
+        }
+        this.markPendingInferredStart(reason);
+        this.requestRotate(match, reason === 'stats_reset' ? 'stats_reset' : 'inferred_requeue');
+        return true;
+    },
+
+    /** Ends without victory/elim/summary may be false match_end races — hold upload briefly. */
+    markSuspiciousEndIfNeeded(match) {
+        if (!match) return false;
+        if (match._squadEliminated || match._isVictory || match._matchSummaryRank) return false;
+        if (match.placement > 0 && match.placement < 20 && !match._estimatedPlacement) return false;
+        match._continuationHold = true;
+        match._uploadHoldUntil = Date.now() + MatchBoundary.SUSPICIOUS_END_HOLD_MS;
+        matchLog('Suspicious end — holding upload for continuation check', {
+            matchId: match.matchId,
+            holdMs: MatchBoundary.SUSPICIOUS_END_HOLD_MS,
+        });
+        return true;
+    },
+
+    hasContinuationEvidence(closedMatch) {
+        if (!closedMatch) return false;
+        const active = window.Store?.activeMatch;
+        if (!active || active === closedMatch || active._ending) return false;
+
+        const age = Date.now() - (active.startTime || 0);
+        if (age > MatchBoundary.SUSPICIOUS_END_HOLD_MS) return false;
+
+        const prevNames = collectSquadNames(closedMatch);
+        if (prevNames.size === 0) return false;
+        let overlap = 0;
+        for (const n of collectSquadNames(active)) {
+            if (prevNames.has(n)) overlap += 1;
+        }
+        return overlap >= 2;
     },
 
     scheduleOrphanFinalize(match, delayMs = MatchBoundary.ORPHAN_CHECK_MS) {
@@ -127,7 +309,7 @@ const MatchBoundary = {
             if (!captured || captured._ending) return;
             if (window.Store?.activeMatch !== captured) return;
             // Ideal GEP clears pseudo + legendSelect on end; if those never arrive, orphan-save.
-            console.log('[Match] Finalizing orphan session after elimination (no end signal)');
+            matchLog('Finalizing orphan session after elimination (no end signal)');
             window.CoreController?.endMatch?.();
         }, delayMs);
     },
@@ -152,14 +334,23 @@ const MatchBoundary = {
             const current = window.Store?.activeMatch;
             if (!current || current._ending) return;
             if (this._matchEndTimer) return;
-            console.log(`[Match] Ending session (${reason})`);
+            matchLog(`Ending session (${reason})`);
             lastMatchEndTime = Date.now();
             void window.CoreController?.endMatch?.();
         }, 200);
     },
 
     requestRotate(match, reason) {
-        if (!this.shouldAllowRotate(match, reason)) return;
+        if (!this.shouldAllowRotate(match, reason)) {
+            matchLog('Rotate denied', {
+                reason,
+                matchId: match?.matchId,
+                squadEliminated: !!match?._squadEliminated,
+                ending: !!match?._ending,
+                hadSquadLegendSelect: !!match?._hadSquadLegendSelect,
+            });
+            return;
+        }
 
         this.cancelOrphanFinalize();
         this.cancelMatchEndTimer();
@@ -195,11 +386,11 @@ const MatchBoundary = {
                 const current = window.Store?.activeMatch;
 
                 if (current === triggerMatch && !current._ending) {
-                    console.log(`[Match] Rotating session (${reason})`);
+                    matchLog(`Rotating session (${reason})`);
                     await controller.endMatch();
                     rotated = true;
                 } else if (triggerMatch && !triggerMatch._ending) {
-                    console.warn(`[Match] Finalizing captured session before rotate (${reason})`);
+                    matchLog(`Finalizing captured session before rotate (${reason})`);
                     await controller.finalizeMatchSession(triggerMatch);
                     rotated = true;
                 }
@@ -210,6 +401,13 @@ const MatchBoundary = {
                 if (rotated) {
                     lastMatchEndTime = 0;
                     lastBoundaryRotateAt = Date.now();
+                    if (
+                        reason === 'stats_reset'
+                        || reason === 'stats_requeue'
+                        || reason === 'inferred_requeue'
+                    ) {
+                        this.markPendingInferredStart(reason);
+                    }
                     await controller.startMatch();
                 }
             } finally {
@@ -225,7 +423,7 @@ const MatchBoundary = {
         // 1차 match_end finalize가 아직 대기 중이면 그 세션을 먼저 닫게 둠.
         if (this._matchEndTimer) return;
         if (Date.now() - lastBoundaryRotateAt < 500) return;
-        console.log(`[Match] Starting session (${reason})`);
+        matchLog(`Starting session (${reason})`);
         lastBoundaryRotateAt = Date.now();
         void window.CoreController?.startMatch?.();
     },
@@ -241,42 +439,111 @@ const MatchBoundary = {
         const prevId = match?._gepPseudoMatchId ?? this._lastPseudoId;
 
         if (nextId === prevId) {
-            if (match) match._gepPseudoMatchId = nextId;
+            if (match && nextId) {
+                match._gepPseudoMatchId = nextId;
+                match._sawGepPseudo = true;
+            }
             this._lastPseudoId = nextId;
             return;
         }
 
         if (prevId && !nextId) {
-            console.log(`[Match] pseudo_match_id cleared (${String(prevId).slice(0, 8)}…)`);
-            if (match && !match._ending) this.requestEnd('pseudo_cleared');
+            if (match && !match._ending) {
+                if (shouldAcceptMatchBoundaryEnd(match)) {
+                    this.requestEnd('pseudo_cleared');
+                } else {
+                    matchLog('Ignored pseudo_cleared — squad still active (likely respawn)');
+                }
+            }
             if (match) match._gepPseudoMatchId = null;
             this._lastPseudoId = null;
             return;
         }
 
         if (prevId && nextId) {
-            console.log(`[Match] pseudo_match_id changed (${String(prevId).slice(0, 8)}… → ${String(nextId).slice(0, 8)}…)`);
             if (match && !match._ending) {
                 match._gepPseudoMatchId = nextId;
+                match._sawGepPseudo = true;
                 this._lastPseudoId = nextId;
-                this.requestRotate(match, 'pseudo_match_id');
+                if (shouldAcceptMatchBoundaryEnd(match)) {
+                    this.requestRotate(match, 'pseudo_match_id');
+                } else {
+                    // Prefer one clean session over splitting/merging across respawn.
+                    matchLog('Pseudo id changed mid-match — keeping session (no merge/split)');
+                }
                 return;
             }
         }
 
         if (!prevId && nextId) {
+            const prev = this._lastClosedSession;
+            const gap = prev?.closedAt ? Date.now() - prev.closedAt : 0;
+            if (
+                !window.Store?.activeMatch
+                && prev
+                && gap >= this.BOUNDARY_INFER_GAP_MS
+                && this._lastLegendSelectionAt < (prev.closedAt || 0)
+            ) {
+                this.markPendingInferredStart('pseudo_assigned_requeue');
+            }
             this.ensureSessionStarted('pseudo_assigned');
         }
 
         const active = window.Store?.activeMatch;
-        if (active) active._gepPseudoMatchId = nextId;
+        if (active) {
+            active._gepPseudoMatchId = nextId;
+            if (nextId) active._sawGepPseudo = true;
+        }
         this._lastPseudoId = nextId;
     },
 
     /**
-     * 2차: filled local (+ teammates) ⇒ ensure/rotate if start flaked.
+     * 2차: any filled legendSelect_* ⇒ boundary proof (squad-only, max 3).
+     * is_local is only for assigning *our* legend in history — not required for boundary.
      * 2차: all legendSelect_* → null ⇒ end if match_end flaked.
      */
+    /**
+     * Live session got a new local pick (different legend) and the select-lobby
+     * squad does not overlap prior teammates — ranked requeue without match_end.
+     * Snapshot BEFORE ROSTER_INFO mutates the active match.
+     */
+    shouldRotateForLiveLegendSelect(match, payload, isLocal) {
+        if (!match || !payload || !isLocal || match._ending) return false;
+        if (match._squadEliminated || isEliminated(match) || isMatchConcluded(match)) return false;
+        if (!match._hadLocalLegendSelect) return false;
+        if (!window.Utils?.hasRealMatchEvidence?.(match)) return false;
+
+        const newLegend = window.Utils.normalizeLegend(
+            payload.legendName || payload.legend || payload.characterName
+        );
+        const oldLegend = match.legend;
+        if (window.Utils.isUnknownLegend?.(newLegend) || window.Utils.isUnknownLegend?.(oldLegend)) {
+            return false;
+        }
+        if (String(newLegend).toLowerCase() === String(oldLegend).toLowerCase()) return false;
+
+        const selfName = normalizeBoundaryName(match.playerName)
+            || normalizeBoundaryName(payload.playerName);
+        const oldTeammates = [...collectSquadNames(match)].filter((n) => n && n !== selfName);
+
+        const newNames = new Set();
+        for (const p of Object.values(this._selectSlots)) {
+            if (!p?.playerName) continue;
+            const n = normalizeBoundaryName(p.playerName);
+            if (n) newNames.add(n);
+        }
+        const newTeammates = [...newNames].filter((n) => n !== selfName);
+
+        // Only local slot filled so far → new lobby starting (overlap treated as 0).
+        if (newTeammates.length === 0) return true;
+
+        let overlap = 0;
+        for (const n of newTeammates) {
+            if (oldTeammates.includes(n)) overlap += 1;
+        }
+        return overlap === 0;
+    },
+
     handleLegendSelectKey(key, rawValue) {
         const slot = String(key).replace(/^legendSelect_/, '');
         const payload = this._parseSelectRaw(rawValue);
@@ -286,60 +553,227 @@ const MatchBoundary = {
 
         if (payload) {
             this._hadSelectPayload = true;
+            const isLocal = this._isLocalSelect(payload);
+            const rotateReason = isLocal ? 'legend_select_local' : 'legend_select_squad';
+            const legendName = payload.legendName || payload.legend || payload.characterName;
+            const pre = window.Store?.activeMatch;
+
+            // Requeue select while prior session still "live" (GEP skipped match_end).
+            // Do not ROSTER_INFO onto the old match — that would overwrite its legend.
+            if (
+                pre
+                && !pre._ending
+                && this.shouldRotateForLiveLegendSelect(pre, payload, isLocal)
+            ) {
+                const newLegend = window.Utils?.normalizeLegend?.(legendName) || legendName;
+                matchLog('Live legendSelect requeue — splitting session', {
+                    matchId: pre.matchId,
+                    prevLegend: pre.legend || null,
+                    nextLegend: newLegend,
+                    slot,
+                });
+                this.markPendingSquadLegendSelect();
+                this.markPendingInferredStart('legend_select_requeue');
+                const rosters = Object.values(this._selectSlots).filter(Boolean);
+                if (window.Store) {
+                    window.Store.preMatchRoster = rosters.slice();
+                }
+                this.requestRotate(pre, rotateReason);
+                return;
+            }
+
+            // After elim/victory: only local select hands off. Non-local selects here are
+            // often party lobby / spectate noise — rotating on them opened empty #20 ghosts
+            // that then ignored the real match_end (squad looked "alive").
+            if (
+                pre
+                && !pre._ending
+                && (pre._squadEliminated || isEliminated(pre) || isMatchConcluded(pre))
+            ) {
+                if (isLocal) {
+                    matchLog('Local legendSelect after match end — rotating session', {
+                        matchId: pre.matchId,
+                        legend: legendName,
+                        slot,
+                        squadEliminated: !!pre._squadEliminated,
+                        victory: !!pre._isVictory,
+                    });
+                    this.markPendingSquadLegendSelect();
+                    const rosters = Object.values(this._selectSlots).filter(Boolean);
+                    if (window.Store) {
+                        window.Store.preMatchRoster = rosters.slice();
+                    }
+                    this.requestRotate(pre, 'legend_select_local');
+                    return;
+                }
+                matchLog('Ignored non-local legendSelect after match end', {
+                    matchId: pre.matchId,
+                    slot,
+                    playerName: payload.playerName || null,
+                    legend: legendName || null,
+                    squadEliminated: !!pre._squadEliminated,
+                    victory: !!pre._isVictory,
+                });
+                return;
+            }
+
+            // Log before ROSTER_INFO — processRoster also sets _hadLocalLegendSelect.
+            if (isLocal && pre && !pre._loggedLocalLegendSelect) {
+                pre._loggedLocalLegendSelect = true;
+                matchLog('Local legendSelect', {
+                    matchId: pre.matchId,
+                    legend: legendName,
+                    slot,
+                });
+            }
+
             window.CoreController?.updateMatch?.('ROSTER_INFO', payload);
 
             const match = window.Store?.activeMatch;
-            const isLocal = this._isLocalSelect(payload);
+            if (!match) {
+                // One squad select is enough to open a new match boundary.
+                this.markPendingSquadLegendSelect();
+                this.ensureSessionStarted(rotateReason);
+            } else {
+                this.markSquadLegendSelect(match);
+            }
 
-            if (isLocal) {
-                if (!match) {
-                    this.ensureSessionStarted('legend_select_local');
-                } else if (
-                    !match._ending
-                    && (match._squadEliminated || isEliminated(match) || isMatchConcluded(match))
-                ) {
-                    // New character-select after previous match concluded → hand off.
-                    this.requestRotate(match, 'legend_select_local');
+            const active = window.Store?.activeMatch;
+            if (active) {
+                this.markSquadLegendSelect(active);
+                if (isLocal) {
+                    active._hadLocalLegendSelect = true;
+                    if (!active._loggedLocalLegendSelect) {
+                        active._loggedLocalLegendSelect = true;
+                        matchLog('Local legendSelect', {
+                            matchId: active.matchId,
+                            legend: legendName,
+                            slot,
+                        });
+                    }
                 }
-            } else if (!match && this._filledSelectCount() >= 1) {
-                // Teammate selects can arrive slightly before local; open session so roster sticks.
-                this.ensureSessionStarted('legend_select_squad');
             }
             return;
         }
 
         // Cleared slot. Ideal end: every tracked slot null after we had payloads.
+        // Ignore mid-match clears while squad can still respawn the local player.
         if (hadAny && this._allTrackedSelectsCleared()) {
             this._hadSelectPayload = false;
-            console.log('[Match] legendSelect_* cleared');
-            this.requestEnd('legend_select_cleared');
+            const match = window.Store?.activeMatch;
+            if (match && shouldAcceptMatchBoundaryEnd(match)) {
+                this.requestEnd('legend_select_cleared');
+            } else if (match) {
+                matchLog('Ignored legendSelect clear — squad still active (likely respawn)');
+            }
         }
     },
 
+    /**
+     * Ranked requeue often keeps one GEP session with no legendSelect/roster.
+     * Split when:
+     *   A) hard reset — kills+damage+teams all 0 after real combat tabs (ignore revive/phase)
+     *   B) soft drop — kills/damage↓ + aircraft/freefly (or landed+teams rebound) + no recent revive
+     *   C) elim fallback — squad already ended + stats↓
+     */
     handleTabsReset(match, tabs) {
         const kills = parseInt(tabs.kills, 10);
         const damage = parseInt(tabs.damage, 10);
-        if (isNaN(kills) && isNaN(damage)) return;
+        const teams = parseInt(tabs.teams, 10);
+        if (isNaN(kills) && isNaN(damage) && isNaN(teams)) return;
 
         const prevKills = match._boundaryLastKills;
         const prevDamage = match._boundaryLastDamage;
+        const prevTeams = match._boundaryLastTeams;
 
-        if (prevKills != null || prevDamage != null) {
-            const killsReset = !isNaN(kills) && !isNaN(prevKills)
-                && prevKills >= 2
-                && kills <= prevKills - 2;
-            const damageReset = !isNaN(damage) && !isNaN(prevDamage)
-                && prevDamage >= 200
-                && damage < prevDamage * 0.4;
+        const killsDrop = !isNaN(kills) && prevKills != null && !isNaN(prevKills) && kills < prevKills;
+        const damageDrop = !isNaN(damage) && prevDamage != null && !isNaN(prevDamage) && damage < prevDamage;
+        const statsDecreased = killsDrop || damageDrop;
 
-            if (killsReset || damageReset) {
-                console.log('[Match] Stats reset detected — splitting merged GEP session');
+        // Lobby/requeue wipe: prior combat tabs → absolute zero. GEP often skips match_end.
+        const hardZeroReset = !isNaN(kills) && !isNaN(damage) && !isNaN(teams)
+            && kills === 0 && damage === 0 && teams === 0
+            && (
+                (prevKills != null && !isNaN(prevKills) && prevKills > 0)
+                || (prevDamage != null && !isNaN(prevDamage) && prevDamage > 0)
+            );
+
+        if (hardZeroReset) {
+            matchLog('Requeue hard zero tabs — splitting session', {
+                phase: String(match._currentPhase || '').toLowerCase(),
+                recentRevive: !!match._lastRespawnOrReviveAt
+                    && (Date.now() - match._lastRespawnOrReviveAt) < 90000,
+                prev: { kills: prevKills, damage: prevDamage, teams: prevTeams },
+                next: { kills, damage, teams },
+                msSinceRevive: match._lastRespawnOrReviveAt
+                    ? Date.now() - match._lastRespawnOrReviveAt
+                    : null,
+            });
+            this.markPendingInferredStart('stats_requeue_hard_zero');
+            this.requestRotate(match, 'stats_requeue');
+        } else if (statsDecreased) {
+            const phase = String(match._currentPhase || '').toLowerCase();
+            const teamsRebound = !isNaN(teams) && prevTeams != null && !isNaN(prevTeams)
+                && (teams >= 15 || teams >= prevTeams + 8);
+            const phaseOk = phase === 'aircraft'
+                || phase === 'freefly'
+                || (phase === 'landed' && teamsRebound);
+            const recentRevive = !!match._lastRespawnOrReviveAt
+                && (Date.now() - match._lastRespawnOrReviveAt) < 90000;
+
+            if (phaseOk && !recentRevive) {
+                matchLog('Requeue stats drop — splitting estimated session', {
+                    phase,
+                    killsDrop,
+                    damageDrop,
+                    teamsRebound,
+                    prev: { kills: prevKills, damage: prevDamage, teams: prevTeams },
+                    next: { kills, damage, teams },
+                });
+                this.markPendingInferredStart('stats_requeue');
+                this.requestRotate(match, 'stats_requeue');
+            } else if (
+                (match._squadEliminated || isEliminated(match))
+                && !recentRevive
+            ) {
+                // Fallback when phase/teams signals are weak but squad already ended.
+                matchLog('Stats drop after elimination — splitting session', {
+                    phase,
+                    teamsRebound,
+                    recentRevive,
+                });
+                this.markPendingInferredStart('stats_reset_after_elim');
                 this.requestRotate(match, 'stats_reset');
+            } else {
+                matchLog('Stats drop ignored (requeue gate)', {
+                    phase,
+                    phaseOk,
+                    teamsRebound,
+                    recentRevive,
+                    killsDrop,
+                    damageDrop,
+                    prev: { kills: prevKills, damage: prevDamage, teams: prevTeams },
+                    next: { kills, damage, teams },
+                    msSinceRevive: match._lastRespawnOrReviveAt
+                        ? Date.now() - match._lastRespawnOrReviveAt
+                        : null,
+                });
             }
         }
 
         if (!isNaN(kills)) match._boundaryLastKills = kills;
         if (!isNaN(damage)) match._boundaryLastDamage = damage;
+        if (!isNaN(teams)) match._boundaryLastTeams = teams;
+    },
+
+    noteRespawnOrRevive(match, source = 'unknown') {
+        if (!match) return;
+        match._lastRespawnOrReviveAt = Date.now();
+        matchLog('Respawn/revive noted (blocks requeue 90s)', {
+            source,
+            matchId: match.matchId,
+            squadEliminated: !!match._squadEliminated,
+        });
     },
 };
 
@@ -361,20 +795,157 @@ const isEliminated = (match) => {
     return !teammates.some(t => t.state && t.state !== 'death');
 };
 
+const hasLivingTeammate = (match) => {
+    const teammates = match?.teamStats || [];
+    return teammates.some((t) => t?.state && t.state !== 'death');
+};
+
+/**
+ * Trust GEP match_end / pseudo clear / legendSelect clear only when the match
+ * is truly over. Mid-match death→respawn often emits the same end signals while
+ * teammates are still alive — those must not split the session.
+ * Empty teamStats ⇒ accept end (solo / early race; no squad evidence to keep).
+ */
+const shouldAcceptMatchBoundaryEnd = (match) => {
+    if (!match) return true;
+    if (isMatchConcluded(match) || match._squadEliminated || isEliminated(match)) return true;
+    const teammates = match.teamStats || [];
+    if (teammates.length === 0) return true;
+    return !hasLivingTeammate(match);
+};
+
+const normalizeBoundaryName = (name) => {
+    if (!name || name === 'Unknown') return '';
+    return String(name).replace(/\[.*?\]/g, '').replace(/\s+/g, '').toLowerCase();
+};
+
+const collectSquadNames = (match) => {
+    const names = new Set();
+    const self = normalizeBoundaryName(match?.playerName);
+    if (self) names.add(self);
+    (match?.teamStats || []).forEach((tm) => {
+        const n = normalizeBoundaryName(tm?.name);
+        if (n) names.add(n);
+    });
+    return names;
+};
+
+/** Remember a closed session for inferred-boundary / estimated marking (never merge). */
+const rememberClosedSession = (match) => {
+    if (!match) return;
+    const legend = match.legend && !window.Utils?.isUnknownLegend?.(match.legend)
+        ? match.legend
+        : null;
+    const kills = match.kills || 0;
+    const damage = match.damage || 0;
+    const assists = match.assists || 0;
+    MatchBoundary._lastClosedSession = {
+        closedAt: Date.now(),
+        startTime: match.startTime || 0,
+        matchId: match.matchId,
+        /** Boundary proof: any legendSelect_* on the squad. */
+        hadSquadLegendSelect: !!match._hadSquadLegendSelect,
+        /** Content: we resolved the local player's legend. */
+        hadLocalLegendSelect: !!match._hadLocalLegendSelect,
+        /** Usable legend for same-pick requeue fallback (not ALS). */
+        legend,
+        map: match.map || null,
+        names: [...collectSquadNames(match)],
+        kills,
+        damage,
+        assists,
+        hadStats: kills > 0 || damage > 0 || assists > 0,
+        /** Finished game — safe sibling for discarding post-elim hollow ghosts. */
+        completed: !!(
+            match._squadEliminated
+            || match._isVictory
+            || match._matchSummaryRank
+            || match._estimatedPlacement
+        ),
+        squadEliminated: !!match._squadEliminated,
+    };
+    matchLog('Remembered closed session', {
+        matchId: match.matchId,
+        legend,
+        hadLocalLegendSelect: !!match._hadLocalLegendSelect,
+        hadSquadLegendSelect: !!match._hadSquadLegendSelect,
+        map: match.map || null,
+        hadStats: kills > 0 || damage > 0 || assists > 0,
+        completed: !!(
+            match._squadEliminated
+            || match._isVictory
+            || match._matchSummaryRank
+            || match._estimatedPlacement
+        ),
+    });
+};
+
+/**
+ * Respawn/false-end often opens a second session without any squad legendSelect, same squad.
+ * Mark as estimated (do not discard) — Unknown legend beats inventing a profile pick.
+ */
+const isBoundaryArtifactSession = (match) => {
+    // Boundary: one squad legendSelect_* is enough to treat this as a real select boundary.
+    if (!match || match._hadSquadLegendSelect) return false;
+    const prev = MatchBoundary._lastClosedSession;
+    if (!prev?.hadSquadLegendSelect || !prev.closedAt) return false;
+
+    const gap = (match.startTime || 0) - prev.closedAt;
+    if (gap < 0 || gap > MatchBoundary.BOUNDARY_ARTIFACT_GAP_MS) return false;
+
+    const prevDuration = Math.max(0, prev.closedAt - (prev.startTime || 0));
+    if (prevDuration < 120000) return false;
+
+    // A real character select after the previous close ⇒ stronger new-match signal.
+    if (MatchBoundary._lastLegendSelectionAt > prev.closedAt) return false;
+
+    const prevNames = new Set(prev.names || []);
+    if (prevNames.size === 0) return false;
+    let overlap = 0;
+    for (const n of collectSquadNames(match)) {
+        if (prevNames.has(n)) overlap += 1;
+    }
+    return overlap >= 2;
+};
+
+const squadNamesChangedSignificantly = (match, prevNames) => {
+    if (!match || !prevNames?.length) return false;
+    const prev = new Set(prevNames);
+    const cur = collectSquadNames(match);
+    if (cur.size === 0 || prev.size === 0) return false;
+    let overlap = 0;
+    for (const n of cur) {
+        if (prev.has(n)) overlap += 1;
+    }
+    const union = new Set([...prev, ...cur]).size;
+    return overlap <= 1 && union >= 3;
+};
+
 const resolveCombatImpact = (parsed) => {
-    const raw = parsed.impact || parsed.action || '';
+    // Prefer GEP impact when present (locale-independent). action is often localized.
+    const impact = String(parsed.impact || '').toLowerCase();
+    if (impact === 'kill' || impact.includes('headshot_kill') || impact.includes('finish')) return 'kill';
+    if (impact.includes('knock') || impact === 'down') return 'knockdown';
+
+    const raw = parsed.action || '';
     const lower = String(raw).toLowerCase();
     if (!raw) return 'unknown';
+    // English / mixed tokens only — do not special-case other languages here.
     if (lower === 'kill' || lower.includes('headshot_kill') || lower.includes('finish')) return 'kill';
     if (lower.includes('knock') || lower === 'down') return 'knockdown';
     return 'unknown';
 };
 
 /**
- * Locale-agnostic finish detection: GEP often localizes bleed/ring/melee finishes
- * (e.g. action="출혈") instead of "kill". If we already knocked that victim this match,
- * treat the unknown action as a finish kill.
+ * Locale-agnostic combat pairing:
+ *  - 1st opaque feed (me → victim) ⇒ knockdown
+ *  - 2nd opaque feed (me → same victim) or pending knock ⇒ kill
+ * Kill *counts* stay on tabs/kill events; feed only builds the combat log.
  */
+const COMBAT_PAIR_MS = 120000;
+const normalizeCombatName = (str) =>
+    str ? String(str).replace(/\[.*?\]/g, '').replace(/\s+/g, '').toLowerCase() : '';
+
 const ensurePendingKnocks = (match) => {
     if (!Array.isArray(match._pendingKnocks)) match._pendingKnocks = [];
     return match._pendingKnocks;
@@ -394,19 +965,170 @@ const clearPendingKnock = (match, victim) => {
     if (idx >= 0) pending.splice(idx, 1);
 };
 
+const ensureCombatPairs = (match) => {
+    if (!match._combatPairs || typeof match._combatPairs !== 'object') {
+        match._combatPairs = Object.create(null);
+    }
+    return match._combatPairs;
+};
+
+const getCombatPair = (match, victim) => {
+    const key = normalizeCombatName(victim);
+    if (!key) return null;
+    const pair = ensureCombatPairs(match)[key];
+    if (!pair) return null;
+    if (Date.now() - (pair.at || 0) > COMBAT_PAIR_MS) {
+        delete ensureCombatPairs(match)[key];
+        return null;
+    }
+    return pair;
+};
+
+const setCombatPair = (match, victim, stage) => {
+    const key = normalizeCombatName(victim);
+    if (!key) return;
+    ensureCombatPairs(match)[key] = { stage, at: Date.now() };
+};
+
+const clearCombatPair = (match, victim) => {
+    const key = normalizeCombatName(victim);
+    if (!key) return;
+    delete ensureCombatPairs(match)[key];
+};
+
+const hasRecentSelfKnockdown = (match, playerName) => {
+    if (!match?.events?.length || !playerName) return false;
+    const now = Date.now();
+    return match.events.some((e) =>
+        e?.type === 'knockdown'
+        && isSamePlayer(e.victim, playerName)
+        && (now - (e.timestamp || 0)) < COMBAT_PAIR_MS
+    );
+};
+
+/** Teammate knock→finish pairs (attacker|victim). Keep separate from local _pendingKnocks. */
+const ensureSquadCombatPairs = (match) => {
+    if (!match._squadCombatPairs || typeof match._squadCombatPairs !== 'object') {
+        match._squadCombatPairs = Object.create(null);
+    }
+    return match._squadCombatPairs;
+};
+
+const squadCombatPairKey = (attacker, victim) => {
+    const a = normalizeCombatName(attacker);
+    const v = normalizeCombatName(victim);
+    if (!a || !v) return '';
+    return `${a}|${v}`;
+};
+
+const getSquadCombatPair = (match, attacker, victim) => {
+    const key = squadCombatPairKey(attacker, victim);
+    if (!key) return null;
+    const pair = ensureSquadCombatPairs(match)[key];
+    if (!pair) return null;
+    if (Date.now() - (pair.at || 0) > COMBAT_PAIR_MS) {
+        delete ensureSquadCombatPairs(match)[key];
+        return null;
+    }
+    return pair;
+};
+
+const setSquadCombatPair = (match, attacker, victim, stage) => {
+    const key = squadCombatPairKey(attacker, victim);
+    if (!key) return;
+    ensureSquadCombatPairs(match)[key] = { stage, at: Date.now() };
+};
+
+const clearSquadCombatPair = (match, attacker, victim) => {
+    const key = squadCombatPairKey(attacker, victim);
+    if (!key) return;
+    delete ensureSquadCombatPairs(match)[key];
+};
+
+const hasPendingSquadKnock = (match, attacker, victim) =>
+    getSquadCombatPair(match, attacker, victim)?.stage === 'knocked';
+
+/** Resolve opaque (localized) feed using knock→kill pairing — no language dictionary. */
+const resolveLocaleAgnosticImpact = (match, {
+    isMeAttacker,
+    isMeVictim,
+    isTeammateAttacker,
+    attacker,
+    victim,
+    impactKind,
+}) => {
+    if (impactKind !== 'unknown') return { kind: impactKind, promoted: false };
+
+    if (isMeAttacker && victim) {
+        if (hasPendingKnock(match, victim) || getCombatPair(match, victim)?.stage === 'knocked') {
+            return { kind: 'kill', promoted: true };
+        }
+        // First opaque hit on this victim ⇒ knockdown (seeds pair for a later finish).
+        return { kind: 'knockdown', promoted: false };
+    }
+
+    // Squadmates: promote opaque finish only after an english knockdown seed.
+    // Do not invent knockdown from opaque — avoids kill+출혈 double-count after clear.
+    if (isTeammateAttacker && attacker && victim) {
+        if (hasPendingSquadKnock(match, attacker, victim)) {
+            return { kind: 'kill', promoted: true };
+        }
+        return { kind: 'unknown', promoted: false };
+    }
+
+    if (isMeVictim) {
+        if (hasRecentSelfKnockdown(match, match.playerName)) {
+            return { kind: 'kill', promoted: true };
+        }
+        return { kind: 'knockdown', promoted: false };
+    }
+
+    return { kind: 'unknown', promoted: false };
+};
+
 /** GEP kill_feed가 동일 넉다운을 연속 발행하는 경우 방지 (구 knockdown 이벤트 + kill_feed 이중 집계 해소) */
 const COMBAT_DEDUPE_MS = 4000;
+/** tabs kill backfill ↔ kill_feed finish can be a few seconds apart */
+const KILL_MERGE_MS = 8000;
+
+const isBlankCombatVictim = (name) =>
+    !name || !String(name).trim() || String(name).trim().toLowerCase() === 'unknown';
+
+/**
+ * tabs/kill counter often backfills a kill row (empty or estimated victim) a tick
+ * before kill_feed 출혈/finish arrives — merge into that row instead of duplicating.
+ */
+const findMergeableLocalKill = (match, victim) => {
+    if (!match?.events?.length) return null;
+    const playerName = match.playerName;
+    if (!playerName || playerName === 'Unknown') return null;
+    const now = Date.now();
+    for (let i = match.events.length - 1; i >= 0; i--) {
+        const event = match.events[i];
+        if (event?.type !== 'kill') continue;
+        if (!isSamePlayer(event.attacker, playerName)) continue;
+        if ((now - (event.timestamp || 0)) > KILL_MERGE_MS) break;
+        if (isBlankCombatVictim(event.victim)) return event;
+        if (victim && isSamePlayer(event.victim, victim)) return event;
+    }
+    return null;
+};
 
 const isRecentDuplicateCombat = (match, type, attacker, victim) => {
-    if (!match?.events?.length || !attacker || !victim) return false;
+    if (!match?.events?.length || !attacker) return false;
     const now = Date.now();
     const norm = (s) => String(s).replace(/\[.*?\]/g, '').replace(/\s+/g, '').toLowerCase();
     const a = norm(attacker);
     const v = norm(victim);
+    const victimBlank = !v;
     return match.events.some((e) => {
-        if (e.type !== type || !e.attacker || !e.victim) return false;
-        if (norm(e.attacker) !== a || norm(e.victim) !== v) return false;
-        return (now - (e.timestamp || 0)) < COMBAT_DEDUPE_MS;
+        if (e.type !== type || !e.attacker) return false;
+        if (norm(e.attacker) !== a) return false;
+        if ((now - (e.timestamp || 0)) >= COMBAT_DEDUPE_MS) return false;
+        // kill: blank victim matches any recent kill by same attacker (tabs backfill race).
+        if (type === 'kill' && (victimBlank || isBlankCombatVictim(e.victim))) return true;
+        if (!e.victim || victimBlank) return false;
+        return norm(e.victim) === v;
     });
 };
 
@@ -435,6 +1157,8 @@ const applyTabsToMatch = (match, tabsRaw) => {
     if (tabs.knockdowns !== undefined) match.knocks = Math.max(match.knocks || 0, parseInt(tabs.knockdowns) || 0);
     const squadKills = parseInt(tabs.squad_kills || tabs.squadKills || 0);
     if (squadKills > (match.squadKills || 0)) match.squadKills = squadKills;
+    // Keep combat-log rows aligned with tabs SSOT (kills/assists).
+    if (window.Utils?.syncKillCombatLogs) window.Utils.syncKillCombatLogs(match);
     if (window.Utils?.syncAssistCombatLogs) window.Utils.syncAssistCombatLogs(match);
 };
 
@@ -443,9 +1167,22 @@ const applyMatchSummaryToMatch = (match, raw) => {
     if (!match || !summary) return false;
     const rank = parseInt(summary.rank, 10);
     if (!isNaN(rank) && rank > 0) {
+        const prevEstimated = match._estimatedPlacement;
         match.placement = rank;
         match._guessedRank = rank;
         match._matchSummaryRank = rank;
+        // Summary beats tabs/teams estimates for both value and quality flags.
+        delete match._estimatedPlacement;
+        if (Array.isArray(match.missingSignals)) {
+            match.missingSignals = match.missingSignals.filter((s) => s !== 'placement_estimated');
+        }
+        if (prevEstimated && prevEstimated !== rank) {
+            matchLog('match_summary overrode placement estimate', {
+                matchId: match.matchId,
+                rank,
+                previousEstimate: prevEstimated,
+            });
+        }
     }
     const squadKills = parseInt(summary.squadKills || summary.squad_kills, 10);
     if (!isNaN(squadKills)) match.squadKills = Math.max(match.squadKills || 0, squadKills);
@@ -489,6 +1226,12 @@ const markSquadEliminated = (match, { refreshGep = true } = {}) => {
 
     if (!match._squadEliminated) {
         match._squadEliminated = true;
+        // Freeze roster so spectated enemy names cannot enter teamStats.
+        match._squadRosterFrozen = true;
+        matchLog('Squad eliminated — roster frozen', {
+            matchId: match.matchId,
+            teammates: (match.teamStats || []).map((t) => t?.name).filter(Boolean),
+        });
         window.CoreController.updateMatch('SET_DEAD', true);
         match.teamStats?.forEach((teammate) => {
             if (teammate.state !== 'death') teammate.state = 'death';
@@ -496,12 +1239,10 @@ const markSquadEliminated = (match, { refreshGep = true } = {}) => {
         ensureDeathCombatLogForPlayer(match);
     }
 
-    const estimate = applyPlacementEstimate(match);
+    applyPlacementEstimate(match);
 
     if (refreshGep && window.EventRouter?.estimatePlacementFromGep && !match._matchSummaryRank) {
         window.EventRouter.estimatePlacementFromGep(match);
-    } else if (estimate) {
-        console.log(`[Match] Estimated placement ${estimate} at squad elimination`);
     }
 
     MatchBoundary.onSquadEliminated(match);
@@ -514,9 +1255,10 @@ const handleTeamInfoUpdate = (match, raw) => {
 };
 
 const applyInfoToMatch = (infoRoot, match) => {
-    if (!infoRoot?.info || !match) return;
+    if (!match) return;
+    const info = infoRoot?.info || infoRoot;
+    if (!info || typeof info !== 'object') return;
 
-    const info = infoRoot.info;
     const data = {
         ...info.game_info,
         ...info.match_info,
@@ -534,9 +1276,13 @@ const applyInfoToMatch = (infoRoot, match) => {
         match._isVictory = true;
         match.placement = 1;
         match._guessedRank = 1;
+        match._matchSummaryRank = match._matchSummaryRank || 1;
+        delete match._estimatedPlacement;
     }
 
-    if (match._squadEliminated || isEliminated(match)) {
+    // Never let tabs/teams estimates override an authoritative summary rank.
+    if (!match._matchSummaryRank && !match._isVictory
+        && (match._squadEliminated || isEliminated(match))) {
         applyPlacementEstimate(match);
     }
 
@@ -562,22 +1308,17 @@ const applyInfoToMatch = (infoRoot, match) => {
         window.MatchService.processRoster(match);
     }
 
-    if (!match.legend || match.legend === 'Unknown' || match.legend === 'unknown') {
-        const userLegend = window.Store?.user?.legend;
-        if (userLegend) {
-            match.legend = window.Utils?.normalizeLegend?.(userLegend) || userLegend;
-        }
-    }
+    // Never invent legend from profile/ALS — ranked requeue often omits legendSelect
+    // and a wrong fallback pollutes the match worse than Unknown.
 };
 
 const recordCombatLog = (match, eventPayload, statAction) => {
     const { type, attacker, victim } = eventPayload;
     if (isRecentDuplicateCombat(match, type, attacker, victim)) {
-        console.log(`[Combat] Skipped duplicate ${type}: ${attacker} → ${victim}`);
         return false;
     }
-    if (statAction === 'KILL') window.CoreController.updateMatch('KILL');
-    else if (statAction === 'KNOCKDOWN') window.CoreController.updateMatch('KNOCKDOWN');
+    // Kill *count* SSOT is tabs / GEP kill counter — never ++ kills from kill_feed.
+    if (statAction === 'KNOCKDOWN') window.CoreController.updateMatch('KNOCKDOWN');
     window.CoreController.addEvent({ ...eventPayload, timestamp: Date.now() });
     if (type === 'kill' && window.Utils?.bumpWeaponCombat) {
         window.Utils.bumpWeaponCombat(match, eventPayload.weapon, 'kills');
@@ -610,9 +1351,6 @@ const ensureDeathCombatLogForPlayer = (match) => {
         desc: match._squadEliminated ? 'Squad eliminated' : undefined,
     }, null);
 
-    if (logged) {
-        console.log('[Combat] Inferred death after knockdown (no finisher / squad wipe)');
-    }
     return logged;
 };
 
@@ -623,14 +1361,12 @@ const handleCombatEvent = (parsed, activeMatch) => {
     const victimRaw = parsed.victimName || parsed.victim || "Unknown";
     const weaponRaw = parsed.weaponName || parsed.weapon || "Unknown";
 
-    const normalize = (str) => str ? str.replace(/\[.*?\]/g, '').replace(/\s+/g, '').toLowerCase() : "";
-    const myNameNorm = normalize(activeMatch.playerName);
-    const localNameNorm = normalize(localRaw);
-    const atkNorm = normalize(attackerRaw);
-    const vicNorm = normalize(victimRaw);
+    const myNameNorm = normalizeCombatName(activeMatch.playerName);
+    const localNameNorm = normalizeCombatName(localRaw);
+    const atkNorm = normalizeCombatName(attackerRaw);
+    const vicNorm = normalizeCombatName(victimRaw);
 
     if (myNameNorm && localNameNorm && myNameNorm !== localNameNorm) {
-        console.warn(`[Spectator Mode] Ignoring combat event for ${localRaw}`);
         return;
     }
 
@@ -638,67 +1374,140 @@ const handleCombatEvent = (parsed, activeMatch) => {
     const isMeVictim = (myNameNorm && vicNorm === myNameNorm) || (localNameNorm && vicNorm === localNameNorm);
 
     if (activeMatch.isDead && (isMeAttacker || isMeVictim)) {
-        console.warn("Ignored Spectator/Ghost Combat event (Player is dead)");
         return;
     }
 
-    const victim = window.Utils.cleanName(victimRaw);
-    let impactKind = resolveCombatImpact(parsed);
-    let promotedFromPending = false;
+    const cleanCombatLabel = (raw) => {
+        if (raw == null || raw === '' || String(raw).trim() === '' || String(raw).trim().toLowerCase() === 'unknown') {
+            return '';
+        }
+        const cleaned = window.Utils.cleanName(raw);
+        if (!cleaned || cleaned.toLowerCase() === 'unknown') return '';
+        return cleaned;
+    };
 
-    // Localized finish (bleed/ring/melee text) with no English "kill" — promote via pending knockdown.
-    if (impactKind === 'unknown' && isMeAttacker && victim && hasPendingKnock(activeMatch, victim)) {
-        impactKind = 'kill';
-        promotedFromPending = true;
-        console.log(`[Combat] Promoted localized finish → kill via pending knockdown: ${victim}`);
+    const cleanAttackerName = cleanCombatLabel(attackerRaw) || (
+        attackerRaw && attackerRaw !== 'Unknown' ? window.Utils.cleanName(attackerRaw) : ''
+    );
+    const isLocalAttacker = !!(activeMatch.playerName && isSamePlayer(attackerRaw, activeMatch.playerName));
+    const knownSquadName = window.MatchService?.constructor?._isKnownSquadName
+        || window.MatchService?._isKnownSquadName;
+    const isTeammateAttacker = !isMeAttacker && !isLocalAttacker && !!cleanAttackerName && (
+        !!knownSquadName?.(activeMatch, attackerRaw)
+        || (activeMatch.teamStats || []).some((tm) => isSamePlayer(tm.name, attackerRaw))
+    );
+
+    let victim = cleanCombatLabel(victimRaw);
+    // Opaque finish with empty victimName — reuse pending knock on same fight.
+    if (!victim && isMeAttacker && activeMatch._pendingKnocks?.length === 1) {
+        victim = activeMatch._pendingKnocks[0];
     }
+    const resolved = resolveLocaleAgnosticImpact(activeMatch, {
+        isMeAttacker,
+        isMeVictim,
+        isTeammateAttacker,
+        attacker: cleanAttackerName,
+        victim,
+        impactKind: resolveCombatImpact(parsed),
+    });
+    const impactKind = resolved.kind;
 
     if (impactKind === 'unknown') return;
 
     const isFinalKill = impactKind === 'kill';
     const type = isFinalKill ? 'kill' : 'knockdown';
 
-    if (!isMeAttacker && type === 'kill') {
-        if (attackerRaw && attackerRaw !== "Unknown" && attackerRaw.trim() !== "") {
-            const isTeammateAttacker = activeMatch.teamStats && activeMatch.teamStats.some(tm =>
-                isSamePlayer(tm.name, attackerRaw)
-            );
-
-            if (isTeammateAttacker) {
-                const cleanAttackerName = window.Utils ? window.Utils.cleanName(attackerRaw) : attackerRaw;
-                window.CoreController.updateMatch('TEAMMATE_KILL', cleanAttackerName);
+    if (isTeammateAttacker) {
+        const cleanVictimName = victim || cleanCombatLabel(victimRaw);
+        if (type === 'knockdown' && cleanVictimName) {
+            setSquadCombatPair(activeMatch, cleanAttackerName, cleanVictimName, 'knocked');
+        } else if (type === 'kill') {
+            window.CoreController.updateMatch('TEAMMATE_KILL', cleanAttackerName);
+            // Assist events are count-only — estimate victim from squad elims.
+            if (window.Utils?.noteSquadElimVictim && cleanVictimName) {
+                window.Utils.noteSquadElimVictim(activeMatch, cleanVictimName, cleanAttackerName);
+            }
+            if (cleanVictimName) {
+                clearSquadCombatPair(activeMatch, cleanAttackerName, cleanVictimName);
             }
         }
     }
 
     if (isMeAttacker) {
-        // Promoted finishes already counted via tabs/GEP kill counter — log only to avoid double ++.
-        const statAction = isFinalKill
-            ? (promotedFromPending ? null : 'KILL')
-            : 'KNOCKDOWN';
+        const weapon = window.Utils.normalizeWeapon(weaponRaw);
+
+        // kill_counter/tabs backfill often lands before kill_feed finish → one Unknown + one named.
+        if (type === 'kill') {
+            const mergeTarget = findMergeableLocalKill(activeMatch, victim);
+            if (mergeTarget) {
+                const prevVictim = mergeTarget.victim;
+                if (victim && isBlankCombatVictim(mergeTarget.victim)) {
+                    mergeTarget.victim = victim;
+                    delete mergeTarget._victimEstimated;
+                }
+                if (weapon && (!mergeTarget.weapon || mergeTarget.weapon === 'Unknown')) {
+                    mergeTarget.weapon = weapon;
+                }
+                const wasBackfill = !!mergeTarget._backfill;
+                delete mergeTarget._backfill;
+                delete mergeTarget.desc;
+                if (victim) {
+                    clearPendingKnock(activeMatch, victim);
+                    clearCombatPair(activeMatch, victim);
+                }
+                matchLog('Merged kill into recent combat row', {
+                    matchId: activeMatch.matchId,
+                    victim: mergeTarget.victim || victim || '',
+                    prevVictim: prevVictim || '',
+                    weapon: mergeTarget.weapon || weapon || null,
+                    wasBackfill,
+                });
+                if (window.Utils?.fillKillVictims) window.Utils.fillKillVictims(activeMatch);
+                return;
+            }
+        }
+
+        // Kill counts come from tabs — feed only writes the combat log.
         const logged = recordCombatLog(activeMatch, {
             type,
             attacker: activeMatch.playerName,
-            victim,
-            weapon: window.Utils.normalizeWeapon(weaponRaw)
-        }, statAction);
+            victim: victim || '',
+            weapon,
+        }, type === 'knockdown' ? 'KNOCKDOWN' : null);
 
         if (logged) {
-            if (type === 'knockdown') addPendingKnock(activeMatch, victim);
-            else if (type === 'kill') clearPendingKnock(activeMatch, victim);
+            if (type === 'knockdown' && victim) {
+                addPendingKnock(activeMatch, victim);
+                setCombatPair(activeMatch, victim, 'knocked');
+            } else if (type === 'kill') {
+                if (victim) {
+                    clearPendingKnock(activeMatch, victim);
+                    clearCombatPair(activeMatch, victim);
+                }
+                if (window.Utils?.fillKillVictims) window.Utils.fillKillVictims(activeMatch);
+            }
         }
     }
 
     if (isMeVictim) {
         const logType = type === 'kill' ? 'death' : 'knockdown';
-        const attacker = window.Utils.cleanName(attackerRaw);
+        let attacker = cleanCombatLabel(attackerRaw);
+        if (!attacker && logType === 'death') {
+            const lastKnock = [...(activeMatch.events || [])].reverse().find((e) =>
+                e?.type === 'knockdown' && isSamePlayer(e.victim, activeMatch.playerName) && e.attacker
+            );
+            attacker = lastKnock?.attacker || '';
+        }
         const logged = recordCombatLog(activeMatch, {
             type: logType,
             attacker,
             victim: activeMatch.playerName,
-            weapon: window.Utils.normalizeWeapon(weaponRaw)
+            weapon: window.Utils.normalizeWeapon(weaponRaw),
         }, null);
-        if (logged && type === 'kill') window.CoreController.updateMatch('SET_DEAD', true);
+        if (logged && type === 'kill') {
+            window.CoreController.updateMatch('SET_DEAD', true);
+            if (window.Utils?.fillDeathAttackers) window.Utils.fillDeathAttackers(activeMatch);
+        }
     }
 };
 
@@ -708,17 +1517,9 @@ const EventRouter = {
     onInfoUpdates: (info) => {
         if (!info) return;
 
-        const raw = JSON.stringify(info.info);
-        if (raw.includes('weapon')) {
-            console.log('[LOADOUT DEBUG] full info.info:', raw);
-        }
-
-        const matchInfoRaw = info.info?.match_info || info.match_info;
-        if (matchInfoRaw && typeof matchInfoRaw === 'object' && Object.keys(matchInfoRaw).length > 0) {
-            console.log('[MatchInfo DEBUG] full match_info:', JSON.stringify(matchInfoRaw));
-        }
-
-        const matchInfoTop = info.info?.match_info || info.match_info;
+        // onInfoUpdates2 / getInfo may nest under .info or pass categories at the root.
+        const infoRoot = info.info || info;
+        const matchInfoTop = infoRoot.match_info || info.match_info;
         if (matchInfoTop?.map_name && window.Store?.game) {
             const earlyMap = window.MapService
                 ? window.MapService.resolveMap(matchInfoTop.map_id, matchInfoTop.map_name)
@@ -726,17 +1527,22 @@ const EventRouter = {
             if (earlyMap) window.Store.game.map = earlyMap;
         }
 
-        if (!info.info) return;
+        if (!infoRoot || typeof infoRoot !== 'object') return;
 
         const data = {
-            ...info.info?.game_info,
-            ...info.info?.match_info,
-            ...info.info?.inventory,
-            ...info.info?.me,
-            ...info.info?.damage
+            ...infoRoot.game_info,
+            ...infoRoot.match_info,
+            ...infoRoot.inventory,
+            ...infoRoot.me,
+            ...infoRoot.damage
         };
 
         let activeMatch = window.Store.activeMatch;
+
+        // Apply summary as early as possible so later estimate/phase logic cannot win the race.
+        if (activeMatch && data.match_summary) {
+            applyMatchSummaryToMatch(activeMatch, data.match_summary);
+        }
 
         if (data.phase) {
             const newPhase = data.phase.toLowerCase();
@@ -758,19 +1564,25 @@ const EventRouter = {
             }
 
             if (newPhase === 'legend_selection') {
-                const shouldStartNew =
-                    !activeMatch
-                    || isMatchConcluded(activeMatch)
+                MatchBoundary._lastLegendSelectionAt = Date.now();
+                if (!activeMatch) {
+                    MatchBoundary.ensureSessionStarted('legend_selection_phase');
+                } else if (
+                    isMatchConcluded(activeMatch)
                     || isEliminated(activeMatch)
                     || !!activeMatch._squadEliminated
-                    || (Date.now() - activeMatch.startTime > 480000);
-
-                if (shouldStartNew) {
-                    if (activeMatch) {
-                        MatchBoundary.requestRotate(activeMatch, 'legend_selection_phase');
-                    } else {
-                        MatchBoundary.ensureSessionStarted('legend_selection_phase');
+                ) {
+                    // Finished match: close only. Auto-start here created empty #20 sessions
+                    // when party/spectate entered select before the local player did.
+                    if (!activeMatch._ending) {
+                        matchLog('legend_selection phase — ending finished session (no auto-start)', {
+                            matchId: activeMatch.matchId,
+                            squadEliminated: !!activeMatch._squadEliminated,
+                        });
+                        void window.CoreController?.endMatch?.();
                     }
+                } else if (Date.now() - activeMatch.startTime > 480000) {
+                    MatchBoundary.requestRotate(activeMatch, 'legend_selection_phase');
                 }
             }
         }
@@ -795,8 +1607,24 @@ const EventRouter = {
 
             if (mapName) {
                 window.Store.game.map = mapName;
-                if (activeMatch && (!activeMatch.map || activeMatch.map === 'Unknown')) {
-                    activeMatch.map = mapName;
+                if (activeMatch) {
+                    if (
+                        activeMatch.map
+                        && !window.MapService?.isUnknownMap?.(activeMatch.map)
+                        && activeMatch.map !== 'Unknown'
+                        && mapName !== activeMatch.map
+                    ) {
+                        MatchBoundary.maybeInferRotate(activeMatch, {
+                            mapChanged: true,
+                            afterElimination: !!activeMatch._squadEliminated,
+                            noLegendSelect: !activeMatch._hadSquadLegendSelect,
+                        }, 'inferred_requeue');
+                    }
+                    const mapUnknown = window.MapService?.isUnknownMap?.(activeMatch.map)
+                        || activeMatch.map === 'Unknown';
+                    if (!activeMatch.map || mapUnknown || mapName !== activeMatch.map) {
+                        activeMatch.map = mapName;
+                    }
                 }
             }
         }
@@ -805,6 +1633,11 @@ const EventRouter = {
             const modeName = window.Utils.normalizeMode(data.game_mode || data.mode_name);
             window.Store.game.mode = modeName;
             if (activeMatch) activeMatch.mode = modeName;
+
+            // GEP emits #PL_FIRINGRANGE only after leaving the range — cancel that upload.
+            if (window.Utils.isFiringRangeMode?.(modeName)) {
+                window.CoreController?.cancelPendingUploadForFiringRange?.();
+            }
         }
 
         if (!activeMatch) return;
@@ -839,6 +1672,21 @@ const EventRouter = {
 
         if (data.team_info) {
             handleTeamInfoUpdate(activeMatch, data.team_info);
+            if (activeMatch && !activeMatch._ending) {
+                const names = [...collectSquadNames(activeMatch)];
+                if (!activeMatch._boundarySquadSnapshot && names.length >= 2) {
+                    activeMatch._boundarySquadSnapshot = names;
+                } else if (
+                    activeMatch._boundarySquadSnapshot
+                    && squadNamesChangedSignificantly(activeMatch, activeMatch._boundarySquadSnapshot)
+                ) {
+                    MatchBoundary.maybeInferRotate(activeMatch, {
+                        squadChanged: true,
+                        afterElimination: !!activeMatch._squadEliminated,
+                        noLegendSelect: !activeMatch._hadSquadLegendSelect,
+                    }, 'inferred_requeue');
+                }
+            }
         }
 
         if (data.totalDamageDealt !== undefined) {
@@ -846,6 +1694,7 @@ const EventRouter = {
         }
 
         if (activeMatch) {
+            // match_summary already applied at top of handler; re-apply in case roster/start raced.
             if (data.match_summary) applyMatchSummaryToMatch(activeMatch, data.match_summary);
             if (data.victory === 'true' || data.victory === true) {
                 window.CoreController.updateMatch('VICTORY', true);
@@ -856,33 +1705,32 @@ const EventRouter = {
             window.CoreController.updateMatch('ULTIMATE_COOLDOWN', data.ultimate_cooldown);
         }
 
-        if (!activeMatch.isDead) {
-            const weaponsStr = info.info?.me?.weapons;
+        if (activeMatch && !activeMatch.isDead) {
+            const weaponsStr = infoRoot.me?.weapons;
 
             if (weaponsStr) {
                 try {
                     const w = JSON.parse(weaponsStr);
 
-                    const rawPrimary = w.weapon0 || null;
-                    const rawSecondary = w.weapon1 || null;
+                    const rawPrimary = w.weapon0 ?? null;
+                    const rawSecondary = w.weapon1 ?? null;
 
-                    const p = (() => {
-                        if (!rawPrimary || rawPrimary.toLowerCase() === 'unknown') {
-                            return activeMatch.loadout.primary || null;
-                        }
-                        return window.Utils.normalizeWeapon(rawPrimary) || activeMatch.loadout.primary || null;
-                    })();
-
-                    const s = (() => {
-                        if (!rawSecondary || rawSecondary.toLowerCase() === 'unknown') {
-                            return activeMatch.loadout.secondary || null;
-                        }
-                        return window.Utils.normalizeWeapon(rawSecondary) || activeMatch.loadout.secondary || null;
-                    })();
+                    // Melee/nades clear the slot (null). Do not keep previous gun via `|| previous`
+                    // when GEP explicitly reports fists — that caused phantom loadout rows.
+                    const resolveSlot = (raw, previous) => {
+                        if (raw == null || raw === '') return previous || null;
+                        if (window.Utils?.isNonLoadoutWeaponRaw?.(raw)) return null;
+                        const lower = String(raw).toLowerCase();
+                        if (lower === 'unknown') return previous || null;
+                        const normalized = window.Utils.normalizeWeapon(raw);
+                        if (normalized && window.Utils.isUsableWeaponId(normalized)) return normalized;
+                        // Unmapped real gun name — keep previous rather than writing junk ids.
+                        return previous || null;
+                    };
 
                     window.CoreController.updateMatch('LOADOUT', {
-                        primary: p,
-                        secondary: s
+                        primary: resolveSlot(rawPrimary, activeMatch.loadout.primary),
+                        secondary: resolveSlot(rawSecondary, activeMatch.loadout.secondary),
                     });
                 } catch (e) {
                     console.error("Loadout parsing error:", e, weaponsStr);
@@ -930,24 +1778,59 @@ const EventRouter = {
                 const now = Date.now();
                 if (MatchBoundary._rotateInFlight) return;
                 if (MatchBoundary._rotateDebounceTimer) return;
-                if (MatchBoundary._matchEndTimer) return;
                 if (now - lastBoundaryRotateAt < 3000) return;
-                // Only suppress rapid re-start while a session is already live.
-                // After end (activeMatch null), allow start even within 15s.
-                const activeMatch = window.Store.activeMatch;
-                if (activeMatch && now - lastMatchEndTime < 15000) return;
 
-                if (activeMatch) {
-                    const isStale = isMatchConcluded(activeMatch)
-                        || isEliminated(activeMatch)
-                        || !!activeMatch._squadEliminated
-                        || (now - activeMatch.startTime > 120000);
-                    if (isStale) {
-                        MatchBoundary.requestRotate(activeMatch, 'match_start_stale');
+                const activeMatch = window.Store.activeMatch;
+
+                // False match_end often precedes respawn match_start — cancel pending end.
+                if (MatchBoundary._matchEndTimer) {
+                    if (activeMatch && !shouldAcceptMatchBoundaryEnd(activeMatch)) {
+                        matchLog('Cancelled pending match_end — continuation match_start');
+                        MatchBoundary.cancelMatchEndTimer();
+                        if (MatchBoundary._endDebounceTimer) {
+                            clearTimeout(MatchBoundary._endDebounceTimer);
+                            MatchBoundary._endDebounceTimer = null;
+                        }
+                        return;
                     }
                     return;
                 }
-                console.log('[Match] match_start — starting session');
+
+                // Only suppress rapid re-start while a session is already live.
+                // After end (activeMatch null), allow start even within 15s.
+                if (activeMatch && now - lastMatchEndTime < 15000) return;
+
+                if (activeMatch) {
+                    // Gate via shouldAllowRotate — empty teamStats must not force rotate
+                    // (solo/duo/pre-roster trio all look empty; see match_start_stale).
+                    if (MatchBoundary.shouldAllowRotate(activeMatch, 'match_start_stale')) {
+                        MatchBoundary.requestRotate(activeMatch, 'match_start_stale');
+                    } else {
+                        matchLog('match_start ignored — session already live', {
+                            matchId: activeMatch.matchId,
+                            reason: 'match_start_stale',
+                            squadEliminated: !!activeMatch._squadEliminated,
+                            eliminated: isEliminated(activeMatch),
+                            victory: !!activeMatch._isVictory,
+                            teamStatsLen: Array.isArray(activeMatch.teamStats) ? activeMatch.teamStats.length : 0,
+                            hadLocalLegendSelect: !!activeMatch._hadLocalLegendSelect,
+                            hadSquadLegendSelect: !!activeMatch._hadSquadLegendSelect,
+                            legend: activeMatch.legend || null,
+                            ageMs: Date.now() - (activeMatch.startTime || 0),
+                        });
+                    }
+                    return;
+                }
+                const prevClosed = MatchBoundary._lastClosedSession;
+                const gap = prevClosed?.closedAt ? now - prevClosed.closedAt : 0;
+                if (
+                    prevClosed
+                    && gap >= MatchBoundary.BOUNDARY_INFER_GAP_MS
+                    && MatchBoundary._lastLegendSelectionAt < (prevClosed.closedAt || 0)
+                ) {
+                    MatchBoundary.markPendingInferredStart('match_start_requeue');
+                }
+                matchLog('match_start — starting session');
                 lastBoundaryRotateAt = now;
                 window.CoreController.startMatch();
                 return;
@@ -957,22 +1840,21 @@ const EventRouter = {
                 // 1차: authoritative end when GEP emits it.
                 const activeMatch = window.Store.activeMatch;
 
-                if (activeMatch && (Date.now() - activeMatch.startTime < 120000)) {
-                    const isTeamAlive = activeMatch.teamStats?.some(t => t.state !== 'death');
-                    const isReallyOver = activeMatch._isVictory || isEliminated(activeMatch) || !isTeamAlive;
-                    if (!isReallyOver) {
-                        console.warn('[Match] Ignored early match_end — squad still active');
-                        return;
-                    }
+                if (activeMatch && !shouldAcceptMatchBoundaryEnd(activeMatch)) {
+                    matchLog('Ignored match_end — squad still active (likely respawn)', {
+                        matchId: activeMatch.matchId,
+                        squadEliminated: !!activeMatch._squadEliminated,
+                    });
+                    return;
                 }
 
                 const matchToEnd = window.Store.activeMatch;
                 if (!matchToEnd) {
-                    console.warn('[Match] match_end received with no active session');
+                    matchLog('match_end received with no active session');
                     return;
                 }
 
-                console.log('[Match] match_end — scheduling finalize');
+                matchLog('match_end — scheduling finalize', { matchId: matchToEnd.matchId });
                 MatchBoundary.cancelOrphanFinalize();
                 if (MatchBoundary._endDebounceTimer) {
                     clearTimeout(MatchBoundary._endDebounceTimer);
@@ -986,12 +1868,20 @@ const EventRouter = {
                     MatchBoundary._matchEndTimer = null;
                     if (endGen !== MatchBoundary._matchEndGeneration) return;
                     if (matchToEnd._ending) return;
+                    // Re-check: teammates may still be alive (respawn race during the delay).
+                    if (!shouldAcceptMatchBoundaryEnd(matchToEnd)) {
+                        matchLog('Cancelled match_end finalize — squad still active', {
+                            matchId: matchToEnd.matchId,
+                        });
+                        return;
+                    }
                     if (window.Store.activeMatch === matchToEnd) {
+                        matchLog('Ending session (match_end)', { matchId: matchToEnd.matchId });
                         window.CoreController.endMatch();
                         return;
                     }
 
-                    console.warn('[Match] Active session changed before match_end finalize — saving captured session');
+                    matchLog('Ending session (match_end captured)', { matchId: matchToEnd.matchId });
                     window.CoreController.finalizeMatchSession(matchToEnd);
                 }, 2000);
                 return;
@@ -1037,24 +1927,28 @@ const EventRouter = {
             } else if (name === 'your_squad_is_eliminated') {
                 markSquadEliminated(activeMatch);
             } else if (name === 'healed_from_ko') {
+                MatchBoundary.noteRespawnOrRevive(activeMatch, 'healed_from_ko');
                 window.CoreController.updateMatch('SET_DEAD', false);
                 const selfName = activeMatch.playerName && activeMatch.playerName !== 'Unknown'
                     ? activeMatch.playerName : 'Me';
                 window.CoreController.addEvent({ type: 'revive', desc: 'Revived', attacker: '', victim: selfName, timestamp: Date.now() });
             } else if (name === 'respawn') {
+                MatchBoundary.noteRespawnOrRevive(activeMatch, 'respawn');
                 if (activeMatch._squadEliminated) {
-                    console.log('[Match] Respawn after squad elimination — rotating session');
+                    matchLog('Respawn after squad elimination — rotating session');
                     MatchBoundary.requestRotate(activeMatch, 'respawn');
                     return;
                 }
-                console.log("Respawn Event Detected!");
                 window.CoreController.updateMatch('SET_DEAD', false);
                 const selfName = activeMatch.playerName && activeMatch.playerName !== 'Unknown'
                     ? activeMatch.playerName : 'Me';
                 window.CoreController.addEvent({ type: 'respawn', desc: 'Respawned from Dropship', attacker: '', victim: selfName, timestamp: Date.now() });
             } else if (name === 'match_summary') {
-                if (parsed.rank) window.CoreController.updateMatch('PLACEMENT', parsed.rank);
-                else applyMatchSummaryToMatch(activeMatch, data);
+                // Always go through summary helper so _matchSummaryRank is set (not PLACEMENT-only).
+                const applied = applyMatchSummaryToMatch(activeMatch, parsed?.rank ? parsed : data);
+                if (!applied && parsed?.rank) {
+                    applyMatchSummaryToMatch(activeMatch, { rank: parsed.rank, squadKills: parsed.squadKills });
+                }
             }
         });
     },
@@ -1066,9 +1960,7 @@ const EventRouter = {
     estimatePlacementFromGep: (match) => {
         if (!match) return Promise.resolve(null);
         return window.EventRouter.refreshMatchFromGep(match, { maxAttempts: 1 }).then(() => {
-            const est = applyPlacementEstimate(match);
-            if (est) console.log(`[Match] Estimated placement ${est} at squad elimination`);
-            return est;
+            return applyPlacementEstimate(match);
         });
     },
 
@@ -1092,11 +1984,14 @@ const EventRouter = {
                     await new Promise((resolve) => setTimeout(resolve, delayMs));
                 }
                 const hasSummary = await pollOnce();
-                if (hasSummary || (match.placement > 0 && match.placement < 20 && !match._estimatedPlacement)) {
+                // Keep polling while we only have a tabs/teams estimate — summary often arrives late.
+                if (hasSummary || match._isVictory) break;
+                if (match.placement > 0 && match.placement < 20 && !match._estimatedPlacement) {
                     break;
                 }
             }
-            if (!match._matchSummaryRank && (match.placement === 20 || match.placement === 0)) {
+            if (!match._matchSummaryRank && !match._isVictory
+                && (match.placement === 20 || match.placement === 0)) {
                 if (canEstimatePlacementFromTabs(match)) {
                     applyPlacementEstimate(match);
                 }
@@ -1104,6 +1999,10 @@ const EventRouter = {
         })();
     }
 };
+
+MatchBoundary.rememberClosedSession = rememberClosedSession;
+MatchBoundary.isBoundaryArtifactSession = isBoundaryArtifactSession;
+// markInferredBoundaryIfArtifact / shouldInferNewMatch live on MatchBoundary above.
 
 window.EventRouter = EventRouter;
 window.MatchBoundary = MatchBoundary;

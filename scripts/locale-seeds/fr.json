@@ -70,7 +70,19 @@
     "damage": "DAMAGE",
     "kills": "KILLS",
     "assists": "ASSISTS",
-    "knocks": "KNOCKS"
+    "knocks": "KNOCKS",
+    "dataQualityEstimated": "Estimé",
+    "dataQualityTooltip": "Données de match incomplètes : {{signals}}",
+    "confidenceLabel": "Confiance {{n}} %",
+    "missingSignals": {
+      "no_legend_select": "sélection de légende manquante",
+      "pseudo_stale": "ID de match incertain",
+      "no_match_start": "début de match manquant",
+      "boundary_inferred": "limite de match déduite",
+      "placement_estimated": "classement estimé",
+      "no_squad_legend_select": "sélection de légende d'escouade manquante",
+      "legend_from_prev_match": "légende reprise du match précédent"
+    }
   },
   "matchDetails": {
     "stats": "Statistiques",

@@ -62,7 +62,9 @@ const LoadoutTimeline = ({ match }: { match: Match }) => {
     const { t } = useTranslation();
 
     const entries = useMemo(() => {
-        return [...(match.weaponTimeline || [])].sort((a, b) => a.timestamp - b.timestamp);
+        return [...(match.weaponTimeline || [])]
+            .filter((entry) => !isEmptyWeapon(entry.primary) || !isEmptyWeapon(entry.secondary))
+            .sort((a, b) => a.timestamp - b.timestamp);
     }, [match.weaponTimeline]);
 
     return (

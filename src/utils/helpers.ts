@@ -1,4 +1,56 @@
 import { MAP_DATA as LOCAL_MAP_DATA } from './constants';
+import type { Season } from './match';
+
+/** Season 30 Split 1 start (World's Edge layout refresh). Fallback if seasons not loaded. */
+export const WORLDS_EDGE_S30_START_MS = Date.parse('2026-08-04T17:00:00.000Z');
+
+const isBlankOrUnknownMapToken = (value: string | null | undefined): boolean => {
+    if (value == null) return true;
+    const lower = String(value).trim().toLowerCase();
+    return !lower || lower === 'unknown' || lower === 'none' || lower === 'null';
+};
+
+/** Normalize GEP raw ids / UNKNOWN tokens to display names used in history & stats. */
+export const normalizeMapDisplayName = (raw: string | null | undefined): string => {
+    if (isBlankOrUnknownMapToken(raw)) return 'Unknown';
+    const trimmed = String(raw).trim();
+    const lower = trimmed.toLowerCase();
+
+    if (
+        lower.includes('desertlands')
+        || lower === "world's edge"
+        || lower === 'worlds edge'
+        || (lower.includes('world') && lower.includes('edge'))
+    ) {
+        return "World's Edge";
+    }
+    if (lower.includes('canyonlands') || (lower.includes('canyon') && !lower.includes('staging'))) {
+        return 'Kings Canyon';
+    }
+    if (lower.includes('olympus')) return 'Olympus';
+    if (lower.includes('tropic') || lower.includes('storm')) return 'Storm Point';
+    if (lower.includes('moon') || lower.includes('broken')) return 'Broken Moon';
+    if (lower.includes('district')) return 'E-District';
+
+    return trimmed;
+};
+
+export const resolveWorldsEdgeMapImage = (
+    matchTimeMs?: number | null,
+    seasons?: Season[] | null,
+): string => {
+    const s30 = seasons?.find((s) => /season\s*30/i.test(s.name ?? ''));
+    const cutoff = s30?.startTime != null && s30.startTime > 0
+        ? s30.startTime
+        : WORLDS_EDGE_S30_START_MS;
+    if (matchTimeMs != null && Number.isFinite(matchTimeMs) && matchTimeMs >= cutoff) {
+        return 'worlds_edge_s30.png';
+    }
+    return 'worlds_edge_s29.png';
+};
+
+const isWorldsEdgeMap = (mapName: string): boolean =>
+    normalizeMapDisplayName(mapName) === "World's Edge";
 
 export const getRankColor = (rank: number | string) => {
     if (rank === 1 || rank === '1' || rank === '#1') return 'var(--color-rank-first)';
@@ -194,11 +246,9 @@ export const formatMatchTime = (ms: number, style: 'digital' | 'text' = 'digital
     return "";
 };
 
-/** Overwolf match start includes ~1 min pre-drop; UI times are from dropship. */
-export const MATCH_GAME_START_OFFSET_MS = 60_000;
-
+/** Raw elapsed from session startTime (no dropship offset). */
 export const toGameElapsedMs = (elapsedFromMatchStartMs: number): number =>
-    Math.max(0, elapsedFromMatchStartMs - MATCH_GAME_START_OFFSET_MS);
+    Math.max(0, elapsedFromMatchStartMs);
 
 export const formatMatchElapsedTime = (
     elapsedFromMatchStartMs: number,
@@ -242,41 +292,57 @@ export const formatRelativeTime = (
     return t(agoKey, { time });
 };
 
-export const getMapConfig = (mapName: string) => {
-    if (!mapName) return LOCAL_MAP_DATA["Unknown"];
+export const getMapConfig = (mapName: string, matchTimeMs?: number | null, seasons?: Season[] | null) => {
+    if (!mapName || isBlankOrUnknownMapToken(mapName)) return LOCAL_MAP_DATA["Unknown"];
+    const displayName = normalizeMapDisplayName(mapName);
     const bg = window.overwolf?.windows?.getMainWindow() as any;
     const remoteData = bg?.BG_MAP_DATA;
     if (!remoteData) {
         console.warn("⚠️ 백그라운드 데이터가 없습니다. 로컬 데이터를 사용합니다.");
     }
-    
-    const mapSource = (remoteData && remoteData[mapName]) ? remoteData : LOCAL_MAP_DATA;
-    if (mapSource[mapName]) {
-        return mapSource[mapName];
-    }
-    const lowerName = mapName.toLowerCase();
-    const foundKey = Object.keys(mapSource).find(key => {
-        const k = key.toLowerCase();
-        if (k.includes(lowerName) || lowerName.includes(k)) return true;
-        if (lowerName.includes('canyon') && k.includes('kings')) return true;
-        if (lowerName.includes('olympus') && k.includes('olympus')) return true;
-        if (lowerName.includes('world') && k.includes('world')) return true;
-        if (lowerName.includes('storm') && k.includes('storm')) return true;
-        if (lowerName.includes('broken') && k.includes('broken')) return true;
-        if (lowerName.includes('district') && k.includes('district')) return true;
-        return false;
-    });
 
-    if (foundKey) {
-        console.log(`🗺️ Map Config Loaded [${foundKey}]:`, mapSource[foundKey]); 
-        return mapSource[foundKey];
+    const mapSource = (remoteData && (remoteData[displayName] || remoteData[mapName]))
+        ? remoteData
+        : LOCAL_MAP_DATA;
+    let config = mapSource[displayName] || mapSource[mapName] || null;
+
+    if (!config) {
+        const lowerName = displayName.toLowerCase();
+        const foundKey = Object.keys(mapSource).find(key => {
+            const k = key.toLowerCase();
+            if (k.includes(lowerName) || lowerName.includes(k)) return true;
+            if (lowerName.includes('canyon') && k.includes('kings')) return true;
+            if (lowerName.includes('olympus') && k.includes('olympus')) return true;
+            if (lowerName.includes('world') && k.includes('world')) return true;
+            if (lowerName.includes('storm') && k.includes('storm')) return true;
+            if (lowerName.includes('broken') && k.includes('broken')) return true;
+            if (lowerName.includes('district') && k.includes('district')) return true;
+            if (lowerName.includes('desertlands') && k.includes('world')) return true;
+            return false;
+        });
+
+        if (foundKey) {
+            console.log(`🗺️ Map Config Loaded [${foundKey}]:`, mapSource[foundKey]);
+            config = mapSource[foundKey];
+        }
     }
 
-    return mapSource["Unknown"] || LOCAL_MAP_DATA["Unknown"];
+    if (!config) {
+        return mapSource["Unknown"] || LOCAL_MAP_DATA["Unknown"];
+    }
+
+    if (isWorldsEdgeMap(displayName)) {
+        return {
+            ...config,
+            img: resolveWorldsEdgeMapImage(matchTimeMs, seasons),
+        };
+    }
+
+    return config;
 };
 
-export const getCssPos = (x: number, y: number, mapName: string) => {
-    const config = getMapConfig(mapName);
+export const getCssPos = (x: number, y: number, mapName: string, matchTimeMs?: number | null) => {
+    const config = getMapConfig(mapName, matchTimeMs);
     const scale = config.scale || 30;
     const xOff = config.xOffset || 0;
     const yOff = config.yOffset || 0;

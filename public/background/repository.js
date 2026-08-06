@@ -1,6 +1,4 @@
 // src/background/repository.js
-console.log("Initializing Cloud Repository (Proxy Mode)");
-
 (function() { 
     const getProxyBaseUrl = () =>
         window.PROXY_BASE_URL ?? "https://trace-proxy-server.vercel.app/api";
@@ -113,14 +111,10 @@ console.log("Initializing Cloud Repository (Proxy Mode)");
 
             if (updates.length > 0) {
                 try {
-                    console.log(`[Repository] Sending ${updates.length} updates to DB...`);
                     await requestProxy('/address-book', 'POST', { updates });
-                    console.log(`[Repository] Bulk Update Success.`);
                 } catch (e) {
                     console.error(`[Repository] Bulk Update Failed:`, e);
                 }
-            } else {
-                console.warn(`[Repository] No valid updates to send.`);
             }
         },
     };
@@ -156,16 +150,28 @@ console.log("Initializing Cloud Repository (Proxy Mode)");
         // 히스토리 저장하기 (백엔드가 메인 UID 찾아서 저장해 줌)
         save: async (uid, matchData) => {
             const mode = (matchData.mode || "").toLowerCase();
-            if (mode.includes('firing') || mode.includes('training')) return [];
+            if (mode.includes('firing') || mode.includes('training')) {
+                console.warn('[Repository] Skipped Firing Range upload');
+                return [];
+            }
 
-            console.log("☁️ Uploading match to Proxy...");
             const result = await requestProxy('/history', 'POST', { uid, match: matchData });
             
             if (result && result.success) {
-                console.log("✅ Match Saved via Proxy.");
+                window.Utils.matchLog('Saved via proxy', {
+                    matchId: matchData?.matchId,
+                    dataQuality: matchData?.dataQuality,
+                    confidence: matchData?.confidence,
+                    missingSignals: matchData?.missingSignals,
+                    legend: matchData?.legend,
+                    placement: matchData?.placement,
+                });
                 return result.history;
             } else {
-                console.warn("❌ Match Save Failed (Server may be busy).");
+                window.Utils.matchLog('Save failed via proxy', {
+                    matchId: matchData?.matchId,
+                    dataQuality: matchData?.dataQuality,
+                });
                 return [];
             }
         }
@@ -205,11 +211,7 @@ console.log("Initializing Cloud Repository (Proxy Mode)");
                     return null;
                 }
 
-                const result = await res.json();
-                if (result?.success) {
-                    console.log(`[Repository] Daily rank snapshot upserted: ${uid} @ ${snapshotDate}`);
-                }
-                return result;
+                return await res.json();
             } catch (e) {
                 console.warn('[Repository] Daily rank snapshot network error:', e);
                 return null;

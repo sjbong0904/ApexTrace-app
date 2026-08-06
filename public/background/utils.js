@@ -1,6 +1,4 @@
 // src/background/utils.js
-console.log("🛠️ Utils Initialized");
-
 // 1. DEFAULT CONFIGURATION — DB 로드 전 빈 객체로만 초기화
 window.GAME_MODE_MAP = window.GAME_MODE_MAP || {};
 window.LEGEND_MAP    = window.LEGEND_MAP    || {};
@@ -10,6 +8,24 @@ window.SEASONS       = window.SEASONS       || [];
 
 // 2. UTILITY FUNCTIONS
 const Utils = {
+
+    /**
+     * Overwolf file logs stringify object args as "[object Object]".
+     * Always inline JSON so 2차 테스트 logs stay readable.
+     */
+    matchLog: (message, details) => {
+        const msg = String(message || '');
+        const line = msg.startsWith('[Match]') ? msg : `[Match] ${msg}`;
+        if (details == null) {
+            console.warn(line);
+            return;
+        }
+        try {
+            console.warn(`${line} ${JSON.stringify(details)}`);
+        } catch (e) {
+            console.warn(line);
+        }
+    },
 
     cleanName: (name) => {
         if (!name) return "Unknown";
@@ -31,13 +47,20 @@ const Utils = {
 
     getMapName: (rawMap) => {
         if (!rawMap) return "Unknown";
+        if (window.MapService?.resolveMap) {
+            const resolved = window.MapService.resolveMap(rawMap, rawMap);
+            if (resolved) return resolved;
+        }
         // DB에서 로드된 맵 목록 먼저 체크
         if (window.BG_MAP_DATA?.[rawMap]) return rawMap;
 
-        const lower = rawMap.toLowerCase();
+        const lower = String(rawMap).toLowerCase();
+        if (!lower || lower === 'unknown' || lower === 'none') return "Unknown";
+        if (lower.includes('desertlands') || lower.includes('world') || lower.includes('edge')) {
+            return "World's Edge";
+        }
         if (lower.includes('canyon'))                        return "Kings Canyon";
         if (lower.includes('olympus'))                       return "Olympus";
-        if (lower.includes('world') || lower.includes('edge')) return "World's Edge";
         if (lower.includes('tropic') || lower.includes('storm')) return "Storm Point";
         if (lower.includes('moon') || lower.includes('broken')) return "Broken Moon";
         if (lower.includes('district'))                      return "E-District";
@@ -95,6 +118,20 @@ const Utils = {
         return clean;
     },
 
+    /** GEP often puts fists / nades in weapon0/1 — not loadout guns. */
+    isNonLoadoutWeaponRaw: (rawWeapon) => {
+        if (rawWeapon == null || rawWeapon === '') return true;
+        const clean = String(rawWeapon).toLowerCase();
+        if (clean === 'unknown' || clean === 'none') return true;
+        if (clean.includes('melee') || clean.includes('karambit')) return true;
+        if (clean.includes('grenade') || clean.includes('ordnance')) return true;
+        if (clean.includes('thermite') || clean.includes('arc star') || clean.includes('arcstar')) return true;
+        if (clean.includes('phoenix') || clean.includes('bacta') || clean.includes('medkit')) return true;
+        if (clean.includes('shield cell') || clean.includes('shield battery')) return true;
+        if (clean.includes('ultimate accelerant') || clean.includes('syringe')) return true;
+        return false;
+    },
+
     normalizeWeapon: (rawWeapon) => {
         if (!rawWeapon) return null;
 
@@ -103,11 +140,11 @@ const Utils = {
             .replace('weapon_', '').replace('auto_', '')
             .replace('_crate', '').replace('_takeover', '');
 
+        // Fists / nades before WEAPON_MAP — map must not revive Melee as a gun id.
+        if (Utils.isNonLoadoutWeaponRaw(clean)) return null;
+
         // DB weapon_map 먼저 체크
         if (window.WEAPON_MAP?.[clean]) return window.WEAPON_MAP[clean];
-
-        // melee → null
-        if (clean.includes('melee') || clean.includes('karambit')) return null;
 
         // 아킴보
         if (clean.includes('mozam') && clean.includes('akimbo')) return 'mozambique_akimbo';
@@ -176,6 +213,11 @@ const Utils = {
 
     UNKNOWN_MODE_FALLBACK: "BR",
 
+    isFiringRangeMode: (mode) => {
+        const normalized = String(mode ?? "").trim().toLowerCase();
+        return normalized.includes('firing') || normalized.includes('training');
+    },
+
     isMissingGameMode: (mode) => {
         const normalized = String(mode ?? "").trim().toLowerCase();
         return !normalized || normalized === "unknown";
@@ -205,7 +247,7 @@ const Utils = {
         if (!Utils.hasModeFallbackEvidence(match)) return match.mode;
 
         match.mode = Utils.UNKNOWN_MODE_FALLBACK;
-        console.warn("[Match] Applied missing GEP game mode fallback: BR", {
+        Utils.matchLog('Applied missing GEP game mode fallback: BR', {
             matchId: match.matchId,
             map: match.map,
             teammates: match.teamStats?.length || 0,
@@ -236,6 +278,143 @@ const Utils = {
         return hasMap && hasTeammates && durationMs >= 60000;
     },
 
+    /**
+     * Post-elim requeue / tabs-dead sessions: combat log may exist, but GEP never
+     * sent tabs/weapons/location/summary → 20th + 0/0/0 + empty loadout/path.
+     */
+    isHollowStatGhost: (match) => {
+        if (!match) return false;
+        if (match._matchSummaryRank || match._isVictory || match._estimatedPlacement) return false;
+
+        const placement = Number(match.placement) || 20;
+        if (placement !== 20) return false;
+
+        if ((match.kills || 0) > 0 || (match.damage || 0) > 0 || (match.assists || 0) > 0) {
+            return false;
+        }
+
+        const hasLoadoutWeapon = Utils.isUsableWeaponId(match.loadout?.primary)
+            || Utils.isUsableWeaponId(match.loadout?.secondary)
+            || (Array.isArray(match.weaponTimeline) && match.weaponTimeline.some((row) =>
+                Utils.isUsableWeaponId(row?.primary) || Utils.isUsableWeaponId(row?.secondary)
+            ));
+        if (hasLoadoutWeapon) return false;
+
+        // 0–1 points = empty path or a leftover death-dot from a prior session.
+        if ((match.path?.length || 0) > 1) return false;
+
+        return true;
+    },
+
+    /** Local combat rows usable when tabs never moved. */
+    countLocalCombatFromEvents: (match) => {
+        const out = { kills: 0, assists: 0, knocks: 0 };
+        if (!match) return out;
+        const playerName = match.playerName;
+        const events = Array.isArray(match.events) ? match.events : [];
+        for (const event of events) {
+            if (!event) continue;
+            const type = String(event.type || '').toLowerCase();
+            if (type === 'kill') {
+                if (!playerName || Utils._isSamePlayerName(event.attacker, playerName)) out.kills += 1;
+            } else if (type === 'assist') {
+                if (!playerName || Utils._isSamePlayerName(event.attacker, playerName)) out.assists += 1;
+            } else if (type === 'knockdown') {
+                if (!playerName || Utils._isSamePlayerName(event.attacker, playerName)) out.knocks += 1;
+            }
+        }
+        return out;
+    },
+
+    /** When tabs SSOT never arrived, lift kill/assist/knock counts from combat log. */
+    backfillTabsFromCombatLog: (match) => {
+        if (!match) return false;
+        const local = Utils.countLocalCombatFromEvents(match);
+        let changed = false;
+        if (local.kills > (match.kills || 0)) {
+            match.kills = local.kills;
+            changed = true;
+        }
+        if (local.assists > (match.assists || 0)) {
+            match.assists = local.assists;
+            changed = true;
+        }
+        if (local.knocks > (match.knocks || 0)) {
+            match.knocks = local.knocks;
+            changed = true;
+        }
+        if (changed) {
+            Utils.matchLog('Backfilled tabs from combat log', {
+                matchId: match.matchId,
+                kills: match.kills,
+                assists: match.assists,
+                knocks: match.knocks,
+            });
+        }
+        return changed;
+    },
+
+    /**
+     * Recent closed/pending sibling that already captured a finished game with stats.
+     * Used so post-elim hollow fragments can be dropped without killing mid-match splits.
+     */
+    hasCompletedKeeperSibling: (match, maxGapMs = 5 * 60 * 1000) => {
+        if (!match) return false;
+        const now = Date.now();
+        const start = match.startTime || now;
+
+        const isKeeper = (row) => {
+            if (!row || row.matchId === match.matchId) return false;
+            if (row._discardUpload) return false;
+            const closedAt = row.closedAt || row.endTime || 0;
+            if (!closedAt) return false;
+            if (Math.abs(start - closedAt) > maxGapMs && Math.abs(now - closedAt) > maxGapMs) {
+                return false;
+            }
+            const hadStats = row.hadStats
+                || (row.kills || 0) > 0
+                || (row.damage || 0) > 0
+                || (row.assists || 0) > 0;
+            if (!hadStats) return false;
+            // Mid-match rotate sibling is NOT a keeper — hollow half may still need backfill.
+            return !!(row.completed || row.squadEliminated || row._squadEliminated
+                || row._isVictory || row._matchSummaryRank || row._estimatedPlacement);
+        };
+
+        const prev = window.MatchBoundary?._lastClosedSession;
+        if (isKeeper(prev)) return true;
+
+        const pending = window.MatchUploadQueue?._pending;
+        if (pending && typeof pending[Symbol.iterator] === 'function') {
+            for (const row of pending) {
+                if (isKeeper({
+                    ...row,
+                    closedAt: row.endTime || row._uploadQueuedAt || 0,
+                    completed: !!(row._squadEliminated || row._isVictory
+                        || row._matchSummaryRank || row._estimatedPlacement),
+                    hadStats: (row.kills || 0) > 0 || (row.damage || 0) > 0 || (row.assists || 0) > 0,
+                })) return true;
+            }
+        }
+        return false;
+    },
+
+    /**
+     * Discard hollow ghosts only when safe:
+     *  - no local combat at all, or
+     *  - local combat exists but a completed keeper sibling already covers a finished game
+     *    (post-elim requeue fragment). Mid-match splits keep the hollow half for backfill.
+     */
+    shouldDiscardHollowStatGhost: (match) => {
+        if (!Utils.isHollowStatGhost(match)) return false;
+
+        const local = Utils.countLocalCombatFromEvents(match);
+        const hasLocalCombat = local.kills > 0 || local.assists > 0 || local.knocks > 0;
+        if (!hasLocalCombat) return true;
+
+        return Utils.hasCompletedKeeperSibling(match);
+    },
+
     getMatchEvidenceSummary: (match) => ({
         kills: match?.kills || 0,
         damage: match?.damage || 0,
@@ -250,6 +429,166 @@ const Utils = {
             ? Math.max(0, (match.endTime || Date.now()) - match.startTime)
             : 0,
     }),
+
+    ensureMissingSignals: (match) => {
+        if (!match) return [];
+        if (!Array.isArray(match.missingSignals)) match.missingSignals = [];
+        return match.missingSignals;
+    },
+
+    addMissingSignal: (match, signal) => {
+        if (!match || !signal) return;
+        const list = Utils.ensureMissingSignals(match);
+        if (!list.includes(signal)) list.push(signal);
+    },
+
+    /**
+     * Persistable match quality for history UI.
+     * Prefer incomplete-but-present records over discarding play.
+     */
+    finalizeMatchDataQuality: (match) => {
+        if (!match) return null;
+
+        const missing = Utils.ensureMissingSignals(match);
+
+        // Content: we never resolved the local player's legend for history.
+        if (!match._hadLocalLegendSelect) {
+            Utils.addMissingSignal(match, 'no_legend_select');
+        }
+        // Boundary: no squad legendSelect_* at all (weaker match-start proof).
+        if (!match._hadSquadLegendSelect) {
+            Utils.addMissingSignal(match, 'no_squad_legend_select');
+        }
+        if (!match._gepPseudoMatchId && !match._sawGepPseudo) {
+            Utils.addMissingSignal(match, 'pseudo_stale');
+        }
+        if (match._boundaryInferred) {
+            Utils.addMissingSignal(match, 'boundary_inferred');
+        }
+        // Authoritative GEP match_summary / victory ⇒ not an estimate.
+        if (match._matchSummaryRank || match._isVictory) {
+            const idx = missing.indexOf('placement_estimated');
+            if (idx >= 0) missing.splice(idx, 1);
+        } else if (match._estimatedPlacement) {
+            Utils.addMissingSignal(match, 'placement_estimated');
+        }
+        if (match._missingMatchStart) {
+            Utils.addMissingSignal(match, 'no_match_start');
+        }
+
+        let score = 0;
+        // Boundary proof: any of legendSelect_0..2 (not required to be is_local).
+        if (match._hadSquadLegendSelect) score += 25;
+        if (match._gepPseudoMatchId || match._sawGepPseudo) score += 20;
+        if (match._matchSummaryRank) score += 30;
+        if (Utils.hasRealMatchEvidence(match)) score += 25;
+        if (match._boundaryInferred) score -= 20;
+
+        score = Math.max(0, Math.min(100, score));
+
+        const criticalMissing = missing.some((s) =>
+            s === 'no_legend_select'
+            || s === 'no_squad_legend_select'
+            || s === 'boundary_inferred'
+            || s === 'no_match_start'
+            || s === 'pseudo_stale'
+        );
+
+        let dataQuality = 'complete';
+        if (score < 40) dataQuality = 'unrecoverable';
+        else if (score < 70 || criticalMissing) dataQuality = 'estimated';
+
+        match.confidence = score;
+        match.dataQuality = dataQuality;
+        match.missingSignals = [...missing];
+
+        Utils.matchLog('Data quality', {
+            matchId: match.matchId,
+            dataQuality,
+            confidence: score,
+            missingSignals: match.missingSignals,
+            hadLocalLegendSelect: !!match._hadLocalLegendSelect,
+            hadSquadLegendSelect: !!match._hadSquadLegendSelect,
+            boundaryInferred: !!match._boundaryInferred,
+            legend: match.legend,
+            placement: match.placement,
+        });
+
+        return { dataQuality, confidence: score, missingSignals: match.missingSignals };
+    },
+
+    isUnknownLegend: (legend) => {
+        const normalized = String(legend ?? '').trim().toLowerCase();
+        return !normalized || normalized === 'unknown';
+    },
+
+    /**
+     * GEP often skips local legendSelect when the player keeps the same legend.
+     * Fill from the previous closed session (or newest history card) only inside
+     * LEGEND_PREV_MATCH_MAX_GAP_MS — never live ALS / profile.
+     */
+    applyLegendFromPreviousMatch: (match) => {
+        // Only runs when local select is missing and legend is still Unknown.
+        if (!match || match._hadLocalLegendSelect) return false;
+        if (!Utils.isUnknownLegend(match.legend)) return false;
+
+        const maxGap = window.MatchBoundary?.LEGEND_PREV_MATCH_MAX_GAP_MS ?? (20 * 60 * 1000);
+        const startAt = match.startTime || Date.now();
+        let skipReason = 'no_candidate';
+        let skipDetail = null;
+
+        const tryCandidate = (legend, closedAt, source) => {
+            if (!legend || Utils.isUnknownLegend(legend) || !closedAt) {
+                skipReason = !closedAt ? 'missing_closed_at' : 'candidate_unknown_legend';
+                skipDetail = { source, legend: legend || null, closedAt: closedAt || 0 };
+                return false;
+            }
+            const gap = startAt - closedAt;
+            if (gap < 0 || gap > maxGap) {
+                skipReason = gap < 0 ? 'gap_negative' : 'gap_exceeded';
+                skipDetail = { source, legend, gapMs: gap, maxGapMs: maxGap };
+                return false;
+            }
+            match.legend = legend;
+            match._legendFromPrevMatch = true;
+            Utils.addMissingSignal(match, 'legend_from_prev_match');
+            Utils.matchLog('Legend filled from previous match', {
+                matchId: match.matchId,
+                legend,
+                source,
+                gapMs: gap,
+                maxGapMs: maxGap,
+            });
+            return true;
+        };
+
+        const prev = window.MatchBoundary?._lastClosedSession;
+        if (prev && prev.matchId !== match.matchId
+            && tryCandidate(prev.legend, prev.closedAt, 'last_closed_session')) {
+            return true;
+        }
+
+        const history = window.Store?.history;
+        if (Array.isArray(history)) {
+            for (const row of history) {
+                if (!row || row.matchId === match.matchId) continue;
+                const closedAt = row.endTime || row.end_time || 0;
+                const legend = row.legend;
+                if (tryCandidate(legend, closedAt, 'history')) return true;
+                break; // newest card only
+            }
+        }
+
+        Utils.matchLog('Legend prev-match skip', {
+            matchId: match.matchId,
+            reason: skipReason,
+            maxGapMs: maxGap,
+            ...(skipDetail || {}),
+            hadClosedSession: !!prev,
+            closedLegend: prev?.legend || null,
+        });
+        return false;
+    },
 
     inferLegendFromAction: (actionName) => {
         if (!actionName) return null;
@@ -301,23 +640,31 @@ const Utils = {
         const teams = parseInt(teamsRaw, 10);
         if (!match || isNaN(teams) || teams <= 0) return null;
         match._lastTeamsAlive = teams;
-        if (match._guessedRank == null || teams < match._guessedRank) {
-            match._guessedRank = teams;
+        // Keep min-teams separate from placement/_guessedRank (summary rank).
+        if (match._minTeamsAlive == null || teams < match._minTeamsAlive) {
+            match._minTeamsAlive = teams;
         }
         return teams;
     },
 
     /** tabs.teams minimum first; otherwise last alive teams + 1. */
     estimatePlacementFromTeamsAlive: (match, teamsAlive = match?._lastTeamsAlive) => {
-        const minTeams = parseInt(match?._guessedRank, 10);
+        const minTeams = parseInt(match?._minTeamsAlive, 10);
         if (!isNaN(minTeams) && minTeams > 0) return minTeams;
         const teams = parseInt(teamsAlive, 10);
         if (!isNaN(teams) && teams > 0) return teams + 1;
         return null;
     },
 
-    isUsableWeaponId: (weapon) =>
-        Boolean(weapon) && weapon !== 'unknown' && weapon !== 'none' && weapon !== 'Unknown',
+    isUsableWeaponId: (weapon) => {
+        if (weapon == null) return false;
+        const s = String(weapon).trim();
+        if (!s) return false;
+        const lower = s.toLowerCase();
+        if (lower === 'unknown' || lower === 'none' || lower === 'melee') return false;
+        if (lower.includes('melee') || lower.includes('karambit')) return false;
+        return true;
+    },
 
     _isSamePlayerName: (name1, name2) => {
         if (!name1 || !name2) return false;
@@ -484,6 +831,99 @@ const Utils = {
         return null;
     },
 
+    /** Window for pairing tabs.assists with nearby squad elim victims from kill_feed. */
+    ASSIST_VICTIM_MS: 45000,
+
+    _normCombatName: (name) =>
+        name ? String(name).replace(/\[.*?\]/g, '').replace(/\s+/g, '').toLowerCase() : '',
+
+    _isBlankCombatName: (name) => {
+        if (!name || !String(name).trim()) return true;
+        return String(name).trim().toLowerCase() === 'unknown';
+    },
+
+    _usedAssistVictimKeys: (match) => {
+        const used = new Set();
+        const playerName = match?.playerName || '';
+        for (const event of match?.events || []) {
+            const type = String(event?.type || '').toLowerCase();
+            if (type !== 'assist' && type !== 'kill') continue;
+            if (type === 'kill' && playerName && event.attacker
+                && !Utils._isSamePlayerName(event.attacker, playerName)) {
+                continue;
+            }
+            if (Utils._isBlankCombatName(event?.victim)) continue;
+            used.add(Utils._normCombatName(event.victim));
+        }
+        return used;
+    },
+
+    /**
+     * GEP assist events are count-only. Queue squad elim victims from kill_feed
+     * so assist combat-log rows can estimate the enemy nick.
+     */
+    noteSquadElimVictim: (match, victim, attacker) => {
+        if (!match || Utils._isBlankCombatName(victim)) return;
+        const cleanVictim = String(victim).trim();
+        const q = Array.isArray(match._assistVictimQueue)
+            ? match._assistVictimQueue
+            : (match._assistVictimQueue = []);
+        const now = Date.now();
+        const key = Utils._normCombatName(cleanVictim);
+        // Refresh timestamp if the same victim was just eliminated again.
+        const existing = q.find((row) => Utils._normCombatName(row.victim) === key);
+        if (existing) {
+            existing.at = now;
+            if (attacker) existing.attacker = attacker;
+        } else {
+            q.push({ victim: cleanVictim, attacker: attacker || '', at: now });
+        }
+        match._assistVictimQueue = q.filter((row) => now - (row.at || 0) <= Utils.ASSIST_VICTIM_MS);
+        Utils.fillAssistVictims(match);
+    },
+
+    /** Pop the newest unused squad-elim victim for an assist row. */
+    takeAssistVictim: (match) => {
+        if (!match) return '';
+        const now = Date.now();
+        const q = Array.isArray(match._assistVictimQueue) ? match._assistVictimQueue : [];
+        match._assistVictimQueue = q.filter((row) => now - (row.at || 0) <= Utils.ASSIST_VICTIM_MS);
+        const used = Utils._usedAssistVictimKeys(match);
+        for (let i = match._assistVictimQueue.length - 1; i >= 0; i--) {
+            const row = match._assistVictimQueue[i];
+            const key = Utils._normCombatName(row.victim);
+            if (!key || used.has(key)) {
+                match._assistVictimQueue.splice(i, 1);
+                continue;
+            }
+            match._assistVictimQueue.splice(i, 1);
+            return row.victim;
+        }
+        return '';
+    },
+
+    /** Backfill empty assist victims after a later squad elim arrives. */
+    fillAssistVictims: (match) => {
+        if (!match?.events?.length) return 0;
+        let filled = 0;
+        for (const event of match.events) {
+            if (String(event?.type || '').toLowerCase() !== 'assist') continue;
+            if (!Utils._isBlankCombatName(event.victim)) continue;
+            const victim = Utils.takeAssistVictim(match);
+            if (!victim) break;
+            event.victim = victim;
+            event._victimEstimated = true;
+            filled += 1;
+        }
+        if (filled > 0) {
+            Utils.matchLog('Filled assist victims from squad elim queue', {
+                matchId: match.matchId,
+                filled,
+            });
+        }
+        return filled;
+    },
+
     ensureWeaponCombat: (match) => {
         if (!match.weaponCombat || typeof match.weaponCombat !== 'object') {
             match.weaponCombat = {};
@@ -507,28 +947,194 @@ const Utils = {
         const events = match.events || (match.events = []);
         const logged = events.filter((e) => String(e?.type || '').toLowerCase() === 'assist').length;
         const delta = Math.max(0, target - logged);
-        if (delta <= 0) return;
 
+        const backfillVictims = [];
         for (let i = 0; i < delta; i++) {
             const weapon = Utils.resolveAssistWeapon(match);
+            const victim = Utils.takeAssistVictim(match);
             events.push({
                 type: 'assist',
                 attacker: match.playerName || 'Unknown',
-                victim: '',
+                victim: victim || '',
                 weapon,
                 timestamp: Date.now(),
+                ...(victim ? { _victimEstimated: true } : {}),
             });
             Utils.bumpWeaponCombat(match, weapon, 'assists');
+            backfillVictims.push(victim || '');
         }
+        // Assist counter can land before the teammate kill_feed; fill empties later.
+        const victimFilled = Utils.fillAssistVictims(match);
+        if (delta > 0) {
+            Utils.matchLog('Synced assist combat logs from counter', {
+                matchId: match.matchId,
+                tabsAssists: target,
+                loggedBefore: logged,
+                backfilled: delta,
+                victims: backfillVictims,
+                victimFilled,
+            });
+        }
+    },
+
+    /** Victims already named on my kill rows (skip when estimating backfill victims). */
+    _usedKillVictimKeys: (match) => {
+        const used = new Set();
+        const playerName = match?.playerName || '';
+        for (const event of match?.events || []) {
+            if (String(event?.type || '').toLowerCase() !== 'kill') continue;
+            if (playerName && event.attacker && !Utils._isSamePlayerName(event.attacker, playerName)) continue;
+            if (Utils._isBlankCombatName(event?.victim)) continue;
+            used.add(Utils._normCombatName(event.victim));
+        }
+        return used;
+    },
+
+    /**
+     * Prefer pending knocks / my knockdowns that never got a named kill row.
+     * Locale-agnostic finish often only bumps tabs.kills — reuse the knock victim.
+     */
+    takeKillVictim: (match) => {
+        if (!match) return '';
+        const used = Utils._usedKillVictimKeys(match);
+        const playerName = match.playerName || '';
+
+        const pending = Array.isArray(match._pendingKnocks) ? match._pendingKnocks : [];
+        for (let i = 0; i < pending.length; i++) {
+            const name = pending[i];
+            const key = Utils._normCombatName(name);
+            if (!key || used.has(key) || Utils._isBlankCombatName(name)) continue;
+            pending.splice(i, 1);
+            // Drop combat-pair stage too — otherwise kill_feed still promotes a 2nd kill row.
+            if (match._combatPairs && typeof match._combatPairs === 'object') {
+                delete match._combatPairs[key];
+            }
+            return String(name).trim();
+        }
+
+        // Unmatched knockdown by me (feed logged knock, miss finish).
+        for (let i = (match.events || []).length - 1; i >= 0; i--) {
+            const event = match.events[i];
+            if (String(event?.type || '').toLowerCase() !== 'knockdown') continue;
+            if (playerName && event.attacker && !Utils._isSamePlayerName(event.attacker, playerName)) continue;
+            if (Utils._isBlankCombatName(event?.victim)) continue;
+            const key = Utils._normCombatName(event.victim);
+            if (!key || used.has(key)) continue;
+            // Only claim if no kill row already names this victim.
+            used.add(key);
+            return String(event.victim).trim();
+        }
+        return '';
+    },
+
+    /** Fill empty kill victims after a later knock/finish signal arrives. */
+    fillKillVictims: (match) => {
+        if (!match?.events?.length) return 0;
+        const playerName = match.playerName || '';
+        let filled = 0;
+        for (const event of match.events) {
+            if (String(event?.type || '').toLowerCase() !== 'kill') continue;
+            if (playerName && event.attacker && !Utils._isSamePlayerName(event.attacker, playerName)) continue;
+            if (!Utils._isBlankCombatName(event.victim)) continue;
+            const victim = Utils.takeKillVictim(match);
+            if (!victim) break;
+            event.victim = victim;
+            event._victimEstimated = true;
+            filled += 1;
+        }
+        return filled;
+    },
+
+    /** Squad-elim death rows often lack attacker — copy from last self-knockdown. */
+    fillDeathAttackers: (match) => {
+        if (!match?.events?.length) return 0;
+        const playerName = match.playerName || '';
+        if (Utils._isBlankCombatName(playerName)) return 0;
+        let filled = 0;
+        const attackers = [];
+        for (const event of match.events) {
+            if (String(event?.type || '').toLowerCase() !== 'death') continue;
+            if (!Utils._isSamePlayerName(event.victim, playerName)) continue;
+            if (!Utils._isBlankCombatName(event.attacker)) continue;
+            const lastKnock = [...match.events].reverse().find((e) =>
+                String(e?.type || '').toLowerCase() === 'knockdown'
+                && Utils._isSamePlayerName(e.victim, playerName)
+                && !Utils._isBlankCombatName(e.attacker)
+            );
+            if (!lastKnock) continue;
+            event.attacker = lastKnock.attacker;
+            if (lastKnock.weapon && !event.weapon) event.weapon = lastKnock.weapon;
+            event._attackerEstimated = true;
+            filled += 1;
+            attackers.push(lastKnock.attacker);
+        }
+        if (filled > 0) {
+            Utils.matchLog('Filled death attackers from self-knockdown', {
+                matchId: match.matchId,
+                filled,
+                attackers,
+            });
+        }
+        return filled;
+    },
+
+    /**
+     * Kill count SSOT is tabs/GEP kill counter. When kill_feed missed localized finishes,
+     * backfill combat-log kill rows so the log length matches match.kills.
+     */
+    syncKillCombatLogs: (match) => {
+        if (!match) return 0;
+        const target = Math.max(0, parseInt(match.kills, 10) || 0);
+        const events = match.events || (match.events = []);
+        const playerName = match.playerName || 'Unknown';
+        const logged = events.filter((e) => {
+            if (String(e?.type || '').toLowerCase() !== 'kill') return false;
+            if (!e.attacker || e.attacker === 'Unknown') return true;
+            return Utils._isSamePlayerName(e.attacker, playerName);
+        }).length;
+        const delta = Math.max(0, target - logged);
+
+        const backfillVictims = [];
+        for (let i = 0; i < delta; i++) {
+            const weapon = Utils.resolveAssistWeapon(match);
+            const victim = Utils.takeKillVictim(match);
+            events.push({
+                type: 'kill',
+                attacker: playerName,
+                victim: victim || '',
+                weapon,
+                timestamp: Date.now(),
+                desc: 'restored from tabs',
+                _backfill: true,
+                ...(victim ? { _victimEstimated: true } : {}),
+            });
+            Utils.bumpWeaponCombat(match, weapon, 'kills');
+            backfillVictims.push(victim || '');
+        }
+        const victimFilled = Utils.fillKillVictims(match);
+        if (delta > 0 || victimFilled > 0) {
+            Utils.matchLog('Synced kill combat logs from tabs', {
+                matchId: match.matchId,
+                tabsKills: target,
+                loggedBefore: logged,
+                backfilled: delta,
+                victims: backfillVictims,
+                victimFilled,
+            });
+        }
+        return delta;
     },
 
     /** Recompute SSOT weaponCombat at finalize. */
     syncWeaponCombatFromEvents: (match) => {
         if (!match) return {};
+        Utils.syncKillCombatLogs(match);
         Utils.syncAssistCombatLogs(match);
+        Utils.fillDeathAttackers(match);
         match.weaponCombat = Utils.computeMatchWeaponCombat(match);
         return match.weaponCombat;
     },
 };
 
 window.Utils = Utils;
+window.matchLog = Utils.matchLog;

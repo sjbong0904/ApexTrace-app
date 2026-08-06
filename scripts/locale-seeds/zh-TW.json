@@ -70,7 +70,19 @@
     "damage": "DAMAGE",
     "kills": "KILLS",
     "assists": "ASSISTS",
-    "knocks": "KNOCKS"
+    "knocks": "KNOCKS",
+    "dataQualityEstimated": "估算",
+    "dataQualityTooltip": "不完整的對局資料：{{signals}}",
+    "confidenceLabel": "可信度 {{n}}%",
+    "missingSignals": {
+      "no_legend_select": "缺少傳奇選擇",
+      "pseudo_stale": "對局ID不確定",
+      "no_match_start": "缺少對局開始訊號",
+      "boundary_inferred": "對局邊界推斷",
+      "placement_estimated": "名次估算",
+      "no_squad_legend_select": "缺少小隊傳奇選擇",
+      "legend_from_prev_match": "沿用上一場傳奇"
+    }
   },
   "matchDetails": {
     "stats": "統計",

@@ -1,5 +1,29 @@
 # ApexTrace Release Notes
 
+## v0.0.10 — 2026-08-06
+
+전투 집계·고스트 매치 방어와 문서 정리. GEP 로케일 finish / tabs 미발송 실기 로그 반영.
+
+### 수정
+
+- **팀메이트 킬 누락** — `출혈`·`링` 등 로케일 finish를 팀메이트에도 knock→opaque 페어링으로 집계 (언어 사전 없음). 로컬 `_pendingKnocks`와 분리된 `_squadCombatPairs` 사용.
+- **20등 / 0킬·0딜 고스트** — tabs·로드아웃·동선이 비고 등수만 기본 20인 세션은 버림. 다만 **완성된 형제 세션이 있을 때만** 버려서, 한 판이 둘로 쪼개진 경우 전투로그 백필 기회를 남김.
+- **전투로그 → tabs 백필** — 버릴 수 없는 hollow 절반에 대해 local kill/assist/knock을 이벤트에서 복구.
+
+### 개선
+
+- **매치 경계·업로드** — live/post-elim `legendSelect` 분할, keeper sibling 메타(`hadStats`/`completed`) 기록.
+- **맵** — World's Edge Season 30 에셋 (`worlds_edge_s30.png`).
+- **UI / 로케일** — 통계·사이드바·맵 시각화·시드 카피 소규모 갱신 (10개 언어 동기화).
+
+### 문서
+
+- [GEP-BUGS.md](GEP-BUGS.md) — 실기 관측 이슈 목록.
+- Docs hub — [ARCHITECTURE](ARCHITECTURE.md) / [QA](QA.md) / [LAUNCH](LAUNCH.md) / [ROADMAP](ROADMAP.md) (구 `docs/launch/`, `match-data-architecture-v3` 통합).
+- README — 버전 `0.0.10`, 문서 링크 갱신.
+
+---
+
 ## v0.0.9 — 2026-07-27
 
 매치 경계(capture) 로직을 **이상적 GEP 계약** 기준으로 재정리. Overwolf 측에 연속 큐 시 `match_start`/`pseudo`/`legendSelect` 누락 이슈도 제보함.
@@ -47,7 +71,7 @@ Overwolf Free 티어 QA 제출용 빌드. 데스크톱 광고 + Free 게이트 �
 
 ### 문서
 
-- [docs/launch/](launch/) — Overwolf QA 체크리스트, 스토어 카피, 인프라·오가닉 런칭 키트, future OW features.
+- Docs — [QA.md](QA.md), [LAUNCH.md](LAUNCH.md), [ROADMAP.md](ROADMAP.md) (구 `docs/launch/` 통합).
 
 ---
 
@@ -80,7 +104,7 @@ Overwolf Free 티어 QA 제출용 빌드. 데스크톱 광고 + Free 게이트 �
 
 ### 문서
 
-- [match-data-architecture-v3.md](match-data-architecture-v3.md) — V3 아키텍처 (Shipped 상태).
+- [ARCHITECTURE.md](ARCHITECTURE.md) — V3 아키텍처 (Shipped 상태; 구 `match-data-architecture-v3.md`).
 - README — V3 마이그레이션·스크립트·기능 목록 갱신.
 
 ---

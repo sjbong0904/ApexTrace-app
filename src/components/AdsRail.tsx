@@ -8,7 +8,7 @@ const RAIL_PAD_X = 16;
 export const ADS_RAIL_WIDTH = 1 + RAIL_PAD_X * 2 + 400;
 
 const MAP_BG =
-    'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/worlds_edge.png';
+    'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/worlds_edge_s30.png';
 
 const AD_STACK_GAP = 14;
 

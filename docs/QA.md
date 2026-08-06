@@ -5,6 +5,8 @@
 
 체크: `[ ]` → 통과 시 `[x]`
 
+구독·언어 동기화 등 QA 밖 후보: [ROADMAP.md §B](./ROADMAP.md#b-overwolf-api--플랫폼-qa-범위-밖)
+
 ---
 
 ## 0. 사전 준비
@@ -135,8 +137,6 @@
 
 ### 현재 열린 수정 후보
 없음. 이후 문서 검토에서 QA 차단급만 다시 쌓기.
-
-향후 구독·언어 동기화 등 로드맵 후보: [`future-ow-features.md`](./future-ow-features.md)
 
 ---
 

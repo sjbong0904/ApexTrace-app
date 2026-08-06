@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { FaChartBar, FaList, FaStar, FaCrosshairs, FaCog, FaThList } from 'react-icons/fa';
+import { FaChartBar, FaList, FaStar, FaCog, FaThList } from 'react-icons/fa';
 import { useTranslation } from 'react-i18next';
 import { c, useTheme } from '../theme';
 
@@ -68,17 +68,6 @@ const Navigation = ({ activeTab, onTabChange }: NavProps) => {
                 onMouseLeave={() => setHoveredTab(null)}
             >
                 <FaStar size={20} />
-            </div>
-
-            <div
-                title={t('nav.weapons')}
-                id="nav-weapons"
-                style={navItemStyle(activeTab === "WEAPONS", "WEAPONS")}
-                onClick={() => onTabChange("WEAPONS")}
-                onMouseEnter={() => setHoveredTab("WEAPONS")}
-                onMouseLeave={() => setHoveredTab(null)}
-            >
-                <FaCrosshairs size={20} />
             </div>
 
             <div

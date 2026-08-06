@@ -1,7 +1,5 @@
 // src/background/services/matchService.js
 
-console.log("Initializing Match Service (Unified ID Mode & Clan Tag Fix)");
-
 // 🌟 [추가됨] 클랜 태그([ ])와 공백, 대소문자를 모두 무시하고 동일 인물인지 판별하는 스마트 비교 함수
 const isSamePlayer = (name1, name2) => {
     if (!name1 || !name2) return false;
@@ -19,7 +17,8 @@ const MatchFactory = {
             playerName: initialUser?.name || "Unknown",
             map: window.Store?.game?.map || "Unknown",
             mode: window.Store?.game?.mode || "Battle Royale",
-            legend: initialUser?.legend || null,
+            // Never seed from profile/ALS — GEP select or prev-match fallback only.
+            legend: null,
             placement: 20,
             kills: 0, assists: 0, deaths: 0, damage: 0, knocks: 0, squadKills: 0, ultimatesUsed: 0, headshots: 0,
             isDead: false,
@@ -37,6 +36,9 @@ const MatchFactory = {
             _squadNames: new Set(initialUser?.name ? [initialUser.name] : []),
             _unknownKillers: [],
             _pendingKnocks: [],
+            _combatPairs: Object.create(null),
+            _squadCombatPairs: Object.create(null),
+            _assistVictimQueue: [],
             _pathSegment: 0,
             _pathRecording: true
         };
@@ -59,6 +61,7 @@ class MatchService {
 
         switch (updateType) {
             case 'ROSTER_INFO':{
+                if (!this.acceptSquadRosterEntry(match, data)) break;
                 this.updateRosterCache(match, data);
                 this.processRoster(match);
                 const mainUid = data.origin_id || data.platform_id || data.uid || data.platformId;
@@ -102,7 +105,11 @@ class MatchService {
                 if (teams) {
                     if (match._isVictory) {
                         match.placement = 1;
-                    } else if (MatchService._isSquadOut(match) && (match.placement === 20 || match.placement === 0)) {
+                    } else if (
+                        !match._matchSummaryRank
+                        && MatchService._isSquadOut(match)
+                        && (match.placement === 20 || match.placement === 0)
+                    ) {
                         const estimate = window.Utils?.estimatePlacementFromTeamsAlive?.(match, teams);
                         if (estimate) {
                             match.placement = estimate;
@@ -116,19 +123,30 @@ class MatchService {
             case 'PLACEMENT':{
                 const newRank = parseInt(data);
                 if (!isNaN(newRank) && newRank > 0) {
-                    // 🌟 [수정됨] 우승 상태라면 강제로 1등 유지
-                    match.placement = match._isVictory ? 1 : newRank;
+                    // Victory / match_summary are authoritative; do not clobber them with weaker updates.
+                    if (match._isVictory) {
+                        match.placement = 1;
+                        break;
+                    }
+                    if (match._matchSummaryRank) {
+                        match.placement = match._matchSummaryRank;
+                        break;
+                    }
+                    match.placement = newRank;
                 }
                 break;
             }
 
             case 'LOADOUT': {
-                const previousPrimary = match.loadout.primary || null;
-                const previousSecondary = match.loadout.secondary || null;
-                const nextPrimary = data.primary || previousPrimary;
-                const nextSecondary = data.secondary || previousSecondary;
+                const usable = (w) => (window.Utils?.isUsableWeaponId?.(w) ? w : null);
+                const previousPrimary = usable(match.loadout.primary);
+                const previousSecondary = usable(match.loadout.secondary);
+                // null means cleared (Melee). Only fall back when field omitted.
+                const nextPrimary = data.primary !== undefined ? usable(data.primary) : previousPrimary;
+                const nextSecondary = data.secondary !== undefined ? usable(data.secondary) : previousSecondary;
                 const changed = previousPrimary !== nextPrimary || previousSecondary !== nextSecondary;
 
+                // Never record empty/empty (Melee/Melee) or duplicate usable pairs.
                 if (changed && (nextPrimary || nextSecondary)) {
                     match.weaponTimeline = match.weaponTimeline || [];
                     match.weaponTimeline.push({
@@ -139,6 +157,22 @@ class MatchService {
                         primary: nextPrimary,
                         secondary: nextSecondary
                     });
+                    window.Utils?.matchLog?.('Loadout timeline push', {
+                        matchId: match.matchId,
+                        previousPrimary,
+                        previousSecondary,
+                        primary: nextPrimary,
+                        secondary: nextSecondary,
+                        timelineLen: match.weaponTimeline.length,
+                    });
+                } else if (changed) {
+                    window.Utils?.matchLog?.('Loadout timeline skip (empty/empty)', {
+                        matchId: match.matchId,
+                        previousPrimary,
+                        previousSecondary,
+                        rawPrimary: data.primary,
+                        rawSecondary: data.secondary,
+                    });
                 }
 
                 match.loadout.primary = nextPrimary;
@@ -147,6 +181,11 @@ class MatchService {
             }
                 
             case 'TEAMMATE':{
+                if (!this.acceptSquadRosterEntry(match, {
+                    playerName: data.name,
+                    is_local: false,
+                    is_teammate: true,
+                })) break;
                 const existing = match.teamStats.find(t => isSamePlayer(t.name, data.name));
                 if (existing) {
                     if (data.name.includes('[') && !existing.name.includes('[')) existing.name = data.name;
@@ -213,14 +252,17 @@ class MatchService {
                 if (data.teams) this.updateSession(matchRef, 'TEAMS_ALIVE', data.teams);
                 const apiSquadKills = parseInt(data.squadKills || data.squad_kills || 0);
                 if (apiSquadKills > match.squadKills) match.squadKills = apiSquadKills;
+                if (window.Utils?.syncKillCombatLogs) window.Utils.syncKillCombatLogs(match);
                 if (window.Utils?.syncAssistCombatLogs) window.Utils.syncAssistCombatLogs(match);
                 break;
             }
 
             case 'VICTORY':
-                match.placement = 1; 
+                match.placement = 1;
                 match._guessedRank = 1;
-                match._isVictory = true; // 🌟 [수정됨] 우승 플래그 활성화
+                match._isVictory = true;
+                match._matchSummaryRank = match._matchSummaryRank || 1;
+                delete match._estimatedPlacement;
                 break;
         }
     }
@@ -247,6 +289,64 @@ class MatchService {
         else match._unknownKillers.push(attackerName);
     }
 
+    static _isLocalRosterPayload(playerData, match) {
+        if (!playerData) return false;
+        if (
+            playerData.is_local === true
+            || playerData.is_local === '1'
+            || playerData.is_local === 'true'
+            || String(playerData.is_local) === '1'
+        ) return true;
+        const hasMyName = match?.playerName && match.playerName !== 'Unknown';
+        return !!(hasMyName && playerData.playerName && isSamePlayer(playerData.playerName, match.playerName));
+    }
+
+    static _isKnownSquadName(match, name) {
+        if (!name || !match) return false;
+        if (match.playerName && match.playerName !== 'Unknown' && isSamePlayer(match.playerName, name)) {
+            return true;
+        }
+        if (match.teamStats?.some((tm) => isSamePlayer(tm.name, name))) return true;
+        if (match._rosterCache?.some((p) => p?.playerName && isSamePlayer(p.playerName, name))) {
+            return true;
+        }
+        if (match._squadNames) {
+            for (const member of match._squadNames) {
+                if (isSamePlayer(member, name)) return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * Block spectated / enemy names from entering squad roster.
+     * BR squad max = local + 2 teammates; freeze after squad elimination.
+     */
+    acceptSquadRosterEntry(match, playerData) {
+        if (!match || !playerData) return false;
+        const name = playerData.playerName || playerData.name;
+        if (!name) return false;
+
+        if (MatchService._isLocalRosterPayload(playerData, match)) return true;
+        if (MatchService._isKnownSquadName(match, name)) return true;
+
+        if (match._squadRosterFrozen || match._squadEliminated) {
+            window.Utils.matchLog('Rejected roster entry after squad freeze (likely spectator)', name);
+            return false;
+        }
+
+        const nonLocalCached = (match._rosterCache || []).filter(
+            (p) => p && !MatchService._isLocalRosterPayload(p, match)
+        );
+        const teammateCount = Math.max(nonLocalCached.length, match.teamStats?.length || 0);
+        if (teammateCount >= 2) {
+            window.Utils.matchLog('Rejected roster entry — squad already full (likely spectator)', name);
+            return false;
+        }
+
+        return true;
+    }
+
     updateRosterCache(match, playerData) {
         if (!playerData) return; 
         if (!match._rosterCache) match._rosterCache = [];
@@ -271,9 +371,14 @@ class MatchService {
         ));
 
         if (myData) {
-            const legend = window.Utils.normalizeLegend(myData.legendName);
-            if (match.legend !== legend) match.legend = legend;
-            
+            if (myData.legendName) {
+                const legend = window.Utils.normalizeLegend(myData.legendName);
+                if (match.legend !== legend) match.legend = legend;
+                match._hadLocalLegendSelect = true;
+                // Local legend implies squad character-select boundary evidence.
+                match._hadSquadLegendSelect = true;
+            }
+
             if (!hasMyName || (myData.playerName && myData.playerName.includes('['))) {
                 match.playerName = window.Utils.cleanName(myData.playerName);
             }
@@ -285,7 +390,17 @@ class MatchService {
         const oldStats = [...match.teamStats]; 
         match.teamStats = []; 
 
-        const teammates = match._rosterCache.filter(p => p !== myData);
+        // Drop spectator pollution; keep at most 2 teammates.
+        const teammates = match._rosterCache
+            .filter((p) => p && p !== myData)
+            .filter((p) => {
+                if (MatchService._isKnownSquadName(match, p.playerName) || oldStats.some((o) => isSamePlayer(o.name, p.playerName))) {
+                    return true;
+                }
+                if (match._squadRosterFrozen || match._squadEliminated) return false;
+                return true;
+            })
+            .slice(0, 2);
         
         teammates.forEach(tm => {
             if (!tm) return; 
@@ -334,6 +449,7 @@ class MatchService {
     }
 
     static isGhostMatch(match, durationSeconds) {
+        if (window.Utils?.shouldDiscardHollowStatGhost?.(match)) return true;
         if (window.Utils?.hasRealMatchEvidence?.(match)) return false;
 
         const isEmptyStats = (match.kills || 0) === 0 && (match.damage || 0) === 0;
@@ -348,9 +464,17 @@ class MatchService {
             'isDead', '_ending', '_saved', '_isVictory', '_guessedRank', '_lastLocationTime',
             '_lastKnownTeams', '_lastUltValue', '_currentPhase', '_rosterCache', '_squadNames',
             '_unknownKillers', 'startPos', 'endPos', '_pathSegment', '_pathRecording',
-            '_squadEliminated', '_lastTeamsAlive', '_matchSummaryRank', '_estimatedPlacement',
-            '_pendingKnocks', '_lastDamageLogAt', '_gepPseudoMatchId',
-            '_boundaryLastKills', '_boundaryLastDamage',
+            '_squadEliminated', '_lastTeamsAlive', '_minTeamsAlive',
+            '_matchSummaryRank', '_estimatedPlacement',
+            '_pendingKnocks', '_combatPairs', '_squadCombatPairs', '_assistVictimQueue', '_lastDamageLogAt', '_gepPseudoMatchId',
+            '_boundaryLastKills', '_boundaryLastDamage', '_boundaryLastTeams',
+            '_discardUpload', '_uploadQueuedAt', '_hadLocalLegendSelect',
+            '_loggedLocalLegendSelect',
+            '_legendFromPrevMatch',
+            '_hadSquadLegendSelect',
+            '_sawGepPseudo', '_boundaryInferred', '_missingMatchStart',
+            '_uploadHoldUntil', '_continuationHold', '_boundarySquadSnapshot',
+            '_lastRespawnOrReviveAt', '_squadRosterFrozen',
         ];
         runtimeKeys.forEach((k) => { delete match[k]; });
         if (match.teamStats) {
@@ -412,8 +536,26 @@ class MatchService {
 
         if (!match.platformId) return { saved: false, reason: "NO_UID" };
 
+        // Boundary-inferred / legendSelect-less restarts are kept as estimated matches.
+        if (window.MatchBoundary?.markInferredBoundaryIfArtifact?.(match)) {
+            window.Utils.matchLog('Marked boundary-inferred session as estimated (keeping record)', {
+                matchId: match.matchId,
+                ...(window.Utils?.getMatchEvidenceSummary?.(match) || {}),
+            });
+        }
+
         if (window.EventRouter?.refreshMatchFromGep) {
             await window.EventRouter.refreshMatchFromGep(match, { maxAttempts: 5, delayMs: 1000 });
+        }
+
+        // Late #PL_FIRINGRANGE often arrives during this refresh window after match_end.
+        if (match._discardUpload || window.Utils?.isFiringRangeMode?.(match.mode)
+            || window.Utils?.isFiringRangeMode?.(window.Store?.game?.mode)) {
+            match.mode = 'Firing Range';
+            window.Utils.matchLog('Rejected Firing Range session before upload', {
+                matchId: match.matchId,
+            });
+            return { saved: false, reason: "FIRING_RANGE" };
         }
 
         if (window.Utils?.applyMissingModeFallback) {
@@ -421,7 +563,10 @@ class MatchService {
         }
 
         match.placement = MatchService.resolveFinalPlacement(match);
-        if (match.placement > 0 && match.placement !== 20) {
+        if (match._matchSummaryRank || match._isVictory) {
+            match.placement = match._isVictory ? 1 : match._matchSummaryRank;
+            delete match._estimatedPlacement;
+        } else if (match.placement > 0 && match.placement !== 20) {
             match._guessedRank = match._guessedRank == null
                 ? match.placement
                 : Math.min(match._guessedRank, match.placement);
@@ -439,15 +584,40 @@ class MatchService {
             window.Utils.syncWeaponCombatFromEvents(match);
         }
 
+        // Hollow-but-kept split half: recover kill/assist counts before ghost gate.
+        if (window.Utils?.isHollowStatGhost?.(match)
+            && !window.Utils?.shouldDiscardHollowStatGhost?.(match)) {
+            window.Utils.backfillTabsFromCombatLog?.(match);
+        }
+
         const durationSeconds = (match.endTime - match.startTime) / 1000;
         if (!match.squadKills || match.squadKills < match.kills) match.squadKills = match.kills;
 
         if (MatchService.isGhostMatch(match, durationSeconds)) {
-            console.warn('[Match] Rejected ghost session', {
+            const hollow = !!window.Utils?.shouldDiscardHollowStatGhost?.(match);
+            window.Utils.matchLog(hollow ? 'Rejected hollow-stat ghost session' : 'Rejected ghost session', {
                 matchId: match.matchId,
+                hollow,
                 ...(window.Utils?.getMatchEvidenceSummary?.(match) || { durationSeconds }),
             });
-            return { saved: false, reason: "GHOST" };
+            return { saved: false, reason: hollow ? "HOLLOW_STAT_GHOST" : "GHOST" };
+        }
+
+        if (match._discardUpload || window.Utils?.isFiringRangeMode?.(match.mode)
+            || window.Utils?.isFiringRangeMode?.(window.Store?.game?.mode)) {
+            match.mode = 'Firing Range';
+            window.Utils.matchLog('Rejected Firing Range session before upload', {
+                matchId: match.matchId,
+            });
+            return { saved: false, reason: "FIRING_RANGE" };
+        }
+
+        if (window.Utils?.applyLegendFromPreviousMatch) {
+            window.Utils.applyLegendFromPreviousMatch(match);
+        }
+
+        if (window.Utils?.finalizeMatchDataQuality) {
+            window.Utils.finalizeMatchDataQuality(match);
         }
 
         match._saved = true;
@@ -466,7 +636,6 @@ class MatchService {
                     const uid = await window.CloudRepository.findUidByName(tm.name);
                     if (uid) {
                         tm.uid = uid;
-                        console.log(`✅ uid resolved (address-book): ${tm.name} → ${uid}`);
                         return;
                     }
 
@@ -477,7 +646,6 @@ class MatchService {
                         const found = pastMatch.teamStats?.find(t => isSamePlayer(t.name, tm.name) && t.uid);
                         if (found) {
                             tm.uid = found.uid;
-                            console.log(`✅ uid resolved (archive): ${tm.name} → ${found.uid}`);
                             break;
                         }
                     }

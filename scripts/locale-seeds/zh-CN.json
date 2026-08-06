@@ -70,7 +70,19 @@
     "damage": "DAMAGE",
     "kills": "KILLS",
     "assists": "ASSISTS",
-    "knocks": "KNOCKS"
+    "knocks": "KNOCKS",
+    "dataQualityEstimated": "估算",
+    "dataQualityTooltip": "不完整的对局数据：{{signals}}",
+    "confidenceLabel": "可信度 {{n}}%",
+    "missingSignals": {
+      "no_legend_select": "缺少传奇选择",
+      "pseudo_stale": "对局ID不确定",
+      "no_match_start": "缺少对局开始信号",
+      "boundary_inferred": "对局边界推断",
+      "placement_estimated": "名次估算",
+      "no_squad_legend_select": "缺少小队传奇选择",
+      "legend_from_prev_match": "沿用上一场传奇"
+    }
   },
   "matchDetails": {
     "stats": "统计",

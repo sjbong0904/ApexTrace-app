@@ -70,7 +70,19 @@
     "damage": "DAMAGE",
     "kills": "KILLS",
     "assists": "ASSISTS",
-    "knocks": "KNOCKS"
+    "knocks": "KNOCKS",
+    "dataQualityEstimated": "추정",
+    "dataQualityTooltip": "불완전한 매치 데이터: {{signals}}",
+    "confidenceLabel": "신뢰도 {{n}}%",
+    "missingSignals": {
+      "no_legend_select": "레전드 선택 없음",
+      "pseudo_stale": "매치 ID 불확실",
+      "no_match_start": "매치 시작 신호 없음",
+      "boundary_inferred": "매치 경계 추론",
+      "placement_estimated": "순위 추정",
+      "no_squad_legend_select": "스쿼드 레전드 선택 없음",
+      "legend_from_prev_match": "이전 매치 레전드 재사용"
+    }
   },
   "matchDetails": {
     "stats": "통계",
