@@ -50,12 +50,25 @@ Team: **sjbong0904's projects** (`team_EQvDqmkdML1FqjiSykFO79Cn`)
 
 확인: Team plan = Pro; Hobby CPU 4h 하드캡 해제.
 
+### 1.2.1 keep-alive cron (닉 주소록)
+
+Hobby는 cron이 **하루 1회**만 가능해, 지금은 `trace-proxy-server/vercel.json`에 `0 0 * * *`만 둔 상태다.  
+목표 페이스(분당 12명 · 순차 5초)는 [NICKNAME-SEARCH.md](./NICKNAME-SEARCH.md) 참고.
+
+Pro 업그레이드 직후:
+
+1. `vercel.json` cron schedule을 `* * * * *` 로 변경.
+2. `npx vercel deploy --prod` (`trace-proxy-server`).
+3. Vercel → Project → Crons 에서 매분 `/api/keep-alive` 확인.
+
 ### 1.3 업그레이드 후 스모크
 
 - [ ] `GET https://trace-proxy-server.vercel.app/api/seasons` → 200
+- [ ] `GET https://trace-proxy-server.vercel.app/api/search-candidates?query=<knownExactNick>` → 해당 프로필
 - [ ] Overwolf 클라이언트에서 매치 1판 저장 → `matches`에 행 생성
 - [ ] Supabase Table Editor 쓰기 가능 (read-only 아님)
 - [ ] 클라이언트 세션 후 Vercel Usage에 invocations 표시
+- [ ] (Pro 후) keep-alive가 분 단위로 도는지 Crons/로그 확인
 
 ### 1.4 감시 지표 (첫 14일)
 

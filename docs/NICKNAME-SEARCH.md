@@ -3,9 +3,10 @@
 닉변 후에도 주소록 검색이 되도록 하는 설계·구현 메모.  
 ALS(Apex Legends Status) 예산(현재 키 기준 약 10 req/s)을 검색 엔진처럼 쓰지 않는 것이 목표.
 
-**상태:** Phase 1 shipped (스키마 + 프록시 + 클라이언트 후보 표시).  
-**관련 코드:** `trace-proxy-server/lib/nameAliases.js`, `api/search-candidates.js`, `api/address-book.js`, `api/apex-stats.js`, `api/keep-alive.js`, `public/background/main.js`, `src/components/PlayerSelectionModal.tsx`  
-**마이그레이션:** `supabase/migrations/20260806090000_create_profile_name_aliases.sql`
+**상태:** Phase 1 shipped (스키마 · 프록시 프로덕션 · 클라이언트).  
+**관련:** [LAUNCH.md §1](./LAUNCH.md#1-infra-vercel--supabase-pro) (Pro 후 cron) · [QA.md §닉네임](./QA.md#닉네임-검색-alias)  
+**코드:** `trace-proxy-server/lib/nameAliases.js`, `api/search-candidates.js`, `api/address-book.js`, `api/apex-stats.js`, `api/keep-alive.js`, `public/background/main.js`, `src/components/PlayerSelectionModal.tsx`  
+**마이그레이션:** `supabase/migrations/20260806090000_create_profile_name_aliases.sql` (원격 적용됨)
 
 ---
 
@@ -54,7 +55,7 @@ ALS(Apex Legends Status) 예산(현재 키 기준 약 10 req/s)을 검색 엔진
 ```
 
 - `/search-candidates`가 1·2를 담당. 응답 행에 `matchType`: `"name"` | `"alias"`.
-- alias 히트는 모달에 “Former name” 표시.
+- alias 히트는 모달에 “Former name” 표시 (`playerModal.formerName`).
 - ALS 닉 검색 성공 시 uid·name을 `global_profiles`에 넣는 동작은 기존 `/apex-stats`와 동일.
 
 ---
@@ -80,31 +81,39 @@ ALS(Apex Legends Status) 예산(현재 키 기준 약 10 req/s)을 검색 엔진
 
 ---
 
-## 5. keep-alive (출시 후에도 동일)
+## 5. keep-alive
+
+### 5.1 목표 페이스 (출시 후에도 고정)
 
 | 항목 | 값 |
 |------|-----|
 | 정렬 | `updated_at` 오래된 순 |
-| 배치 | **매분** `/api/keep-alive` 호출, 회당 **12명** |
-| 간격 | 순차 호출, **5초** |
+| 배치 | **매분** 1회 호출, 회당 **12명** |
+| 간격 | 순차, **5초** |
 | 처리량 | ≈ 0.2 req/s, ≈ 1.7만/일 |
-| `maxDuration` | `api/keep-alive.js` **90초** (`vercel.json`) |
+| `maxDuration` | `api/keep-alive.js` **90초** |
 | 부가 | 매 실행 시 30일 지난 alias purge |
 
-유료로 ALS 한도가 올라도 **이 페이스는 고정**. 순간 버스트 없이 순차만 사용.
+ALS 한도가 올라도 이 페이스는 올리지 않는다. 순간 버스트 없이 순차만 사용.
 
-**스케줄러 (Hobby 제약)**
+### 5.2 현재 운영 (Hobby)
 
-- Vercel Hobby는 cron이 **하루 1회**만 가능. `vercel.json`에는 fallback으로 `0 0 * * *`(UTC 자정)만 넣어 둠.
-- 설계상 **분당 1회**는 Pro cron 또는 **외부 스케줄러**(cron-job.org, GitHub Actions 등)가  
-  `GET https://trace-proxy-server.vercel.app/api/keep-alive` 를 매분 호출해야 함.
+| 항목 | 값 |
+|------|-----|
+| Vercel cron | `0 0 * * *` (UTC 자정, **하루 1회**) — Hobby는 분 단위 cron 불가 |
+| 회당 | 12명 · 5초 (코드 동일) |
+| 실효 일일 | ≈ **12명/일** (목표 대비 보조 거의 없음) |
+
+- 닉 검색 Phase 1(exact · alias · GEP · 검색 미스 ALS)은 그대로 동작한다.
+- cron-job.org 등 외부 스케줄러는 타임아웃 상한(예: 30초)이 있어 12×5초 배치와 맞지 않음 → **당장 쓰지 않음**.
+- **Vercel Pro 올린 뒤** `vercel.json` schedule을 `* * * * *`로 바꾸고 재배포하면 목표 페이스로 전환 ([LAUNCH §1.2](./LAUNCH.md#12-vercel--pro) 체크리스트).
 
 ---
 
 ## 6. Phase 2 (미구현 · 런칭 스케일 보험)
 
 - 전역 ALS 게이트 (`alsClient`): 토큰 버킷 · singleflight · uid/player 공통 soft TTL
-- keep-alive는 이미 0.2/s라 Phase 1만으로도 한도 부담은 작음
+- keep-alive 목표 페이스(0.2/s)만으로는 Phase 1 한도 부담은 작음
 
 ---
 
@@ -117,10 +126,23 @@ ALS(Apex Legends Status) 예산(현재 키 기준 약 10 req/s)을 검색 엔진
 
 ---
 
-## 8. 운영 체크
+## 8. 운영 체크리스트
 
-1. Supabase에 `profile_name_aliases` 마이그레이션 적용됨 (원격 적용 완료 시 생략).
-2. `trace-proxy-server` 재배포 (search-candidates / address-book / apex-stats / keep-alive / vercel.json).
-3. 앱 빌드·배포 (`public/background`, 후보 모달).
-4. 스모크: 닉변 유저 옛 닉 exact → alias 히트 / 현닉 exact → name 히트 / 미등록 닉 → ALS.
-5. Vercel cron 로그에서 분당 keep-alive·순차 5초 확인.
+### 이미 된 것
+
+- [x] Supabase `profile_name_aliases` 마이그레이션
+- [x] `trace-proxy-server` 프로덕션 배포 (alias · exact search · keep-alive 코드)
+- [x] 앱 쪽 `matchType` / Former name UI (로컬 빌드; Overwolf에 최신 `dist` 로드 필요)
+
+### 수동 스모크
+
+- [ ] 현닉 exact → 프로필 로드
+- [ ] (가능하면) 닉변 유저 옛 닉 exact → alias 히트, 모달에 Former name
+- [ ] DB에 없는 닉 → ALS 폴백 후 이후 DB exact
+- [ ] 부분 일치/짧은 문자열은 의도적으로 안 뜸 (exact only)
+
+### Pro 이후
+
+- [ ] `vercel.json` cron → `* * * * *`
+- [ ] 재배포 후 Vercel cron 로그에서 분당 keep-alive 확인
+- [ ] 한 실행이 ~60–90초 안에 끝나는지 확인

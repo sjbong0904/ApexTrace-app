@@ -5,11 +5,12 @@
 ### 개선
 
 - **닉네임 검색** — case-insensitive **exact**만 사용. 현닉(`global_profiles.name`) → 이전닉(`profile_name_aliases`, UID당 3·30일) → ALS. GEP/ALS/keep-alive 닉 변경 시 alias 동기화. 후보 모달에 former-name 표시.
-- **keep-alive** — `updated_at` 오래된 순, 분당 12명·순차 5초 간격(출시 후에도 동일). 만료 alias purge.
+- **keep-alive** — `updated_at` 오래된 순, 회당 12명·순차 5초. **목표**는 분당 1회(출시 후에도 동일). **현재 Hobby**는 Vercel cron 하루 1회만; Pro 후 `* * * * *`로 전환 ([NICKNAME-SEARCH](NICKNAME-SEARCH.md) §5, [LAUNCH](LAUNCH.md) §1.2.1).
 
 ### 문서
 
-- [NICKNAME-SEARCH.md](NICKNAME-SEARCH.md)
+- [NICKNAME-SEARCH.md](NICKNAME-SEARCH.md) — 설계·Hobby/Pro cron·운영 체크
+- QA §닉네임 · LAUNCH §1.2.1 keep-alive cron
 
 ---
 

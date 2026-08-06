@@ -15,4 +15,4 @@
 | [LAUNCH.md](./LAUNCH.md) | Phase 1 런칭: infra → store → organic → week-2 |
 
 **런칭 읽는 순서:** QA → LAUNCH(infra) → LAUNCH(store) → ship → LAUNCH(organic) → week-2.  
-**개발:** ARCHITECTURE / ROADMAP. **릴리즈 기록:** RELEASE_NOTES.
+**개발:** ARCHITECTURE / NICKNAME-SEARCH / ROADMAP. **릴리즈 기록:** RELEASE_NOTES.
