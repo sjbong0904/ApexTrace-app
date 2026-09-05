@@ -81,8 +81,10 @@
       "boundary_inferred": "límite de partida inferido",
       "placement_estimated": "posición estimada",
       "no_squad_legend_select": "sin selección de leyenda del escuadrón",
-      "legend_from_prev_match": "leyenda reutilizada del partido anterior"
-    }
+      "legend_from_prev_match": "leyenda reutilizada del partido anterior",
+      "tabs_combat_mismatch": "faltan stats del marcador"
+    },
+    "dataQualityIncomplete": "Datos parciales"
   },
   "matchDetails": {
     "stats": "Estadísticas",
@@ -577,7 +579,7 @@
       "maps": "Mapas",
       "legends": "Leyendas",
       "weapons": "Armas",
-      "teammates": "Mis stats por compañero"
+      "teammates": "Compañeros"
     },
     "modes": {
       "all": "Todo",

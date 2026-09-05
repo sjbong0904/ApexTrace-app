@@ -51,6 +51,7 @@ const WindowControls = () => {
         });
 
         const onWindowStateChanged = (state: any) => {
+            if (currentWindowId && state.window_id && state.window_id !== currentWindowId) return;
             if (state.window_state_ex === 'maximized') setIsMaximized(true);
             else if (state.window_state_ex === 'normal') setIsMaximized(false);
         };

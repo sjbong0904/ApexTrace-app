@@ -81,8 +81,10 @@
       "boundary_inferred": "对局边界推断",
       "placement_estimated": "名次估算",
       "no_squad_legend_select": "缺少小队传奇选择",
-      "legend_from_prev_match": "沿用上一场传奇"
-    }
+      "legend_from_prev_match": "沿用上一场传奇",
+      "tabs_combat_mismatch": "计分板数据缺失"
+    },
+    "dataQualityIncomplete": "部分数据"
   },
   "matchDetails": {
     "stats": "统计",
@@ -577,7 +579,7 @@
       "maps": "地图",
       "legends": "传奇",
       "weapons": "武器",
-      "teammates": "队友同队我的数据"
+      "teammates": "队友"
     },
     "modes": {
       "all": "全部",

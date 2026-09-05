@@ -14,7 +14,7 @@ interface AdUnitProps {
     containerId: string;
     className?: string;
     style?: React.CSSProperties;
-    /** No solid fill — lets parent map/atmosphere show through (OW Ads guidance). */
+    /** OW-compliant transparent parent (see OwAd docs) so real app content shows through. */
     transparent?: boolean;
     /**
      * Temporarily stop serving without destroying the instance.
@@ -99,7 +99,6 @@ const AdUnit: React.FC<AdUnitProps> = ({
             try {
                 await wait.promise;
             } catch {
-                if (!cancelled) console.warn('⚠️ OwAd SDK not available');
                 return;
             }
             if (cancelled || !adContainerRef.current || typeof window.OwAd === 'undefined') return;
@@ -109,16 +108,6 @@ const AdUnit: React.FC<AdUnitProps> = ({
                 containerId: containerId.slice(0, 20),
             });
             adInstance.current = instance;
-
-            instance.addEventListener?.('display_ad_loaded', () => {
-                console.log('✅ Display ad loaded', containerId);
-            });
-            instance.addEventListener?.('player_loaded', () => {
-                console.log('✅ Video ad player loaded', containerId);
-            });
-            instance.addEventListener?.('error', (error: unknown) => {
-                console.warn('⚠️ Ad error:', containerId, error);
-            });
         };
 
         void start();
@@ -129,14 +118,18 @@ const AdUnit: React.FC<AdUnitProps> = ({
             if (adInstance.current) {
                 try {
                     adInstance.current.shutdown();
-                } catch (e) {
-                    console.warn('OwAd.shutdown failed', e);
+                } catch {
+                    /* ignore */
                 }
                 adInstance.current = null;
             }
         };
     }, [width, height, containerId]);
 
+    // OW docs (new OwAd(...) example): "Ensure the ad container's parent element
+    // has background: transparent set." A solid plate here is non-compliant AND
+    // adds an extra color swap (real bg → plate → ad) instead of (real bg → ad),
+    // which is why other OW apps' ad slots blend into their own background.
     const bg = transparent ? 'transparent' : 'var(--color-bg-nav)';
 
     return (
@@ -169,9 +162,17 @@ const AdUnit: React.FC<AdUnitProps> = ({
                     minHeight: height,
                     position: 'relative',
                     zIndex: 1,
-                    background: 'transparent',
-                    backgroundColor: 'transparent',
-                    // OW: pause by setting display:none on the OwAd container element.
+                    background: bg,
+                    backgroundColor: bg,
+                    // CSS Color Adjust: if the <iframe> element's used color-scheme differs
+                    // from the embedded (ad) document's, Chromium paints an OPAQUE Canvas
+                    // (white for a light ad doc) instead of a transparent one. Our :root is
+                    // color-scheme: dark and it inherits into OwAd's iframe → white slot.
+                    // Force light here so it matches the ad doc and the canvas stays transparent.
+                    colorScheme: 'light',
+                    // OW policy: only `display:none` is an approved way to pause ads —
+                    // opacity/visibility manipulation of the ad container is explicitly
+                    // disallowed (https://dev.overwolf.com/ow-native/monetization/advertising/overview/).
                     display: paused ? 'none' : 'block',
                 }}
             />

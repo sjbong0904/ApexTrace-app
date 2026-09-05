@@ -2,6 +2,25 @@
 
 ## Unreleased
 
+---
+
+## v0.0.12 — 2026-09-05
+
+Overwolf 스토어 QA 피드백 반영, 등수·좌표 보정, 프로필 로드 가림막. GitHub `v0.0.12`.
+
+### 수정
+
+- **스토어 QA (2026-09)** — [STORE-QA.md](STORE-QA.md)
+  - 광고 링크: `manifest` `force_browser: "user"` (시스템 기본 브라우저)
+  - in-game minimize가 2nd-screen 광고를 죽이던 `onStateChanged` 창 필터 누락
+  - `openUrlInDefaultBrowser` 2인자 호출 → 로그 Uncaught Error (Settings/tray Discord)
+  - FTUE / coach marks 중 창 드래그 (타이틀바 z-index, empty 영역, tutorial capture)
+  - 광고 슬롯 흰 배경 완화 (다크 플레이트 + OwAd 자식 transparent)
+- **사망 시점 등수 고정** (QA §5.2 이슈 A) — 등수 추정을 `Utils.applyPlacementEstimate` 하나로 통일. 생존 팀원이 있으면 추정 안 함, 로스터 없는 로컬 사망은 provisional로 `tabs.teams` 최솟값을 따라가고, 전멸 신호·팀원 전원 death에서 freeze. 먼저 나간 경우(lobby fallback / 팀원 생존 중 summary)는 `placement_estimated` 플래그.
+- **이전 매치 사망 위치가 다음 매치 첫 좌표로 기록** (QA §5.2 이슈 B) — pre-match phase 좌표 무시, 이전 세션 마지막 GEP 좌표(`Store.lastSessionEndPos`)와 같은 첫 좌표 거절, 좌표가 움직인 뒤에만 첫 포인트 채택. `startPos`/`endPos`는 채택 포인트에서만 갱신.
+- **Free 고정 복원** — `isPremium = false` (스토어 QA 빌드).
+- **프로필 로드 가림막** (2026-09-05) — `ProfileLoadingOverlay`가 스크롤 컨테이너에서 `absolute; inset: 0`이라 첫 화면만 덮고, 아래로 스크롤하면 매치/통계가 그대로 보였음. 프로필 로드는 `sticky`로 보이는 영역에 붙이고 로딩 중 메인 스크롤을 잠금. 아카이브 동기화 오버레이는 리스트 전체 `absolute` 커버 유지.
+
 ### 개선
 
 - **닉네임 검색** — case-insensitive **exact**만 사용. 현닉(`global_profiles.name`) → 이전닉(`profile_name_aliases`, UID당 3·30일) → ALS. GEP/ALS/keep-alive 닉 변경 시 alias 동기화. 후보 모달에 former-name 표시.
@@ -11,6 +30,7 @@
 
 - [NICKNAME-SEARCH.md](NICKNAME-SEARCH.md) — 설계·Hobby/Pro cron·운영 체크
 - QA §닉네임 · LAUNCH §1.2.1 keep-alive cron
+- [STORE-QA.md](STORE-QA.md) — Overwolf 스토어 QA 피드백 (2026-09) 기록
 
 ---
 

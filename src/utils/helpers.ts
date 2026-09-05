@@ -297,9 +297,6 @@ export const getMapConfig = (mapName: string, matchTimeMs?: number | null, seaso
     const displayName = normalizeMapDisplayName(mapName);
     const bg = window.overwolf?.windows?.getMainWindow() as any;
     const remoteData = bg?.BG_MAP_DATA;
-    if (!remoteData) {
-        console.warn("⚠️ 백그라운드 데이터가 없습니다. 로컬 데이터를 사용합니다.");
-    }
 
     const mapSource = (remoteData && (remoteData[displayName] || remoteData[mapName]))
         ? remoteData
@@ -322,7 +319,6 @@ export const getMapConfig = (mapName: string, matchTimeMs?: number | null, seaso
         });
 
         if (foundKey) {
-            console.log(`🗺️ Map Config Loaded [${foundKey}]:`, mapSource[foundKey]);
             config = mapSource[foundKey];
         }
     }

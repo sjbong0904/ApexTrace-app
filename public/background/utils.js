@@ -10,10 +10,12 @@ window.SEASONS       = window.SEASONS       || [];
 const Utils = {
 
     /**
-     * Overwolf file logs stringify object args as "[object Object]".
-     * Always inline JSON so 2차 테스트 logs stay readable.
+     * Match/GEP debug trail. Off by default for store/QA log cleanliness.
+     * Enable: window.__APEX_DEBUG_MATCH__ = true (background console).
+     * Overwolf file logs stringify objects as "[object Object]" — inline JSON when on.
      */
     matchLog: (message, details) => {
+        if (!window.__APEX_DEBUG_MATCH__) return;
         const msg = String(message || '');
         const line = msg.startsWith('[Match]') ? msg : `[Match] ${msg}`;
         if (details == null) {
@@ -415,6 +417,55 @@ const Utils = {
         return Utils.hasCompletedKeeperSibling(match);
     },
 
+    /**
+     * GEP tabs stuck at 20 / 0/0/0 with empty loadout, but combat log has local kill/assist.
+     * Keep the match, but do not persist fake zeros as real results.
+     */
+    isIncompleteTabsCombatMismatch: (match) => {
+        if (!match) return false;
+        if (match._matchSummaryRank || match._isVictory) return false;
+
+        const placement = Number(match.placement);
+        if (Number.isFinite(placement) && placement !== 20 && placement !== 0) return false;
+
+        if ((match.kills || 0) > 0 || (match.damage || 0) > 0 || (match.assists || 0) > 0) {
+            return false;
+        }
+
+        const hasLoadoutWeapon = Utils.isUsableWeaponId(match.loadout?.primary)
+            || Utils.isUsableWeaponId(match.loadout?.secondary)
+            || (Array.isArray(match.weaponTimeline) && match.weaponTimeline.some((row) =>
+                Utils.isUsableWeaponId(row?.primary) || Utils.isUsableWeaponId(row?.secondary)
+            ));
+        if (hasLoadoutWeapon) return false;
+
+        const local = Utils.countLocalCombatFromEvents(match);
+        return local.kills > 0 || local.assists > 0;
+    },
+
+    /** Null out untrusted tab stats and mark dataQuality incomplete. */
+    applyIncompleteTabsCombatMismatch: (match) => {
+        if (!match || !Utils.isIncompleteTabsCombatMismatch(match)) return false;
+
+        const local = Utils.countLocalCombatFromEvents(match);
+        match.placement = null;
+        match.kills = null;
+        match.assists = null;
+        match.damage = null;
+        match.knocks = null;
+        match.dataQuality = 'incomplete';
+        Utils.addMissingSignal(match, 'tabs_combat_mismatch');
+        delete match._estimatedPlacement;
+
+        Utils.matchLog('Marked incomplete tabs/combat mismatch (null stats)', {
+            matchId: match.matchId,
+            localKills: local.kills,
+            localAssists: local.assists,
+            events: match.events?.length || 0,
+        });
+        return true;
+    },
+
     getMatchEvidenceSummary: (match) => ({
         kills: match?.kills || 0,
         damage: match?.damage || 0,
@@ -451,6 +502,31 @@ const Utils = {
 
         const missing = Utils.ensureMissingSignals(match);
 
+        // Tabs/combat mismatch already nulled untrusted stats — keep as incomplete.
+        if (match.dataQuality === 'incomplete'
+            || missing.includes('tabs_combat_mismatch')) {
+            Utils.addMissingSignal(match, 'tabs_combat_mismatch');
+            match.dataQuality = 'incomplete';
+            match.confidence = Math.min(
+                typeof match.confidence === 'number' ? match.confidence : 35,
+                35,
+            );
+            match.missingSignals = [...Utils.ensureMissingSignals(match)];
+            Utils.matchLog('Data quality', {
+                matchId: match.matchId,
+                dataQuality: 'incomplete',
+                confidence: match.confidence,
+                missingSignals: match.missingSignals,
+                legend: match.legend,
+                placement: match.placement,
+            });
+            return {
+                dataQuality: 'incomplete',
+                confidence: match.confidence,
+                missingSignals: match.missingSignals,
+            };
+        }
+
         // Content: we never resolved the local player's legend for history.
         if (!match._hadLocalLegendSelect) {
             Utils.addMissingSignal(match, 'no_legend_select');
@@ -465,11 +541,12 @@ const Utils = {
         if (match._boundaryInferred) {
             Utils.addMissingSignal(match, 'boundary_inferred');
         }
-        // Authoritative GEP match_summary / victory ⇒ not an estimate.
-        if (match._matchSummaryRank || match._isVictory) {
+        // Authoritative GEP match_summary / victory ⇒ not an estimate —
+        // unless the summary arrived while teammates were still alive (left early).
+        if ((match._matchSummaryRank || match._isVictory) && !match._summaryWhileSquadAlive) {
             const idx = missing.indexOf('placement_estimated');
             if (idx >= 0) missing.splice(idx, 1);
-        } else if (match._estimatedPlacement) {
+        } else if (match._estimatedPlacement || match._summaryWhileSquadAlive) {
             Utils.addMissingSignal(match, 'placement_estimated');
         }
         if (match._missingMatchStart) {
@@ -635,10 +712,34 @@ const Utils = {
         return `${base} ${roman}`;
     },
 
-    /** Lowest tabs.teams / TEAMS_ALIVE seen this match (may exceed 20 from GEP). */
+    /**
+     * An *estimated* placement can never be a win: rank 1 only comes from GEP
+     * victory / match_summary. teams-alive == 1 while our squad is out means
+     * "someone else won", so any estimate is clamped to 2nd or worse.
+     */
+    MIN_ESTIMATED_PLACEMENT: 2,
+
+    /**
+     * True for the pre-drop tabs sample GEP emits right after match_start
+     * (`{"teams":"1"|"0","players":"?"}`). It is lobby garbage, not a live count,
+     * and must never seed the teams-alive minimum (2026-09-05 false-1st bug).
+     */
+    isPlaceholderTabsSample: (tabs) => {
+        if (!tabs || typeof tabs !== 'object') return false;
+        const players = tabs.players;
+        if (players === '?' || players === null) return true;
+        const teams = parseInt(tabs.teams, 10);
+        return !isNaN(teams) && teams < Utils.MIN_ESTIMATED_PLACEMENT;
+    },
+
+    /**
+     * Lowest tabs.teams / TEAMS_ALIVE seen this match (may exceed 20 from GEP).
+     * Samples below MIN_ESTIMATED_PLACEMENT are ignored: a live BR count never
+     * drops to 1 while we still need an estimate (that is a victory, handled elsewhere).
+     */
     trackMinTeamsAlive: (match, teamsRaw) => {
         const teams = parseInt(teamsRaw, 10);
-        if (!match || isNaN(teams) || teams <= 0) return null;
+        if (!match || isNaN(teams) || teams < Utils.MIN_ESTIMATED_PLACEMENT) return null;
         match._lastTeamsAlive = teams;
         // Keep min-teams separate from placement/_guessedRank (summary rank).
         if (match._minTeamsAlive == null || teams < match._minTeamsAlive) {
@@ -647,13 +748,89 @@ const Utils = {
         return teams;
     },
 
-    /** tabs.teams minimum first; otherwise last alive teams + 1. */
+    /** tabs.teams minimum first; otherwise last alive teams + 1. Never below 2nd. */
     estimatePlacementFromTeamsAlive: (match, teamsAlive = match?._lastTeamsAlive) => {
+        const floor = Utils.MIN_ESTIMATED_PLACEMENT;
         const minTeams = parseInt(match?._minTeamsAlive, 10);
-        if (!isNaN(minTeams) && minTeams > 0) return minTeams;
+        if (!isNaN(minTeams) && minTeams > 0) return Math.max(floor, minTeams);
         const teams = parseInt(teamsAlive, 10);
-        if (!isNaN(teams) && teams > 0) return teams + 1;
+        if (!isNaN(teams) && teams > 0) return Math.max(floor, teams + 1);
         return null;
+    },
+
+    /** Any known teammate whose last state is not death. */
+    hasLivingTeammate: (match) => {
+        const teammates = match?.teamStats || [];
+        return teammates.some((t) => t?.state && t.state !== 'death');
+    },
+
+    /**
+     * Squad-out inferred from local death only (no GEP elimination signal).
+     * Empty roster ⇒ true (solo / roster never captured) but stays *provisional*.
+     */
+    isSquadOutInferred: (match) => {
+        if (!match?.isDead) return false;
+        const teammates = match.teamStats || [];
+        if (teammates.length === 0) return true;
+        return !Utils.hasLivingTeammate(match);
+    },
+
+    /**
+     * Placement estimate from tabs.teams (QA §5.2 이슈 A).
+     *
+     * Local death ≠ squad elimination. The estimate is:
+     *  - never applied while a known teammate is still alive,
+     *  - *provisional* while squad-out is only inferred (local dead, roster empty) —
+     *    it keeps following tabs.teams minimum down as teammates keep playing,
+     *  - *frozen* once `_squadEliminated` (GEP signal) or when every known teammate
+     *    is dead — spectating lowers tabs.teams further and must not improve the rank.
+     * Summary / victory always win and are handled by the callers.
+     */
+    applyPlacementEstimate: (match, teamsAlive) => {
+        if (!match || match._isVictory || match._matchSummaryRank) return null;
+
+        // Non-estimated placement (e.g. PLACEMENT event) is authoritative.
+        if (match.placement > 0 && match.placement < 20 && !match._estimatedPlacement) {
+            return match.placement;
+        }
+
+        const confirmed = !!match._squadEliminated;
+
+        if (match._placementEstimateFrozen) {
+            // Roster looked all-dead but a teammate is alive again (late/stale state) — back to provisional.
+            if (!confirmed && Utils.hasLivingTeammate(match)) {
+                delete match._placementEstimateFrozen;
+            } else {
+                return match._estimatedPlacement || null;
+            }
+        }
+
+        if (!confirmed && !Utils.isSquadOutInferred(match)) return match._estimatedPlacement || null;
+
+        const teammates = match.teamStats || [];
+        const rosterAllDead = teammates.length > 0 && !Utils.hasLivingTeammate(match);
+        const freeze = confirmed || rosterAllDead;
+
+        const estimate = Utils.estimatePlacementFromTeamsAlive(match, teamsAlive);
+        const previous = match._estimatedPlacement || null;
+        const next = estimate
+            ? (previous ? Math.min(previous, estimate) : estimate)
+            : previous;
+
+        if (next) {
+            if (previous && next !== previous) {
+                Utils.matchLog('Placement estimate refreshed (squad still active)', {
+                    matchId: match.matchId,
+                    previous,
+                    next,
+                    confirmed,
+                });
+            }
+            match.placement = next;
+            match._estimatedPlacement = next;
+        }
+        if (freeze) match._placementEstimateFrozen = true;
+        return next;
     },
 
     isUsableWeaponId: (weapon) => {

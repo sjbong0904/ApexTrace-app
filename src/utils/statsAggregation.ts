@@ -1,4 +1,5 @@
 import type { MatchHistory } from './match';
+import { hasUsableMatchStats } from './match';
 import { isKnownLegend, normalizeLegendKey, toGameElapsedMs, getMatchDeaths, normalizeMapDisplayName } from './helpers';
 import { TARGET_MAPS, SHORT_WEAPON_NAMES } from './gameData';
 import { formatHoldDuration, resolveWeaponCombatForMatch } from './weaponMatchStats';
@@ -86,6 +87,7 @@ export const aggregateLegendStatsForMatches = (matches: MatchHistory[]): Aggrega
     const map: Record<string, { games: number; wins: number; kills: number; assists: number; deaths: number; damage: number; placement: number }> = {};
 
     matches.forEach(m => {
+        if (!hasUsableMatchStats(m)) return;
         if (!isKnownLegend(m.legend)) return;
 
         const legend = normalizeLegendKey(m.legend);
@@ -156,6 +158,7 @@ export const aggregateWeaponStatsForMatches = (matches: MatchHistory[]): Aggrega
     }> = {};
 
     matches.forEach(m => {
+        if (!hasUsableMatchStats(m)) return;
         const isWin = m.placement === 1;
         const matchPlacement = getMatchPlacement(m);
         const legend = isKnownLegend(m.legend) ? normalizeLegendKey(m.legend) : null;
@@ -245,7 +248,8 @@ export const aggregateWeaponStatsForMatches = (matches: MatchHistory[]): Aggrega
 
 export const aggregateMapStatsForMatches = (matches: MatchHistory[]) => {
     const map: Record<string, { games: number; wins: number }> = {};
-    matches.forEach(m => {
+    const usable = matches.filter(hasUsableMatchStats);
+    usable.forEach(m => {
         const mapName = resolveMapName(String((m as { map?: string }).map ?? ''));
         if (!mapName) return;
         if (!map[mapName]) map[mapName] = { games: 0, wins: 0 };
@@ -253,7 +257,7 @@ export const aggregateMapStatsForMatches = (matches: MatchHistory[]) => {
         if (m.placement === 1) map[mapName].wins++;
     });
 
-    const total = matches.length;
+    const total = usable.length;
     return Object.entries(map)
         .map(([name, { games, wins }]) => ({
             name,
@@ -265,23 +269,24 @@ export const aggregateMapStatsForMatches = (matches: MatchHistory[]) => {
 };
 
 export const calculateStats = (matches: MatchHistory[]) => {
-    if (matches.length === 0) return null;
-    const totalMatches = matches.length;
-    const totalKills = matches.reduce((sum, m) => sum + (m.kills || 0), 0);
-    const totalDamage = matches.reduce((sum, m) => sum + (m.damage || 0), 0);
-    const totalAssists = matches.reduce((sum, m) => sum + (m.assists || 0), 0);
-    const totalWins = matches.filter(m => m.placement === 1).length;
-    const totalTop5 = matches.filter(m => (m.placement ?? 20) <= 5).length;
-    const totalDeaths = matches.reduce((sum, m) => sum + getMatchDeaths(m), 0);
-    const totalTime = matches.reduce(
+    const usable = matches.filter(hasUsableMatchStats);
+    if (usable.length === 0) return null;
+    const totalMatches = usable.length;
+    const totalKills = usable.reduce((sum, m) => sum + (m.kills || 0), 0);
+    const totalDamage = usable.reduce((sum, m) => sum + (m.damage || 0), 0);
+    const totalAssists = usable.reduce((sum, m) => sum + (m.assists || 0), 0);
+    const totalWins = usable.filter(m => m.placement === 1).length;
+    const totalTop5 = usable.filter(m => getMatchPlacement(m) <= 5).length;
+    const totalDeaths = usable.reduce((sum, m) => sum + getMatchDeaths(m), 0);
+    const totalTime = usable.reduce(
         (sum, m: any) => sum + toGameElapsedMs((m.endTime || Date.now()) - m.startTime),
         0,
     );
-    const totalPlacement = matches.reduce((sum, m) => sum + (m.placement ?? 20), 0);
-    const maxKills = Math.max(...matches.map(m => m.kills || 0));
-    const totalsquadKills = matches.reduce((sum, m: any) => sum + (m.squadKills || 0), 0);
-    const topLegend = aggregateLegendStatsForMatches(matches)[0];
-    const topWeapon = aggregateWeaponStatsForMatches(matches)[0];
+    const totalPlacement = usable.reduce((sum, m) => sum + getMatchPlacement(m), 0);
+    const maxKills = Math.max(...usable.map(m => m.kills || 0));
+    const totalsquadKills = usable.reduce((sum, m: any) => sum + (m.squadKills || 0), 0);
+    const topLegend = aggregateLegendStatsForMatches(usable)[0];
+    const topWeapon = aggregateWeaponStatsForMatches(usable)[0];
     const myContribution = totalKills + (totalAssists * 0.5);
     const actualSquadKills = totalsquadKills > 0 ? totalsquadKills : (totalKills || 1);
     const contributionRate = (myContribution / actualSquadKills) * 100;

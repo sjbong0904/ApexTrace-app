@@ -85,9 +85,6 @@ export async function loadRemoteLanguages(): Promise<void> {
 
     if (!rows?.length) {
         rows = cached;
-        if (rows?.length) {
-            console.warn('[i18n] Using cached translations (offline or DB unavailable)');
-        }
     }
 
     if (!rows?.length) {

@@ -81,8 +81,10 @@
       "boundary_inferred": "對局邊界推斷",
       "placement_estimated": "名次估算",
       "no_squad_legend_select": "缺少小隊傳奇選擇",
-      "legend_from_prev_match": "沿用上一場傳奇"
-    }
+      "legend_from_prev_match": "沿用上一場傳奇",
+      "tabs_combat_mismatch": "計分板數據缺失"
+    },
+    "dataQualityIncomplete": "部分資料"
   },
   "matchDetails": {
     "stats": "統計",
@@ -577,7 +579,7 @@
       "maps": "地圖",
       "legends": "傳奇",
       "weapons": "武器",
-      "teammates": "隊友同隊我的數據"
+      "teammates": "隊友"
     },
     "modes": {
       "all": "全部",

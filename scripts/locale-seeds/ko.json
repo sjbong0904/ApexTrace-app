@@ -81,8 +81,10 @@
       "boundary_inferred": "매치 경계 추론",
       "placement_estimated": "순위 추정",
       "no_squad_legend_select": "스쿼드 레전드 선택 없음",
-      "legend_from_prev_match": "이전 매치 레전드 재사용"
-    }
+      "legend_from_prev_match": "이전 매치 레전드 재사용",
+      "tabs_combat_mismatch": "스코어보드 통계 누락"
+    },
+    "dataQualityIncomplete": "일부 데이터"
   },
   "matchDetails": {
     "stats": "통계",
@@ -588,7 +590,7 @@
       "maps": "맵",
       "legends": "레전드",
       "weapons": "무기",
-      "teammates": "팀원별 내 기록"
+      "teammates": "팀원"
     },
     "modes": {
       "all": "전체",

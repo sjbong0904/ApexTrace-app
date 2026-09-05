@@ -81,8 +81,10 @@
       "boundary_inferred": "match boundary inferred",
       "placement_estimated": "placement estimated",
       "no_squad_legend_select": "squad legend select missing",
-      "legend_from_prev_match": "legend reused from previous match"
-    }
+      "legend_from_prev_match": "legend reused from previous match",
+      "tabs_combat_mismatch": "scoreboard stats missing"
+    },
+    "dataQualityIncomplete": "Partial data"
   },
   "matchDetails": {
     "stats": "Stats",
@@ -588,7 +590,7 @@
       "maps": "Maps",
       "legends": "Legends",
       "weapons": "Weapons",
-      "teammates": "My Stats by Teammate"
+      "teammates": "Teammates"
     },
     "modes": {
       "all": "All",

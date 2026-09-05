@@ -96,8 +96,8 @@ export async function loadWeaponsFromRemote(): Promise<boolean> {
             replaceWeaponsDb(data.map((row) => dbRowToWeaponInfo(row as WeaponDbRow)));
             return true;
         }
-    } catch (e) {
-        console.warn('[weapons] Supabase fetch failed, using fallback', e);
+    } catch {
+        /* local fallback weapons */
     }
     return false;
 }

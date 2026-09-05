@@ -1,5 +1,6 @@
 import type { MatchHistory } from './match';
 import { isSamePlayer, isKnownLegend, normalizeLegendKey, getMatchDeaths } from './helpers';
+import { hasUsableMatchStats } from './match';
 import { getMatchPlacement, formatLegendDisplayName, formatAvgPlacement } from './statsAggregation';
 
 export type TeammateMatchStat = {
@@ -78,6 +79,7 @@ export const aggregateTeammateLegendPicksForMatches = (
     let totalPicks = 0;
 
     matches.forEach(m => {
+        if (!hasUsableMatchStats(m)) return;
         const teamStats = (m as { teamStats?: Array<{ name?: string; uid?: string | null; legend?: string }> }).teamStats;
         if (!teamStats?.length) return;
         const isWin = m.placement === 1;
@@ -120,7 +122,10 @@ export const computePlayerPerformanceBaseline = (matches: MatchHistory[]): Playe
     let damage = 0;
     let placement = 0;
 
-    matches.forEach((match) => {
+    const usable = matches.filter(hasUsableMatchStats);
+    if (usable.length === 0) return null;
+
+    usable.forEach((match) => {
         const isWin = match.placement === 1;
         wins += isWin ? 1 : 0;
         kills += match.kills || 0;
@@ -130,7 +135,7 @@ export const computePlayerPerformanceBaseline = (matches: MatchHistory[]): Playe
         placement += getMatchPlacement(match);
     });
 
-    const games = matches.length;
+    const games = usable.length;
     const kd = deaths === 0 ? kills : kills / deaths;
     const kda = deaths === 0 ? kills + assists : (kills + assists) / deaths;
 

@@ -44,8 +44,15 @@ const AdsRail: React.FC<{ paused?: boolean }> = ({ paused = false }) => {
             }}
         >
             <style>{`
+                /* OW docs: ad container's parent must be background: transparent —
+                   lets the rail atmosphere (map bg below) show through (STORE-QA #3).
+                   color-scheme: light is the actual fix for the white slot: our :root is
+                   color-scheme: dark, the ad iframe document is light, and a mismatch makes
+                   Chromium paint an opaque white Canvas behind the iframe (css-color-adjust-1).
+                   Matching schemes keeps the iframe canvas transparent. */
                 .apex-owad-slot,
-                .apex-owad-slot > div {
+                .apex-owad-slot iframe {
+                    color-scheme: light !important;
                     background: transparent !important;
                     background-color: transparent !important;
                 }

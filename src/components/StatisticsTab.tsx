@@ -1461,18 +1461,25 @@ const OverviewView = ({
     }, [analytics, t]);
 
     const trendData = useMemo(() => {
-        return [...data].slice(0, 20).reverse().map((m: MatchHistory, i) => {
-            const legendKey = isKnownLegend(m.legend) ? normalizeLegendKey(m.legend) : 'unknown';
-            return {
-                idx: i,
-                name: `${i + 1}`,
-                kills: m.kills || 0,
-                damage: m.damage || 0,
-                placement: m.placement != null ? Number(m.placement) : 20,
-                legendId: legendKey,
-                legendName: isKnownLegend(m.legend) ? formatLegendDisplayName(legendKey) : '-',
-            };
-        });
+        return [...data]
+            .filter((m: MatchHistory) =>
+                m.dataQuality !== 'incomplete'
+                && m.placement != null
+                && !(m.kills == null && m.assists == null && m.damage == null))
+            .slice(0, 20)
+            .reverse()
+            .map((m: MatchHistory, i) => {
+                const legendKey = isKnownLegend(m.legend) ? normalizeLegendKey(m.legend) : 'unknown';
+                return {
+                    idx: i,
+                    name: `${i + 1}`,
+                    kills: m.kills || 0,
+                    damage: m.damage || 0,
+                    placement: Number(m.placement),
+                    legendId: legendKey,
+                    legendName: isKnownLegend(m.legend) ? formatLegendDisplayName(legendKey) : '-',
+                };
+            });
     }, [data]);
 
     if (!stats || !analytics) return <EmptyState />;
@@ -2152,6 +2159,10 @@ const TeammatesView = ({ data, profileUid, profileName }: { data: MatchHistory[]
         const map: Record<string, TeammateMatchStat & { legendCounts: Record<string, number> }> = {};
 
         data.forEach(m => {
+            if (m.dataQuality === 'incomplete' || m.placement == null
+                || (m.kills == null && m.assists == null && m.damage == null)) {
+                return;
+            }
             const teamStats = (m as any).teamStats as Array<{ name?: string; uid?: string | null; legend?: string }> | undefined;
             if (!teamStats?.length) return;
 
@@ -2826,8 +2837,45 @@ const StatisticsTab: React.FC<StatisticsTabProps> = ({
 
     return (
         <div style={{ paddingBottom: '40px', color: 'var(--color-text-primary)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '25px', borderBottom: '2px solid var(--color-border)', paddingBottom: '15px' }}>
-                <div style={{ display: 'flex', gap: '5px' }}>
+            {/* Tabs stay one scrollable row; mode filters wrap to a clean 2nd row when narrow. */}
+            <div
+                style={{
+                    display: 'flex',
+                    flexWrap: 'wrap',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    rowGap: '10px',
+                    columnGap: '12px',
+                    marginBottom: '25px',
+                    borderBottom: '2px solid var(--color-border)',
+                    paddingBottom: '15px',
+                    minWidth: 0,
+                }}
+            >
+                <style>{`
+                    .stats-subtab-scroll {
+                        scrollbar-width: thin;
+                        scrollbar-color: color-mix(in srgb, var(--color-border-light) 70%, transparent) transparent;
+                    }
+                    .stats-subtab-scroll::-webkit-scrollbar { height: 4px; }
+                    .stats-subtab-scroll::-webkit-scrollbar-thumb {
+                        background: color-mix(in srgb, var(--color-border-light) 70%, transparent);
+                        border-radius: 4px;
+                    }
+                `}</style>
+                <div
+                    className="stats-subtab-scroll"
+                    style={{
+                        display: 'flex',
+                        gap: '5px',
+                        flexWrap: 'nowrap',
+                        minWidth: 0,
+                        flex: '1 1 320px',
+                        overflowX: 'auto',
+                        overflowY: 'hidden',
+                        paddingBottom: '2px',
+                    }}
+                >
                     {(['OVERVIEW', 'MAPS', 'LEGENDS', 'WEAPONS', 'TEAMMATES'] as const).map(tab => {
                         const isActive = activeSubTab === tab;
                         const isLocked = !isPremium && tab !== 'OVERVIEW';
@@ -2843,19 +2891,21 @@ const StatisticsTab: React.FC<StatisticsTabProps> = ({
                                     color: isActive ? 'var(--color-text-primary)' : (isLocked ? 'var(--color-text-subtle)' : 'var(--color-text-muted)'),
                                     border: 'none', borderRadius: '4px',
                                     fontWeight: 'bold', cursor: 'pointer', transition: '0.2s',
-                                    display: 'flex', alignItems: 'center', gap: '6px',
+                                    display: 'inline-flex', alignItems: 'center', gap: '6px',
                                     outline: 'none', boxShadow: 'none',
+                                    flexShrink: 0,
+                                    whiteSpace: 'nowrap',
                                 }}
                             >
                                 {TAB_LABELS[tab]}
-                                {isLocked && <FaLock size={10} color="var(--color-text-subtle)" />}
+                                {isLocked && <FaLock size={10} color="var(--color-text-subtle)" style={{ flexShrink: 0 }} />}
                             </button>
                         );
                     })}
                 </div>
 
-                <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                    <div style={{ display: 'flex', gap: '5px', background: 'var(--color-bg-deep)', padding: '4px', borderRadius: '6px' }}>
+                <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flex: '0 0 auto', marginLeft: 'auto' }}>
+                    <div style={{ display: 'flex', gap: '5px', background: 'var(--color-bg-deep)', padding: '4px', borderRadius: '6px', flexShrink: 0 }}>
                         {(['ALL', 'RANKED', 'TRIO', 'DUO'] as const).map(mode => (
                             <button
                                 key={mode}
@@ -2871,6 +2921,8 @@ const StatisticsTab: React.FC<StatisticsTabProps> = ({
                                     alignItems: 'center',
                                     gap: '5px',
                                     outline: 'none', boxShadow: 'none',
+                                    whiteSpace: 'nowrap',
+                                    flexShrink: 0,
                                 }}
                             >
                                 {MODE_LABELS[mode]}

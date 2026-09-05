@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { MatchHistory } from '../utils/match';
+import { hasUsableMatchStats } from '../utils/match';
 import { isKnownLegend, normalizeLegendKey, getAvgPlacementColor, getWinRateColor } from '../utils/helpers';
 import { formatLegendDisplayName } from '../utils/statsAggregation';
 
@@ -132,7 +133,9 @@ const SidebarStats: React.FC<SidebarStatsProps> = ({ history, layout = 'panel', 
     const isInline = layout === 'inline';
 
     const stats = useMemo(() => {
-        const recentMatches = history.filter(m => isKnownLegend(m.legend)).slice(0, 20);
+        const recentMatches = history
+            .filter(m => isKnownLegend(m.legend) && hasUsableMatchStats(m))
+            .slice(0, 20);
         const count = recentMatches.length;
         if (count === 0) return null;
 
@@ -144,7 +147,7 @@ const SidebarStats: React.FC<SidebarStatsProps> = ({ history, layout = 'panel', 
             totalKills += m.kills ?? 0;
             totalAssists += m.assists ?? 0;
             totalDamage += m.damage ?? 0;
-            totalPlacement += m.placement ?? 20;
+            totalPlacement += typeof m.placement === 'number' ? m.placement : Number(m.placement) || 20;
             const legend = normalizeLegendKey(m.legend);
             legendCounts[legend] = (legendCounts[legend] || 0) + 1;
         });

@@ -71,8 +71,6 @@
 
             if (name && name.trim().length > 0) {
                 updateData.name = window.Utils ? window.Utils.cleanName(name) : name;
-            } else {
-                console.warn(`[Repository] Skipping nickname update for ${uid} (Invalid Name)`);
             }
 
             // 🌟 융합 시스템: linked_uid와 hw를 텍스트 타입으로 안전하게 삽입
@@ -151,7 +149,6 @@
         save: async (uid, matchData) => {
             const mode = (matchData.mode || "").toLowerCase();
             if (mode.includes('firing') || mode.includes('training')) {
-                console.warn('[Repository] Skipped Firing Range upload');
                 return [];
             }
 
@@ -206,14 +203,10 @@
 
                 // The proxy endpoint may be deployed separately from this extension.
                 if (res.status === 404) return null;
-                if (!res.ok) {
-                    console.warn(`[Repository] Daily rank snapshot failed (${res.status})`);
-                    return null;
-                }
+                if (!res.ok) return null;
 
                 return await res.json();
-            } catch (e) {
-                console.warn('[Repository] Daily rank snapshot network error:', e);
+            } catch {
                 return null;
             }
         }

@@ -81,8 +81,10 @@
       "boundary_inferred": "マッチ境界を推定",
       "placement_estimated": "順位推定",
       "no_squad_legend_select": "スクワッドのレジェンド選択なし",
-      "legend_from_prev_match": "前のマッチのレジェンドを再利用"
-    }
+      "legend_from_prev_match": "前のマッチのレジェンドを再利用",
+      "tabs_combat_mismatch": "スコアボード統計なし"
+    },
+    "dataQualityIncomplete": "一部データ"
   },
   "matchDetails": {
     "stats": "統計",
@@ -577,7 +579,7 @@
       "maps": "マップ",
       "legends": "レジェンド",
       "weapons": "武器",
-      "teammates": "チームメイト別の自分"
+      "teammates": "チームメイト"
     },
     "modes": {
       "all": "全て",

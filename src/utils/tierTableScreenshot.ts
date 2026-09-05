@@ -303,7 +303,6 @@ export const promptSaveTierTableScreenshot = async (
         if (err instanceof TierScreenshotCancelledError) {
             throw err;
         }
-        console.warn('[TierTable] Save picker unavailable, falling back to download:', err);
         return saveViaDownload(blob, filename);
     }
 };

@@ -3,7 +3,7 @@
     "type": "WebApp",
     "meta": {
         "name": "ApexTrace",
-        "version": "0.0.10",
+        "version": "0.0.12",
         "minimum-overwolf-version": "0.160.0",
         "author": "SiNiz",
         "dock_button_title": "ApexTrace",
@@ -25,6 +25,7 @@
     ],
     "data": {
         "start_window": "background",
+        "force_browser": "user",
         "windows": {
             "background": {
                 "file": "background.html",
@@ -49,7 +50,10 @@
                 "min_size": { "width": 1080, "height": 780 },
                 "topmost": false,
                 "show_in_taskbar": true,
-                "is_alt_f4_blocked": true
+                "is_alt_f4_blocked": true,
+                "block_top_window_navigation": true,
+                "popup_blocker": true,
+                "mute": true
             },
             "in_game": {
                 "file": "index.html",

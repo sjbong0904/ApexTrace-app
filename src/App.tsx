@@ -11,6 +11,7 @@ import StatisticsTab from './components/StatisticsTab';
 import TierTableTab from './components/TierTableTab';
 import { formatRelativeTime, getRankColor, getRelativeTime, normalizeMapDisplayName } from './utils/helpers';
 import { FaSearch, FaSync, FaQuestionCircle, FaList, FaStar, FaChartBar, FaCog, FaThList } from 'react-icons/fa';
+import { isIncompleteMatchStats } from './utils/match';
 import PlayerSelectionModal from './components/PlayerSelectionModal';
 import AdsRail, { ADS_RAIL_WIDTH } from './components/AdsRail';
 import SettingsTab from './components/SettingsTab';
@@ -53,19 +54,34 @@ const FALLBACK_SEASONS: Season[] = [
   { id: 1, name: "Season 27 : Split 2", startTime: 0, endTime: new Date("2026-02-10T18:00:00Z").getTime() }
 ];
 
-const ProfileLoadingOverlay = ({ label }: { label: string }) => (
-    <div style={{
-        position: 'absolute',
-        inset: 0,
-        zIndex: 50,
-        background: 'color-mix(in srgb, var(--color-bg-main) 88%, transparent)',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: '10px',
-        backdropFilter: 'blur(2px)',
-    }}>
+const ProfileLoadingOverlay = ({ label, stickToScrollport = false }: { label: string; stickToScrollport?: boolean }) => (
+    <div
+        aria-busy
+        style={{
+            /* stickToScrollport: overlay stays on the visible area of overflow:auto.
+               Absolute+inset:0 only covers the first viewport, so scrolling revealed content. */
+            ...(stickToScrollport
+                ? {
+                    position: 'sticky' as const,
+                    top: 0,
+                    height: '100%',
+                    marginBottom: '-100%',
+                }
+                : {
+                    position: 'absolute' as const,
+                    inset: 0,
+                }),
+            zIndex: 50,
+            background: 'color-mix(in srgb, var(--color-bg-main) 88%, transparent)',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '10px',
+            backdropFilter: 'blur(2px)',
+            pointerEvents: 'auto',
+        }}
+    >
         <FaSync className="spin-animation" size={22} color="var(--color-warning)" />
         <span style={{ fontSize: '12px', color: 'var(--color-text-muted)', fontWeight: 'bold' }}>{label}</span>
     </div>
@@ -130,8 +146,8 @@ const getTabStyle = (isActive: boolean): React.CSSProperties => ({
 const App = () => {
     const { t, i18n } = useTranslation(); // 🌟 훅 사용
     const [SEASONS, setSeasons] = useState<Season[]>(FALLBACK_SEASONS);
-    /** Free tier only for now (ads on desktop; analytics tabs gated). */
-    const isPremium = true;
+    /** Free tier for store QA (ads on desktop; analytics tabs gated). */
+    const isPremium = false;
     /** false until window name is known — avoids mounting AdsRail on in-game briefly */
     const [isDesktopWindow, setIsDesktopWindow] = useState(false);
     const [history, setHistory] = useState<any[]>([]);
@@ -357,10 +373,13 @@ const App = () => {
 
     useEffect(() => {
         if (typeof overwolf === 'undefined') return;
-        
+
+        let currentWindowId: string | null = null;
+
         // 앱 켰을 때 초기 상태 확인
         overwolf.windows.getCurrentWindow((res) => {
             if (res.success && res.window) {
+                currentWindowId = res.window.id;
                 const stateEx = String(res.window.stateEx || '').toLowerCase();
                 const state = String(res.window.state || '').toLowerCase();
                 setIsMaximized(stateEx === 'maximized' || state === 'maximized');
@@ -368,8 +387,9 @@ const App = () => {
             }
         });
 
-        // 창이 최대화되거나 복구될 때 실시간 감지 (+ ads pause when minimized)
+        // Only this window — in-game minimize must not pause desktop 2nd-screen ads (STORE-QA #2)
         const onWindowStateChanged = (state: any) => {
+            if (currentWindowId && state.window_id && state.window_id !== currentWindowId) return;
             const stateEx = String(state.window_state_ex || state.window_state || '').toLowerCase();
             if (stateEx === 'maximized') {
                 setIsMaximized(true);
@@ -677,8 +697,6 @@ const App = () => {
                     return;
                 }
 
-                console.log("Loading user with backup cache:", selectedUser.name);
-
                 const historyPromise = bg.apexData.fetchUserHistory?.(selectedUser.uid)
                     ?? Promise.resolve([] as any[]);
                 historyPromise.then((earlyHistory: any[]) => {
@@ -705,9 +723,8 @@ const App = () => {
                 if (loadGeneration !== profileLoadGenerationRef.current) return;
                 
                 if (!result.success) {
-                    console.error("❌ API request failed.");
+                    console.error("API request failed.");
                     if (selectedUser && selectedUser.name) {
-                        console.log("⚠️ Falling back to selectedUser for UI display.");
                         applyProfileToUi({
                             ...selectedUser,
                             level: selectedUser.level || 0,
@@ -727,10 +744,8 @@ const App = () => {
 
                 if (!freshUser.name || freshUser.name.trim() === "") {
                     if (selectedUser.name) {
-                        console.warn(`⚠️ [UI Defense] API returned empty name. Forcing name from selection: ${selectedUser.name}`);
                         freshUser.name = selectedUser.name; 
                     } else {
-                        console.warn("⚠️ [Data Protection] No name available from API or Cache. Aborting.");
                         setStatusMessage(t('search.serverError')); 
                         return; 
                     }
@@ -772,7 +787,7 @@ const App = () => {
                     setShowSearchModal(false);
                     setSearchCandidates([]);
                 } else {
-                    alert(t('search.notFoundApi'));
+                    showTemporaryStatus(t('search.notFoundApi'));
                 }
             }
         } catch (e) {
@@ -1228,17 +1243,18 @@ const App = () => {
                 <ResizeHandles insetRight={showDesktopAds ? ADS_RAIL_WIDTH : 0} />
             )}
 
-            {/* 🌟 상단 드래그 바 (Top Bar) + 언어 선택 드롭다운 */}
-            <div 
+            {/* 🌟 상단 드래그 바 (Top Bar) + 언어 선택 드롭다운 — z-index above driver.js overlay (STORE-QA #4) */}
+            <div
+                id="apex-title-bar"
                 onDoubleClick={handleHeaderDoubleClick}
                 onMouseDown={(e) => {
                     const target = e.target as HTMLElement;
-                    if (target.closest('button, select, input, a')) return;
+                    if (target.closest('button, select, input, a, [data-no-window-drag]')) return;
                     overwolf.windows.getCurrentWindow((result) => {
                         if (result.success && result.window) overwolf.windows.dragMove(result.window.id);
                     });
                 }}
-                style={{ height: '35px', background: 'var(--color-bg-top-bar)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'default', flexShrink: 0, userSelect: 'none' } as any }>
+                style={{ height: '35px', background: 'var(--color-bg-top-bar)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'default', flexShrink: 0, userSelect: 'none', position: 'relative', zIndex: 100000001 } as any }>
                 
                 {/* 왼쪽: 앱 로고 & 타이틀 */}
                 <div style={{ paddingLeft: '15px', fontSize: '12px', fontWeight: 'bold', color: 'var(--color-text-muted)', letterSpacing: '1px', display: 'flex', alignItems: 'center' }}>
@@ -1356,7 +1372,10 @@ const App = () => {
                 
                     <div ref={mainScrollRef} style={{
                         padding: mainTab === 'TIER_TABLE' ? 0 : (isNarrowLayout ? '16px' : '30px'),
-                        overflowY: mainTab === 'TIER_TABLE' ? 'hidden' : 'auto',
+                        overflowY: (
+                            mainTab === 'TIER_TABLE'
+                            || (isProfileLoading && (mainTab === 'DASHBOARD' || mainTab === 'STATISTICS'))
+                        ) ? 'hidden' : 'auto',
                         overflowX: 'hidden',
                         flex: 1,
                         height: '100%',
@@ -1364,7 +1383,7 @@ const App = () => {
                         minWidth: 0,
                     }}>
                         {isProfileLoading && (mainTab === "DASHBOARD" || mainTab === "STATISTICS") && (
-                            <ProfileLoadingOverlay label={t('search.loadingProfile')} />
+                            <ProfileLoadingOverlay stickToScrollport label={t('search.loadingProfile')} />
                         )}
                         {(mainTab === "DASHBOARD" || mainTab === "STATISTICS") && (
                             <InlineProfileSection
@@ -1464,7 +1483,17 @@ const App = () => {
                                     </div>
                                 )}
                                 {filteredHistory.length === 0 ? (
-                                    <div style={{ display: 'flex', flexDirection: 'column', textAlign: 'center', padding: '40px', color: 'var(--color-text-subtle)', border: '2px dashed var(--color-border)', borderRadius: '10px', alignItems: 'center', justifyContent: 'center' }}>
+                                    <div
+                                        onMouseDown={(e) => {
+                                            const target = e.target as HTMLElement;
+                                            if (target.closest('button, a, input, select')) return;
+                                            if (typeof overwolf === 'undefined') return;
+                                            overwolf.windows.getCurrentWindow((result) => {
+                                                if (result.success && result.window) overwolf.windows.dragMove(result.window.id);
+                                            });
+                                        }}
+                                        style={{ display: 'flex', flexDirection: 'column', textAlign: 'center', padding: '40px', color: 'var(--color-text-subtle)', border: '2px dashed var(--color-border)', borderRadius: '10px', alignItems: 'center', justifyContent: 'center', cursor: 'default' }}
+                                    >
                                         <>
                                             <div style={{ marginBottom: '15px', fontSize: '14px', lineHeight: '1.5', color: 'var(--color-text-muted)' }}>{t('match.emptyTitle')}<br />{t('match.emptyDesc')}</div>
                                             <button onClick={startTutorial} style={{ background: 'var(--color-warning)', color: 'var(--color-text-primary)', border: 'none', padding: '10px 20px', borderRadius: '6px', fontSize: '13px', fontWeight: 'bold', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', boxShadow: '0 4px 6px rgba(0,0,0,0.2)', transition: 'transform 0.2s, background 0.2s' }} onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--color-warning-hover)'; e.currentTarget.style.transform = 'translateY(-2px)'; }} onMouseLeave={(e) => { e.currentTarget.style.background = 'var(--color-warning)'; e.currentTarget.style.transform = 'translateY(0)'; }}>
@@ -1477,8 +1506,10 @@ const App = () => {
                                         {isDownloadingArchive && (
                                             <ProfileLoadingOverlay label={`${t('sync.syncingArchive')} (${downloadProgress})`} />
                                         )}
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                    {/* pt: room for incomplete badge poking above the first card corner */}
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', paddingTop: '8px' }}>
                                         {currentMatches.map((match: any) => {
+                                            const isIncomplete = isIncompleteMatchStats(match);
                                             const displayRank = (match.placement === 1 || match.placement === '1') ? 1 : match.placement;
                                             const isExpanded = expandedMatchIds.includes(match.matchId);
                                             const legendFile = (match.legend || "unknown").toLowerCase();
@@ -1486,12 +1517,53 @@ const App = () => {
                                             const timeLabel = formatRelativeTime(timePart, t);
                                             const gameMode = getModeDisplayLabel(match.mode);
                                             const modeColor = getModeColor(match.mode);
+                                            const formatStat = (value: number | null | undefined) =>
+                                                isIncomplete || value == null ? '-' : value;
+                                            const incompleteSignals = Array.isArray(match.missingSignals)
+                                                ? match.missingSignals
+                                                    .map((signal: string) => t(`match.missingSignals.${signal}`, { defaultValue: signal }))
+                                                    .filter(Boolean)
+                                                    .join(', ')
+                                                : '';
+                                            const incompleteTooltip = incompleteSignals
+                                                ? t('match.dataQualityTooltip', { signals: incompleteSignals })
+                                                : t('match.dataQualityIncomplete');
                                             return (
-                                                <div key={match.matchId} style={{ background: 'var(--color-bg-card)', borderRadius: '8px', overflow: 'hidden', boxShadow: '0 2px 5px rgba(0,0,0,0.2)', border: '1px solid var(--color-border)' }}>
+                                                <div key={match.matchId} style={{ position: 'relative', borderRadius: '8px' }}>
+                                                    {isIncomplete && (
+                                                        <span
+                                                            title={incompleteTooltip}
+                                                            onClick={(e) => e.stopPropagation()}
+                                                            aria-label={incompleteTooltip}
+                                                            style={{
+                                                                position: 'absolute',
+                                                                /* Center on the left-bar / top-edge corner; may poke slightly outside the card */
+                                                                left: '3px',
+                                                                top: 0,
+                                                                zIndex: 5,
+                                                                width: '18px',
+                                                                height: '18px',
+                                                                display: 'flex',
+                                                                alignItems: 'center',
+                                                                justifyContent: 'center',
+                                                                transform: 'translate(-50%, -45%)',
+                                                                cursor: 'help',
+                                                                pointerEvents: 'auto',
+                                                            }}
+                                                        >
+                                                            {/* High-contrast badge: crimson triangle + white bang (readable on orange bar) */}
+                                                            <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden style={{ display: 'block', flexShrink: 0, filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.75))' }}>
+                                                                <path fill="#e74c3c" stroke="rgba(0,0,0,0.35)" strokeWidth="0.8" d="M12 2.2L22.8 21.2H1.2L12 2.2z" />
+                                                                <rect x="11" y="8.2" width="2" height="7.2" rx="0.6" fill="#fff" />
+                                                                <rect x="11" y="17.2" width="2" height="2.2" rx="0.6" fill="#fff" />
+                                                            </svg>
+                                                        </span>
+                                                    )}
+                                                    <div style={{ background: 'var(--color-bg-card)', borderRadius: '8px', overflow: 'hidden', boxShadow: '0 2px 5px rgba(0,0,0,0.2)', border: '1px solid var(--color-border)' }}>
                                                     <div
                                                         onPointerDown={() => prefetchMatchDetail(match.matchId)}
                                                         onClick={() => { void handleMatchToggle(match.matchId); }}
-                                                        style={{ display: 'flex', alignItems: 'center', padding: isNarrowLayout ? '12px 12px' : '15px 20px', cursor: 'pointer', borderLeft: `6px solid ${getRankColor(displayRank)}`, background: isExpanded ? 'var(--color-bg-card-hover)' : 'var(--color-bg-card)', transition: 'background 0.2s', opacity: loadingDetailMatchId === match.matchId ? 0.75 : 1, minWidth: 0, gap: isNarrowLayout ? '10px' : undefined }}
+                                                        style={{ display: 'flex', alignItems: 'center', padding: isNarrowLayout ? '12px 12px' : '15px 20px', cursor: 'pointer', borderLeft: `6px solid ${isIncomplete ? 'var(--color-warning)' : getRankColor(displayRank)}`, background: isExpanded ? 'var(--color-bg-card-hover)' : 'var(--color-bg-card)', transition: 'background 0.2s', opacity: loadingDetailMatchId === match.matchId ? 0.75 : 1, minWidth: 0, gap: isNarrowLayout ? '10px' : undefined }}
                                                     >
                                                         <div style={{ position: 'relative', width: isNarrowLayout ? '42px' : '50px', height: isNarrowLayout ? '42px' : '50px', marginRight: isNarrowLayout ? 0 : '20px', flexShrink: 0 }}>
                                                             <div style={{ width: '100%', height: '100%', borderRadius: '10px', background: 'var(--color-bg-sub-header)', overflow: 'hidden', border: '2px solid var(--color-border-light)' }}>
@@ -1504,7 +1576,7 @@ const App = () => {
                                                             display: 'grid',
                                                             /* Rank needs less width → frees space for map/mode/stats when narrow */
                                                             gridTemplateColumns: isNarrowLayout
-                                                                ? 'minmax(0, 0.65fr) minmax(0, 1.15fr) minmax(0, 1.35fr) minmax(0, 0.95fr) minmax(0, 0.85fr)'
+                                                                ? 'minmax(0, 0.55fr) minmax(0, 1.15fr) minmax(0, 1.35fr) minmax(0, 0.95fr) minmax(0, 0.85fr)'
                                                                 : 'minmax(0, 0.7fr) minmax(0, 1.1fr) minmax(0, 1.35fr) repeat(4, minmax(0, 1fr))',
                                                             gap: isNarrowLayout ? '6px' : '10px',
                                                             alignItems: 'center',
@@ -1512,62 +1584,118 @@ const App = () => {
                                                         }}>
                                                             <div style={{ minWidth: 0 }}>
                                                                 <div style={{ fontSize: '10px', color: 'var(--color-text-muted)' }}>{t('match.rank')}</div>
-                                                                <div style={{ fontWeight: 'bold', fontSize: isNarrowLayout ? '14px' : '16px', color: 'var(--color-text-primary)' }}>#{displayRank}</div>
+                                                                <div style={{
+                                                                    fontWeight: 'bold',
+                                                                    fontSize: isNarrowLayout ? '14px' : '16px',
+                                                                    color: isIncomplete ? 'var(--color-text-faint)' : 'var(--color-text-primary)',
+                                                                }}>
+                                                                    {isIncomplete || displayRank == null || displayRank === '' ? '-' : `#${displayRank}`}
+                                                                </div>
                                                             </div>
                                                             <div style={{ minWidth: 0 }}><div style={{ fontSize: '10px', color: 'var(--color-text-muted)' }}>{t('match.gamemode')}</div><div style={{ fontWeight: 'bold', fontSize: isNarrowLayout ? '12px' : '14px', color: modeColor, textTransform: 'uppercase', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={gameMode}>{gameMode}</div></div>
                                                             <div style={{ overflow: 'hidden', minWidth: 0 }}><div style={{ fontSize: '10px', color: 'var(--color-text-muted)' }}>{t('match.map')}</div><div style={{ fontWeight: 'bold', color: 'var(--color-text-dim)', fontSize: isNarrowLayout ? '12px' : '14px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }} title={normalizeMapDisplayName(match.map)}>{normalizeMapDisplayName(match.map)}</div></div>
-                                                            <div><div style={{ fontSize: '10px', color: 'var(--color-text-muted)' }}>{t('match.damage')}</div><div style={{ fontWeight: 'bold', color: 'var(--color-danger)', fontSize: isNarrowLayout ? '14px' : '16px' }}>{Math.round(match.damage)}</div></div>
-                                                            <div><div style={{ fontSize: '10px', color: 'var(--color-text-muted)' }}>{t('match.kills')}</div><div style={{ fontWeight: 'bold', color: 'var(--color-text-primary)', fontSize: isNarrowLayout ? '14px' : '16px' }}>{match.kills}</div></div>
+                                                            <div style={{ minWidth: 0 }}><div style={{ fontSize: '10px', color: 'var(--color-text-muted)' }}>{t('match.damage')}</div><div style={{ fontWeight: 'bold', color: isIncomplete ? 'var(--color-text-faint)' : 'var(--color-danger)', fontSize: isNarrowLayout ? '14px' : '16px' }}>{isIncomplete || match.damage == null ? '-' : Math.round(match.damage)}</div></div>
+                                                            <div style={{ minWidth: 0 }}><div style={{ fontSize: '10px', color: 'var(--color-text-muted)' }}>{t('match.kills')}</div><div style={{ fontWeight: 'bold', color: isIncomplete ? 'var(--color-text-faint)' : 'var(--color-text-primary)', fontSize: isNarrowLayout ? '14px' : '16px' }}>{formatStat(match.kills)}</div></div>
                                                             {!isNarrowLayout && (
                                                                 <>
-                                                                    <div><div style={{ fontSize: '10px', color: 'var(--color-text-muted)' }}>{t('match.assists')}</div><div style={{ fontWeight: 'bold', color: 'var(--color-text-primary)', fontSize: '16px' }}>{match.assists || 0}</div></div>
-                                                                    <div><div style={{ fontSize: '10px', color: 'var(--color-text-muted)' }}>{t('match.knocks')}</div><div style={{ fontWeight: 'bold', color: 'var(--color-text-primary)', fontSize: '16px' }}>{match.knocks || 0}</div></div>
+                                                                    <div style={{ minWidth: 0 }}><div style={{ fontSize: '10px', color: 'var(--color-text-muted)' }}>{t('match.assists')}</div><div style={{ fontWeight: 'bold', color: isIncomplete ? 'var(--color-text-faint)' : 'var(--color-text-primary)', fontSize: '16px' }}>{formatStat(match.assists)}</div></div>
+                                                                    <div style={{ minWidth: 0 }}><div style={{ fontSize: '10px', color: 'var(--color-text-muted)' }}>{t('match.knocks')}</div><div style={{ fontWeight: 'bold', color: isIncomplete ? 'var(--color-text-faint)' : 'var(--color-text-primary)', fontSize: '16px' }}>{formatStat(match.knocks)}</div></div>
                                                                 </>
                                                             )}
                                                         </div>
-                                                        <div style={{ fontSize: '12px', color: 'var(--color-text-faint)', marginLeft: '10px', transition: 'transform 0.3s', transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)' }}>▼</div>
+                                                        <div style={{ fontSize: '12px', color: 'var(--color-text-faint)', marginLeft: '10px', flexShrink: 0, transition: 'transform 0.3s', transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)' }}>▼</div>
                                                     </div>
 
                                                     <div className={`match-accordion ${isExpanded ? 'open' : ''}`}>
                                                         <div className="match-accordion-inner">
                                                             <div style={{
-                                                                height: '420px',
+                                                                height: isNarrowLayout ? 'auto' : '420px',
                                                                 display: 'flex',
-                                                                flexDirection: 'row',
+                                                                flexDirection: isNarrowLayout ? 'column' : 'row',
                                                                 borderTop: '1px solid var(--color-border)',
                                                                 background: 'var(--color-bg-sub-header)',
                                                                 minWidth: 0,
                                                             }}>
-                                                                <div style={{
-                                                                    flex: isNarrowLayout ? '1 1 0' : 5,
-                                                                    minWidth: 0,
-                                                                    position: 'relative',
-                                                                    borderRight: '1px solid var(--color-border)',
-                                                                    overflow: 'hidden',
-                                                                }}>{isExpanded && <MapVisualizer match={match} />}</div>
-                                                                <div style={{
-                                                                    flex: isNarrowLayout ? '1 1 0' : 3,
-                                                                    minWidth: 0,
-                                                                    borderRight: '1px solid var(--color-border)',
-                                                                    display: 'flex',
-                                                                    flexDirection: 'column',
-                                                                    zIndex: 10,
-                                                                    overflow: 'hidden',
-                                                                }}>
-                                                                    <CombatLog match={match} />
-                                                                </div>
-                                                                <div style={{
-                                                                    flex: isNarrowLayout ? '1.15 1 0' : 4,
-                                                                    minWidth: 0,
-                                                                    display: 'flex',
-                                                                    flexDirection: 'column',
-                                                                    background: 'var(--color-bg-sub-header)',
-                                                                    overflow: 'hidden',
-                                                                }}>
-                                                                    <MatchDetailTabs match={match} onUserSelect={handleSelectUser} />
-                                                                </div>
+                                                                {isNarrowLayout ? (
+                                                                    <>
+                                                                        {/* Narrow: map + combat on top, stats/loadout full-width below */}
+                                                                        <div style={{
+                                                                            display: 'flex',
+                                                                            flexDirection: 'row',
+                                                                            height: '300px',
+                                                                            minHeight: '260px',
+                                                                            minWidth: 0,
+                                                                            borderBottom: '1px solid var(--color-border)',
+                                                                        }}>
+                                                                            <div style={{
+                                                                                flex: '1.25 1 0',
+                                                                                minWidth: 0,
+                                                                                position: 'relative',
+                                                                                borderRight: '1px solid var(--color-border)',
+                                                                                overflow: 'hidden',
+                                                                            }}>
+                                                                                {isExpanded && <MapVisualizer match={match} />}
+                                                                            </div>
+                                                                            <div style={{
+                                                                                flex: '1 1 0',
+                                                                                minWidth: 0,
+                                                                                display: 'flex',
+                                                                                flexDirection: 'column',
+                                                                                zIndex: 10,
+                                                                                overflow: 'hidden',
+                                                                            }}>
+                                                                                <CombatLog match={match} />
+                                                                            </div>
+                                                                        </div>
+                                                                        <div style={{
+                                                                            height: '300px',
+                                                                            minHeight: '260px',
+                                                                            minWidth: 0,
+                                                                            display: 'flex',
+                                                                            flexDirection: 'column',
+                                                                            background: 'var(--color-bg-sub-header)',
+                                                                            overflow: 'hidden',
+                                                                        }}>
+                                                                            <MatchDetailTabs match={match} onUserSelect={handleSelectUser} />
+                                                                        </div>
+                                                                    </>
+                                                                ) : (
+                                                                    <>
+                                                                        <div style={{
+                                                                            flex: 5,
+                                                                            minWidth: 0,
+                                                                            position: 'relative',
+                                                                            borderRight: '1px solid var(--color-border)',
+                                                                            overflow: 'hidden',
+                                                                        }}>
+                                                                            {isExpanded && <MapVisualizer match={match} />}
+                                                                        </div>
+                                                                        <div style={{
+                                                                            flex: 3,
+                                                                            minWidth: 0,
+                                                                            borderRight: '1px solid var(--color-border)',
+                                                                            display: 'flex',
+                                                                            flexDirection: 'column',
+                                                                            zIndex: 10,
+                                                                            overflow: 'hidden',
+                                                                        }}>
+                                                                            <CombatLog match={match} />
+                                                                        </div>
+                                                                        <div style={{
+                                                                            flex: 4,
+                                                                            minWidth: 0,
+                                                                            display: 'flex',
+                                                                            flexDirection: 'column',
+                                                                            background: 'var(--color-bg-sub-header)',
+                                                                            overflow: 'hidden',
+                                                                        }}>
+                                                                            <MatchDetailTabs match={match} onUserSelect={handleSelectUser} />
+                                                                        </div>
+                                                                    </>
+                                                                )}
                                                             </div>
                                                         </div>
+                                                    </div>
                                                     </div>
                                                 </div>
                                             );

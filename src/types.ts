@@ -52,13 +52,18 @@ export interface Match {
     map: string;
     legend: string | null;
     
-    placement: number | string;
-    kills: number;
-    assists: number;
+    /** Null when GEP tabs were untrusted (incomplete match). */
+    placement: number | string | null;
+    kills: number | null;
+    assists: number | null;
     /** Local player deaths this match (combat-log count). Null/omit = legacy. */
     deaths?: number | null;
-    knocks: number;
-    damage: number;
+    knocks: number | null;
+    damage: number | null;
+    /** Persistable capture quality from background finalize. */
+    dataQuality?: 'complete' | 'estimated' | 'unrecoverable' | 'incomplete';
+    confidence?: number;
+    missingSignals?: string[];
     squadKills: number;
     ultimatesUsed: number;
     headshots?: number;

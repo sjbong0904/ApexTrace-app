@@ -81,8 +81,10 @@
       "boundary_inferred": "limite da partida inferido",
       "placement_estimated": "posição estimada",
       "no_squad_legend_select": "seleção de lenda do esquadrão em falta",
-      "legend_from_prev_match": "lenda reutilizada da partida anterior"
-    }
+      "legend_from_prev_match": "lenda reutilizada da partida anterior",
+      "tabs_combat_mismatch": "stats do placar em falta"
+    },
+    "dataQualityIncomplete": "Dados parciais"
   },
   "matchDetails": {
     "stats": "Estatísticas",
@@ -577,7 +579,7 @@
       "maps": "Mapas",
       "legends": "Lendas",
       "weapons": "Armas",
-      "teammates": "As minhas stats por parceiro"
+      "teammates": "Parceiros"
     },
     "modes": {
       "all": "Tudo",

@@ -4,6 +4,7 @@ import { startTutorial } from '../utils/tutorial';
 import { resetAppCache } from '../utils/resetApp';
 import { useTranslation } from 'react-i18next';
 import { useTheme, c } from '../theme';
+import AppDialog, { type AppDialogMode } from './AppDialog';
 
 const HOTKEY_CONFIGS = [
     {
@@ -433,10 +434,20 @@ const HotkeySettingsRows = () => {
     );
 };
 
+type SettingsDialog = {
+    mode: AppDialogMode;
+    title?: string;
+    message: string;
+    detail?: string;
+    danger?: boolean;
+    onConfirm?: () => void;
+};
+
 const SettingsTab = () => {
     const { t } = useTranslation();
     const [appVersion, setAppVersion] = useState('...');
     const [isResetting, setIsResetting] = useState(false);
+    const [dialog, setDialog] = useState<SettingsDialog | null>(null);
 
     useEffect(() => {
         overwolf.extensions.current.getManifest((manifest: any) => {
@@ -445,18 +456,17 @@ const SettingsTab = () => {
     }, []);
 
     const openDiscord = () => {
-        const openUrl = overwolf.utils.openUrlInDefaultBrowser as (
-            url: string,
-            options?: { skip_in_game_notification?: boolean },
-        ) => void;
-        openUrl('https://discord.gg/vwGVAFEYyj', {
-            skip_in_game_notification: true,
-        });
+        // OW runtime: 1-arg only (STORE-QA #5 — 2-arg throws in desktop.html.2.log)
+        overwolf.utils.openUrlInDefaultBrowser('https://discord.gg/vwGVAFEYyj');
+    };
+
+    const showAlert = (message: string, detail?: string, title?: string) => {
+        setDialog({ mode: 'alert', message, detail, title });
     };
 
     const handleOpenLogs = () => {
         if (typeof overwolf.io === 'undefined' || !overwolf.io.paths) {
-            alert(t('settings.alerts.fsMissing'));
+            showAlert(t('settings.alerts.fsMissing'));
             return;
         }
         const localAppData = overwolf.io.paths.localAppData;
@@ -470,26 +480,54 @@ const SettingsTab = () => {
                 overwolf.utils.openUrlInDefaultBrowser(fileUrl);
                 return;
             }
-            prompt(t('settings.alerts.openFolderFailed'), logPath);
+            showAlert(t('settings.alerts.openFolderFailed'), logPath);
         });
     };
 
-    const handleResetApp = async () => {
+    const runResetApp = async () => {
         if (isResetting) return;
-        if (!window.confirm(t('settings.reset.confirmMessage'))) return;
-
         setIsResetting(true);
         try {
             await resetAppCache();
         } catch (error) {
             console.error('[Settings] App reset failed:', error);
-            alert(t('settings.reset.failed'));
+            showAlert(t('settings.reset.failed'));
             setIsResetting(false);
         }
     };
 
+    const handleResetApp = () => {
+        if (isResetting) return;
+        setDialog({
+            mode: 'confirm',
+            title: t('settings.items.resetTitle'),
+            message: t('settings.reset.confirmMessage'),
+            danger: true,
+            onConfirm: () => {
+                setDialog(null);
+                void runResetApp();
+            },
+        });
+    };
+
     return (
         <div style={styles.container}>
+            <AppDialog
+                open={Boolean(dialog)}
+                mode={dialog?.mode}
+                title={dialog?.title}
+                message={dialog?.message || ''}
+                detail={dialog?.detail}
+                danger={dialog?.danger}
+                onCancel={() => setDialog(null)}
+                onConfirm={() => {
+                    if (dialog?.mode === 'confirm' && dialog.onConfirm) {
+                        dialog.onConfirm();
+                        return;
+                    }
+                    setDialog(null);
+                }}
+            />
 
             {/* 1. 커뮤니티 섹션 */}
             <div style={{ marginBottom: '40px' }}>
@@ -576,7 +614,7 @@ const SettingsTab = () => {
                                 type="button"
                                 onClick={(e) => {
                                     e.stopPropagation();
-                                    void handleResetApp();
+                                    handleResetApp();
                                 }}
                                 disabled={isResetting}
                                 style={{

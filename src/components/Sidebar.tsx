@@ -179,6 +179,10 @@ const Sidebar: React.FC<SidebarProps> = ({
         const weaponStats: Record<string, { count: number; kills: number; damage: number }> = {};
 
         recent.forEach(match => {
+            if (match.dataQuality === 'incomplete' || match.placement == null
+                || (match.kills == null && match.assists == null && match.damage == null)) {
+                return;
+            }
             const k = match.kills || 0;
             const d = match.damage || 0;
             const a = match.assists || 0;

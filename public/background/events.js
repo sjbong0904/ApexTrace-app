@@ -15,11 +15,6 @@ let lastBoundaryRotateAt = 0;
  */
 const matchLog = (message, details) => {
     if (window.Utils?.matchLog) return window.Utils.matchLog(message, details);
-    if (details == null) console.warn('[Match] ' + message);
-    else {
-        try { console.warn('[Match] ' + message + ' ' + JSON.stringify(details)); }
-        catch (e) { console.warn('[Match] ' + message); }
-    }
 };
 
 const MatchBoundary = {
@@ -1141,15 +1136,13 @@ const parseTabsPayload = (raw) => {
 const applyTabsToMatch = (match, tabsRaw) => {
     const tabs = parseTabsPayload(tabsRaw);
     if (!match || !tabs) return;
-    if (tabs.teams) {
+    // GEP's first post-match_start sample is `{"teams":"1"|"0","players":"?"}` — lobby
+    // garbage. Feeding it into the teams-alive minimum produced false 1st places.
+    const placeholderTabs = !!window.Utils?.isPlaceholderTabsSample?.(tabs);
+    if (tabs.teams && !placeholderTabs) {
         const teams = window.Utils?.trackMinTeamsAlive?.(match, tabs.teams);
-        if (teams && canEstimatePlacementFromTabs(match) && (match.placement === 20 || match.placement === 0)) {
-            const estimate = estimatePlacementFromTabs(match, teams);
-            if (estimate) {
-                match.placement = estimate;
-                match._estimatedPlacement = estimate;
-            }
-        }
+        // Provisional while only the local player is dead; frozen once the squad is out.
+        if (teams) window.Utils?.applyPlacementEstimate?.(match, teams);
     }
     if (tabs.kills !== undefined) match.kills = Math.max(match.kills || 0, parseInt(tabs.kills) || 0);
     if (tabs.assists !== undefined) match.assists = Math.max(match.assists || 0, parseInt(tabs.assists) || 0);
@@ -1168,6 +1161,17 @@ const applyMatchSummaryToMatch = (match, raw) => {
     const rank = parseInt(summary.rank, 10);
     if (!isNaN(rank) && rank > 0) {
         const prevEstimated = match._estimatedPlacement;
+        // Summary shown after leaving early carries the rank *at that moment*, not the
+        // squad's final result — keep it, but flag it as estimated (QA §5.2 이슈 A).
+        if (!match._matchSummaryRank && !match._squadEliminated && !match._isVictory
+            && hasLivingTeammate(match)) {
+            match._summaryWhileSquadAlive = true;
+            matchLog('match_summary while squad still alive — rank flagged as estimate', {
+                matchId: match.matchId,
+                rank,
+                isDead: !!match.isDead,
+            });
+        }
         match.placement = rank;
         match._guessedRank = rank;
         match._matchSummaryRank = rank;
@@ -1196,23 +1200,35 @@ const canEstimatePlacementFromTabs = (match) => {
     return isEliminated(match);
 };
 
-const estimatePlacementFromTabs = (match, teamsAlive = match?._lastTeamsAlive) => {
-    if (!canEstimatePlacementFromTabs(match)) return null;
-    return window.Utils?.estimatePlacementFromTeamsAlive?.(match, teamsAlive) ?? null;
-};
-
+/** Shared gate lives in Utils — provisional until squad-out is confirmed, then frozen. */
 const applyPlacementEstimate = (match) => {
     if (!match || match._isVictory || match._matchSummaryRank) return null;
-    if (match.placement > 0 && match.placement < 20) return match.placement;
+    return window.Utils?.applyPlacementEstimate?.(match) ?? null;
+};
 
-    const estimate = estimatePlacementFromTabs(match);
-    if (estimate) {
-        match._estimatedPlacement = estimate;
-        match.placement = estimate;
-        return estimate;
-    }
+/**
+ * Session must end (lobby/loading timeout) while teammates are still alive — the
+ * local player left early. Store the current teams-alive estimate as a *flagged*
+ * lower bound instead of a bare 20th.
+ */
+const applyLeftEarlyPlacement = (match) => {
+    if (!match || match._isVictory || match._matchSummaryRank || match._squadEliminated) return null;
+    if (!hasLivingTeammate(match)) return null;
+    if (match.placement > 0 && match.placement < 20 && !match._estimatedPlacement) return match.placement;
 
-    return null;
+    const estimate = window.Utils?.estimatePlacementFromTeamsAlive?.(match);
+    if (!estimate) return null;
+    const previous = match._estimatedPlacement || null;
+    const next = previous ? Math.min(previous, estimate) : estimate;
+    match.placement = next;
+    match._estimatedPlacement = next;
+    match._placementEstimateFrozen = true;
+    matchLog('Left match while squad alive — placement stored as estimate', {
+        matchId: match.matchId,
+        estimate: next,
+        minTeamsAlive: match._minTeamsAlive ?? null,
+    });
+    return next;
 };
 
 const parseTeamInfoState = (raw) => {
@@ -1226,6 +1242,8 @@ const markSquadEliminated = (match, { refreshGep = true } = {}) => {
 
     if (!match._squadEliminated) {
         match._squadEliminated = true;
+        // Elimination signal after a summary ⇒ the player stayed; that summary was final.
+        delete match._summaryWhileSquadAlive;
         // Freeze roster so spectated enemy names cannot enter teamStats.
         match._squadRosterFrozen = true;
         matchLog('Squad eliminated — roster frozen', {
@@ -1552,13 +1570,15 @@ const EventRouter = {
                 const duration = Date.now() - activeMatch.startTime;
                 if (isEliminated(activeMatch) && !activeMatch._squadEliminated) {
                     markSquadEliminated(activeMatch, { refreshGep: false });
-                } else if (
-                    (activeMatch.placement === 20 || activeMatch.placement === 0)
-                    && (activeMatch._squadEliminated || isEliminated(activeMatch))
-                ) {
+                } else if (activeMatch._squadEliminated || isEliminated(activeMatch)) {
                     applyPlacementEstimate(activeMatch);
                 }
                 if (isMatchConcluded(activeMatch) || duration > 120000) {
+                    // Back in lobby with teammates alive ⇒ left early. Rank is unknowable
+                    // from here on; keep a flagged estimate rather than a bare 20th.
+                    if (!isMatchConcluded(activeMatch) && hasLivingTeammate(activeMatch)) {
+                        applyLeftEarlyPlacement(activeMatch);
+                    }
                     window.CoreController.endMatch();
                 }
             }
@@ -1971,7 +1991,7 @@ const EventRouter = {
         const pollOnce = () => new Promise((resolve) => {
             if (!match || !overwolf?.games?.events?.getInfo) return resolve(false);
             overwolf.games.events.getInfo((infoRes) => {
-                if (infoRes?.status === 'success' && infoRes.res) {
+                if (infoRes?.res && (infoRes.success === true || infoRes.status === 'success')) {
                     applyInfoToMatch(infoRes, match);
                 }
                 resolve(!!match._matchSummaryRank);

@@ -81,8 +81,10 @@
       "boundary_inferred": "limite de match déduite",
       "placement_estimated": "classement estimé",
       "no_squad_legend_select": "sélection de légende d'escouade manquante",
-      "legend_from_prev_match": "légende reprise du match précédent"
-    }
+      "legend_from_prev_match": "légende reprise du match précédent",
+      "tabs_combat_mismatch": "stats du tableau manquantes"
+    },
+    "dataQualityIncomplete": "Données partielles"
   },
   "matchDetails": {
     "stats": "Statistiques",
@@ -577,7 +579,7 @@
       "maps": "Cartes",
       "legends": "Légendes",
       "weapons": "Armes",
-      "teammates": "Mes stats par coéq."
+      "teammates": "Coéquipiers"
     },
     "modes": {
       "all": "Tout",

@@ -21,6 +21,13 @@ const toNumber = (value: unknown, fallback = 0): number => {
     return Number.isFinite(numberValue) ? numberValue : fallback;
 };
 
+const toNullableNumber = (value: unknown, fallback: number | null = 0): number | null => {
+    if (value === null) return null;
+    if (value === undefined || value === '') return fallback;
+    const numberValue = Number(value);
+    return Number.isFinite(numberValue) ? numberValue : fallback;
+};
+
 const toStringValue = (value: unknown, fallback = ''): string => {
     if (value === null || value === undefined) return fallback;
     return String(value);
@@ -64,14 +71,16 @@ export const normalizeMatchForFrontend = (input: unknown): Match | null => {
         mode: toStringValue(source.mode, 'Unknown'),
         map: normalizeMapDisplayName(toStringValue(source.map, 'Unknown')),
         legend: (source.legend === undefined ? null : source.legend) as string | null,
-        placement: source.placement === undefined || source.placement === null ? 0 : source.placement as number | string,
-        kills: toNumber(source.kills),
-        assists: toNumber(source.assists),
+        placement: source.placement === null
+            ? null
+            : (source.placement === undefined ? 0 : source.placement) as number | string | null,
+        kills: toNullableNumber(source.kills, 0),
+        assists: toNullableNumber(source.assists, 0),
         deaths: source.deaths === undefined || source.deaths === null
             ? null
             : toNumber(source.deaths),
-        knocks: toNumber(source.knocks),
-        damage: toNumber(source.damage),
+        knocks: toNullableNumber(source.knocks, 0),
+        damage: toNullableNumber(source.damage, 0),
         squadKills: toNumber(source.squadKills ?? source.squad_kills),
         ultimatesUsed: toNumber(source.ultimatesUsed ?? source.ultimates_used),
         headshots: toNumber(source.headshots),
@@ -98,6 +107,13 @@ export const normalizeMatchForFrontend = (input: unknown): Match | null => {
         teamStats: toArray(source.teamStats ?? source.team_stats),
         teammateKills: toObject(source.teammateKills ?? source.teammate_kills, {}),
         isKillLeader: (source.isKillLeader ?? source.is_kill_leader) as boolean | undefined,
+        dataQuality: (source.dataQuality as Match['dataQuality']) ?? undefined,
+        confidence: source.confidence === undefined || source.confidence === null
+            ? undefined
+            : toNumber(source.confidence),
+        missingSignals: Array.isArray(source.missingSignals)
+            ? source.missingSignals as string[]
+            : undefined,
     } satisfies Match;
 
     PRIVATE_KEYS.forEach((key) => {

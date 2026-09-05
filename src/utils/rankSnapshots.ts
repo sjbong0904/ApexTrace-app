@@ -8,6 +8,26 @@ export interface DailyRankSnapshot {
     rank_name: string | null;
 }
 
+/** UTC calendar date string (YYYY-MM-DD) for an instant. */
+function utcDateString(ms: number): string {
+    return new Date(ms).toISOString().slice(0, 10);
+}
+
+/** Previous UTC calendar day as YYYY-MM-DD. */
+function previousUtcDateString(dateStr: string): string {
+    const ms = Date.parse(`${dateStr}T00:00:00.000Z`);
+    return utcDateString(ms - 24 * 60 * 60 * 1000);
+}
+
+/**
+ * Inclusive UTC date range for daily_rank_snapshots belonging to a season.
+ *
+ * Season boundaries are mid-day UTC (typically 18:00). The calendar date of the
+ * exclusive end is the next season's start day; after reset, ALS overwrites that
+ * day's snapshot with the post-reset RP (table is keyed by uid+date only).
+ * Exclude that transition date from the previous season so net change / last-day
+ * delta do not absorb the season reset.
+ */
 export function getSeasonSnapshotDateRange(
     seasons: Season[],
     selectedSeasonId: number,
@@ -15,10 +35,17 @@ export function getSeasonSnapshotDateRange(
     const current = seasons.find(s => s.id === selectedSeasonId);
     if (!current?.startTime) return null;
 
-    const startDate = new Date(current.startTime).toISOString().slice(0, 10);
+    const startDate = utcDateString(current.startTime);
     const exclusiveEnd = resolveSeasonEndMs(seasons, selectedSeasonId);
-    const endMs = exclusiveEnd != null ? exclusiveEnd - 1 : Date.now();
-    const endDate = new Date(endMs).toISOString().slice(0, 10);
+
+    let endDate: string;
+    if (exclusiveEnd == null) {
+        endDate = utcDateString(Date.now());
+    } else {
+        // Day before next season's start date (exclusiveEnd's UTC calendar day).
+        endDate = previousUtcDateString(utcDateString(exclusiveEnd));
+        if (endDate < startDate) endDate = startDate;
+    }
 
     return { startDate, endDate };
 }
@@ -39,7 +66,6 @@ export async function fetchDailyRankSnapshots(
         .order('snapshot_date', { ascending: true });
 
     if (error || !data) {
-        console.warn('[rankSnapshots] fetch failed:', error?.message);
         return [];
     }
 

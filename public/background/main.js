@@ -6,11 +6,8 @@ const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 
 // 3. window 객체에 할당
 if (!window._supabase) {
-    console.log("🔧 Initializing Supabase Client manually...");
     window._supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 }
-
-console.log("🚀 Initializing Apex Trace");
 
 const TARGET_GAME_ID = 21566;
 const HOTKEYS = {
@@ -608,7 +605,6 @@ const TrayController = {
                 return;
             }
             TrayController._initialized = true;
-            console.log('System tray icon ready');
         });
 
         if (!TrayController._listenersBound) {
@@ -646,9 +642,8 @@ const TrayController = {
                 WindowController.showSecondScreen();
                 break;
             case 'tray_discord':
-                overwolf.utils.openUrlInDefaultBrowser(OFFICIAL_DISCORD_URL, {
-                    skip_in_game_notification: true,
-                });
+                // 1-arg only — 2-arg throws on some OW clients (STORE-QA #5)
+                overwolf.utils.openUrlInDefaultBrowser(OFFICIAL_DISCORD_URL);
                 break;
             case 'tray_restart':
                 if (window.Store?.activeMatch && window.CoreController?.endMatch) {
@@ -667,7 +662,6 @@ const TrayController = {
 
 const ConfigController = {
     init: async () => {
-        console.log("🚀 [ConfigController] init() called");
         if (!window._supabase) return;
         try {
             const { data, error } = await window._supabase
@@ -682,7 +676,6 @@ const ConfigController = {
                     startTime: s.start_time ? Number(s.start_time) : 0,
                     endTime: s.end_time != null ? Number(s.end_time) : null,
                 }));
-                console.log("✅ [ConfigController] Seasons loaded from public.seasons");
             }
 
             const { data: constants, error: constantsError } = await window._supabase
@@ -714,10 +707,8 @@ const ConfigController = {
                     }));
                 }
             });
-
-            console.log("✅ [ConfigController] Config loaded from DB");
         } catch (e) {
-            console.error("💥 [ConfigController] Error:", e);
+            console.error("[ConfigController] Error:", e);
         }
     }
 };
@@ -740,6 +731,8 @@ window.Store = {
     history: [],
     preMatchRoster: [],
     pendingMatches: [],
+    /** Last GEP coordinate of the previous session — stale-location guard for the next one. */
+    lastSessionEndPos: null,
     system: { candidates: null },
     /** Overlay hook health for in-game window (surfaced on desktop/in-game UI). */
     overlayHealth: { hookError: false, at: 0 }
@@ -883,7 +876,9 @@ const GameStatePoller = {
                         try {
                             const loc = JSON.parse(locData);
                             if (loc.x !== undefined && loc.y !== undefined) {
-                                window.CoreController.updateMatch('LOCATION_UPDATE', { x: loc.x, y: loc.y, z: loc.z || 0 });
+                                // Phase from the same snapshot — PATH uses it to drop pre-drop / stale coords.
+                                const phase = gameInfo.phase ? String(gameInfo.phase).toLowerCase() : undefined;
+                                window.CoreController.updateMatch('LOCATION_UPDATE', { x: loc.x, y: loc.y, z: loc.z || 0, phase });
                             }
                         } catch (e) {}
                     }
@@ -1024,7 +1019,7 @@ const CoreController = {
                     if (!useCachedStats && apiStats && window.CloudRepository.upsertDailyRankSnapshot) {
                         window.CloudRepository
                             .upsertDailyRankSnapshot(normalizedUser.uid, normalizedUser, 'als')
-                            .catch((e) => console.warn('[Repository] Daily rank snapshot failed:', e));
+                            .catch(() => {});
                     }
                 }
                 
@@ -1043,7 +1038,6 @@ const CoreController = {
                     if (active.playerName === 'Unknown') active.playerName = normalizedUser.name;
                 }
             
-                console.log(`[Core] User Profile Loaded from ${source} (Name: ${window.Store.user.name}, History: ${window.Store.history.length})`);
                 return { success: true, data: { ...window.Store.user }, history: window.Store.history };
             } else {
                 return { success: false, message: "Failed to load user profile" };
@@ -1228,6 +1222,8 @@ const CoreController = {
 
     _isJunkMatch: (match) => {
         if (window.Utils?.shouldDiscardHollowStatGhost?.(match)) return true;
+        // Tabs/combat mismatch is kept as an incomplete record (null stats later).
+        if (window.Utils?.isIncompleteTabsCombatMismatch?.(match)) return false;
         // Keepable hollow half of a split — lift kills from combat log before other junk gates.
         if (window.Utils?.isHollowStatGhost?.(match)) {
             window.Utils.backfillTabsFromCombatLog?.(match);
@@ -1331,6 +1327,7 @@ const CoreController = {
         }
 
         match._ending = true;
+        CoreController._rememberSessionEndPos(match);
         if (CoreController._isJunkMatch(match)) {
             window.Utils.matchLog('Discarded junk session', {
                 matchId: match.matchId,
@@ -1384,7 +1381,7 @@ const CoreController = {
                 window.Store.preMatchRoster = [];
             }
         } catch (e) {
-            console.error("❌ Match Init Error (Handled safely):", e);
+            console.error("Match Init Error (Handled safely):", e);
         }
 
         // 🌟 에러가 나든 안 나든, 워커(Worker) 스캐너는 무조건 켜지도록 보장됨!
@@ -1410,8 +1407,10 @@ const CoreController = {
             }
 
             if (type === 'LOCATION_UPDATE') {
-                if (!match.startPos) match.startPos = data;
-                match.endPos = data;
+                // Raw last reading (even while dead) — next session uses it to reject the
+                // stale GEP coordinate carried over from this match (QA §5.2 이슈 B).
+                match._lastSeenLoc = { x: data.x, y: data.y };
+                // startPos / endPos are set by PATH only from accepted points.
                 window.MatchService.updateSession(match, 'PATH', data);
                 return;
             }
@@ -1430,6 +1429,14 @@ const CoreController = {
         }
     },
 
+    /** Remember where GEP last placed us so the next session can reject that stale coordinate. */
+    _rememberSessionEndPos: (match) => {
+        const last = match?._lastSeenLoc || match?.endPos;
+        if (last && typeof last.x === 'number' && typeof last.y === 'number') {
+            window.Store.lastSessionEndPos = { x: Math.round(last.x), y: Math.round(last.y), at: Date.now() };
+        }
+    },
+
     endMatch: async () => {
         const match = window.Store.activeMatch;
         if (!match || match._ending) return;
@@ -1437,6 +1444,7 @@ const CoreController = {
         window.Store.activeMatch = null;
         window.Utils.sendWorkerMessage('CMD_STOP_SCAN');
         GameStatePoller.stop();
+        CoreController._rememberSessionEndPos(match);
 
         if (CoreController._isJunkMatch(match)) {
             window.Utils.matchLog('Discarded junk active session', {
@@ -1613,7 +1621,6 @@ const GameProcessMonitor = {
                 });
                 
                 // Desktop restore via shared helper so _isWindowOpen stays in sync
-                console.log("Game closed. Restoring desktop window...");
                 WindowController._showDeclaredWindow('desktop', {
                     grabFocus: true,
                     desktopPlacement: 'restore',
@@ -1625,21 +1632,24 @@ const GameProcessMonitor = {
     registerFeatures: () => {
         if (GameProcessMonitor._featuresRegistered || GameProcessMonitor._retryTimer) return; 
 
+        // Apex Available Features: https://dev.overwolf.com/ow-native/live-game-data-gep/supported-games/apex-legends
         const REQUIRED_FEATURES = window.GEP_FEATURES ?? [
-            'gep_internal', 'game_info', 'match_info', 'kill', 'death', 'revive',
+            'gep_internal', 'game_info', 'match_info', 'match_summary', 'kill', 'death', 'revive',
             'me', 'roster', 'rank', 'team', 'location', 'inventory', 'kill_feed', 'match_state', 'damage'
         ];
         const RETRY_DELAY = 3000;
+        const isGepSuccess = (result) =>
+            !!result && (result.success === true || result.status === 'success');
 
         overwolf.games.events.setRequiredFeatures(REQUIRED_FEATURES, (res) => {
-            if (res.status === 'success') {
+            if (isGepSuccess(res)) {
                 GameProcessMonitor._featuresRegistered = true;
                 if (GameProcessMonitor._retryTimer) {
                     clearTimeout(GameProcessMonitor._retryTimer);
                     GameProcessMonitor._retryTimer = null;
                 }
                 overwolf.games.events.getInfo((infoRes) => {
-                    if (infoRes && infoRes.res && infoRes.status === 'success') {
+                    if (infoRes?.res && isGepSuccess(infoRes)) {
                         if (window.EventRouter && window.EventRouter.onInfoUpdates) {
                             window.EventRouter.onInfoUpdates({ info: infoRes.res });
                         }

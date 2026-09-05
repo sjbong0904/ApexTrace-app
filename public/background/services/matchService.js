@@ -105,16 +105,9 @@ class MatchService {
                 if (teams) {
                     if (match._isVictory) {
                         match.placement = 1;
-                    } else if (
-                        !match._matchSummaryRank
-                        && MatchService._isSquadOut(match)
-                        && (match.placement === 20 || match.placement === 0)
-                    ) {
-                        const estimate = window.Utils?.estimatePlacementFromTeamsAlive?.(match, teams);
-                        if (estimate) {
-                            match.placement = estimate;
-                            match._estimatedPlacement = estimate;
-                        }
+                    } else if (!match._matchSummaryRank) {
+                        // Local death alone never fixes the rank — see Utils.applyPlacementEstimate.
+                        window.Utils?.applyPlacementEstimate?.(match, teams);
                     }
                 }
                 break;
@@ -218,13 +211,35 @@ class MatchService {
             case 'PATH':{
                 if (!data || (data.x === 0 && data.y === 0)) return;
                 if (match.isDead || match._pathRecording === false) return;
+
+                const phase = String(data.phase || match._currentPhase || '').toLowerCase();
+                // Pre-drop phases only ever carry the previous match's cached coordinate.
+                if (MatchService.PRE_MATCH_PHASES.has(phase)) return;
+
+                const point = { x: Math.round(data.x), y: Math.round(data.y) };
+
+                // First point of the session — GEP keeps serving the last match's death spot
+                // until the new match writes a location (QA §5.2 이슈 B).
+                if (match.path.length === 0) {
+                    if (MatchService._isStaleSessionStart(match, point)) return;
+                    // Require movement before trusting the very first coordinate.
+                    const first = match._firstLocationSample;
+                    if (!first) {
+                        match._firstLocationSample = point;
+                        return;
+                    }
+                    if (first.x === point.x && first.y === point.y) return;
+                }
+
                 const now = Date.now();
                 if (now - (match._lastLocationTime || 0) > 1000) {
+                    if (!match.startPos) match.startPos = { x: point.x, y: point.y, z: data.z || 0 };
+                    match.endPos = { x: point.x, y: point.y, z: data.z || 0 };
                     match.path.push({
-                        x: Math.round(data.x),
-                        y: Math.round(data.y),
+                        x: point.x,
+                        y: point.y,
                         t: now,
-                        p: match._currentPhase || 'unknown',
+                        p: phase || 'unknown',
                         s: match._pathSegment || 0
                     });
                     match._lastLocationTime = now;
@@ -426,9 +441,29 @@ class MatchService {
         match.squadKills = Math.max(match.squadKills, myKills + teammatesKills);
     }
 
+    /** Phases where `location` is not the player in this match yet. */
+    static PRE_MATCH_PHASES = new Set(['lobby', 'legend_selection', 'loading']);
+
+    /** First coordinate equals the previous session's last GEP reading ⇒ stale carry-over. */
+    static _isStaleSessionStart(match, point) {
+        const prev = window.Store?.lastSessionEndPos;
+        if (!prev) return false;
+        const stale = Math.abs(prev.x - point.x) <= 1 && Math.abs(prev.y - point.y) <= 1;
+        if (stale && !match._loggedStaleStart) {
+            match._loggedStaleStart = true;
+            window.Utils?.matchLog?.('Rejected stale first location (previous session end)', {
+                matchId: match.matchId,
+                point,
+                prev: { x: prev.x, y: prev.y },
+            });
+        }
+        return stale;
+    }
+
     static _isSquadOut(match) {
         if (!match) return false;
         if (match._squadEliminated) return true;
+        if (window.Utils?.isSquadOutInferred) return window.Utils.isSquadOutInferred(match);
         if (!match.isDead) return false;
         const teammates = match.teamStats || [];
         if (teammates.length === 0) return true;
@@ -439,13 +474,17 @@ class MatchService {
         if (!match) return 20;
         if (match._isVictory) return 1;
         if (match._matchSummaryRank) return match._matchSummaryRank;
-        if (match.placement > 0 && match.placement < 20) return match.placement;
-        if (match._estimatedPlacement) return match._estimatedPlacement;
+        // Everything below is an estimate. Rank 1 only ever comes from the two
+        // authoritative signals above, so clamp estimates to 2nd or worse.
+        const floor = window.Utils?.MIN_ESTIMATED_PLACEMENT ?? 2;
+        const asEstimate = (value) => Math.max(floor, value);
+        if (match.placement > 0 && match.placement < 20) return asEstimate(match.placement);
+        if (match._estimatedPlacement) return asEstimate(match._estimatedPlacement);
         if (MatchService._isSquadOut(match)) {
             const estimate = window.Utils?.estimatePlacementFromTeamsAlive?.(match);
-            if (estimate) return estimate;
+            if (estimate) return asEstimate(estimate);
         }
-        return match.placement || 20;
+        return match.placement ? asEstimate(match.placement) : 20;
     }
 
     static isGhostMatch(match, durationSeconds) {
@@ -465,7 +504,8 @@ class MatchService {
             '_lastKnownTeams', '_lastUltValue', '_currentPhase', '_rosterCache', '_squadNames',
             '_unknownKillers', 'startPos', 'endPos', '_pathSegment', '_pathRecording',
             '_squadEliminated', '_lastTeamsAlive', '_minTeamsAlive',
-            '_matchSummaryRank', '_estimatedPlacement',
+            '_matchSummaryRank', '_estimatedPlacement', '_placementEstimateFrozen', '_summaryWhileSquadAlive',
+            '_lastSeenLoc', '_firstLocationSample', '_loggedStaleStart',
             '_pendingKnocks', '_combatPairs', '_squadCombatPairs', '_assistVictimQueue', '_lastDamageLogAt', '_gepPseudoMatchId',
             '_boundaryLastKills', '_boundaryLastDamage', '_boundaryLastTeams',
             '_discardUpload', '_uploadQueuedAt', '_hadLocalLegendSelect',
@@ -562,15 +602,34 @@ class MatchService {
             window.Utils.applyMissingModeFallback(match);
         }
 
+        const placementBeforeResolve = match.placement;
         match.placement = MatchService.resolveFinalPlacement(match);
         if (match._matchSummaryRank || match._isVictory) {
             match.placement = match._isVictory ? 1 : match._matchSummaryRank;
             delete match._estimatedPlacement;
         } else if (match.placement > 0 && match.placement !== 20) {
+            // Estimated result: keep the estimate flag in sync with the clamped value so
+            // history shows it as estimated (never as a win).
+            if (match._estimatedPlacement && match._estimatedPlacement !== match.placement) {
+                match._estimatedPlacement = match.placement;
+            }
             match._guessedRank = match._guessedRank == null
                 ? match.placement
                 : Math.min(match._guessedRank, match.placement);
         }
+
+        // Always-on audit line (background.html.log keeps WARN). Lets us see, per match,
+        // whether the final rank came from summary/victory or from a teams-alive estimate.
+        console.warn(`[MatchAudit] placement resolved ${JSON.stringify({
+            matchId: match.matchId,
+            placement: match.placement,
+            source: match._isVictory ? 'victory' : (match._matchSummaryRank ? 'match_summary' : 'estimate'),
+            rawBefore: placementBeforeResolve,
+            minTeamsAlive: match._minTeamsAlive ?? null,
+            lastTeamsAlive: match._lastTeamsAlive ?? null,
+            squadEliminated: !!match._squadEliminated,
+            isDead: !!match.isDead,
+        })}`);
 
         if (window.EventRouter?.ensureDeathCombatLogForPlayer) {
             window.EventRouter.ensureDeathCombatLogForPlayer(match);
@@ -584,14 +643,20 @@ class MatchService {
             window.Utils.syncWeaponCombatFromEvents(match);
         }
 
-        // Hollow-but-kept split half: recover kill/assist counts before ghost gate.
-        if (window.Utils?.isHollowStatGhost?.(match)
+        // Incomplete tabs/combat mismatch: never invent kills from the log.
+        // Other hollow split halves may still backfill before the ghost gate.
+        const incompleteMismatch = !!window.Utils?.isIncompleteTabsCombatMismatch?.(match);
+        if (!incompleteMismatch
+            && window.Utils?.isHollowStatGhost?.(match)
             && !window.Utils?.shouldDiscardHollowStatGhost?.(match)) {
             window.Utils.backfillTabsFromCombatLog?.(match);
         }
 
         const durationSeconds = (match.endTime - match.startTime) / 1000;
-        if (!match.squadKills || match.squadKills < match.kills) match.squadKills = match.kills;
+        if (match.kills != null
+            && (!match.squadKills || match.squadKills < match.kills)) {
+            match.squadKills = match.kills;
+        }
 
         if (MatchService.isGhostMatch(match, durationSeconds)) {
             const hollow = !!window.Utils?.shouldDiscardHollowStatGhost?.(match);
@@ -615,6 +680,9 @@ class MatchService {
         if (window.Utils?.applyLegendFromPreviousMatch) {
             window.Utils.applyLegendFromPreviousMatch(match);
         }
+
+        // Persist null placement/stats instead of fake 20 / 0/0/0.
+        window.Utils?.applyIncompleteTabsCombatMismatch?.(match);
 
         if (window.Utils?.finalizeMatchDataQuality) {
             window.Utils.finalizeMatchDataQuality(match);

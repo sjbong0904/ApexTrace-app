@@ -1,5 +1,5 @@
 // src/background/worker.js
-if (typeof Utils === 'undefined') console.error('❌ Utils missing!');
+if (typeof Utils === 'undefined') console.error('[Worker] Utils missing!');
 
 const getPlatformMap = () => {
     try {
@@ -109,10 +109,6 @@ const RosterScanner = {
 
                 const isLocal = (p.is_local === true || p.is_local === "true" || p.is_local == 1);
                 if (isLocal && mainUid) {
-                    // ✅ 알 수 없는 hw값 발견 시 로그
-                    if (hwId !== null && !PLATFORM_MAP[hwId]) {
-                        console.warn(`[Worker] Unknown platform_hw: ${hwId} for ${pName}`);
-                    }
                     MainBridge.reportLocalIdentity(mainUid, pName);
                 }
 

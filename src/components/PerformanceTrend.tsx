@@ -1,12 +1,16 @@
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { Match } from '../types';
+import { hasUsableMatchStats } from '../utils/match';
 import { getRankColor } from '../utils/helpers';
 
 const PerformanceTrend = ({ history, embedded = false }: { history: Match[]; embedded?: boolean }) => {
     const { t } = useTranslation();
 
-    const data = useMemo(() => history.slice(0, 20).reverse(), [history]);
+    const data = useMemo(
+        () => history.filter((m) => hasUsableMatchStats(m)).slice(0, 20).reverse(),
+        [history],
+    );
 
     const width = 600;
     const height = embedded ? 88 : 120;

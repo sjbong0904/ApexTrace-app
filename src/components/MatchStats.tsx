@@ -24,17 +24,43 @@ const AutoResizingText = ({ text, baseSize = 16, color = 'var(--color-text-prima
     else if (len > 14) fontSize = baseSize * 0.9;
 
     return (
-        <div style={{
-            fontSize: `${fontSize}px`,
-            fontWeight: weight,
-            color: color,
-            whiteSpace: 'nowrap',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            width: '100%',
-            lineHeight: '1.2'
-        }} title={str}>
-            {str}{suffix && <span style={{ fontSize: `${fontSize * 0.7}px`, fontWeight: 'normal', color: 'var(--color-text-muted)', marginLeft: '2px' }}>{suffix}</span>}
+        <div
+            style={{
+                display: 'flex',
+                alignItems: 'baseline',
+                width: '100%',
+                minWidth: 0,
+                lineHeight: '1.2',
+                overflow: 'hidden',
+            }}
+            title={suffix ? `${str}${suffix}` : str}
+        >
+            <span
+                style={{
+                    fontSize: `${fontSize}px`,
+                    fontWeight: weight,
+                    color: color,
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    minWidth: 0,
+                }}
+            >
+                {str}
+            </span>
+            {suffix ? (
+                <span
+                    style={{
+                        fontSize: `${fontSize * 0.7}px`,
+                        fontWeight: 'normal',
+                        color: 'var(--color-text-muted)',
+                        marginLeft: '2px',
+                        flexShrink: 0,
+                    }}
+                >
+                    {suffix}
+                </span>
+            ) : null}
         </div>
     );
 };
