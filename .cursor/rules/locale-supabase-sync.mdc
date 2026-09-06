@@ -1,0 +1,16 @@
+---
+description: After editing locale seeds, sync translations to Supabase automatically
+globs: scripts/locale-seeds/**/*.json
+alwaysApply: true
+---
+
+# Locale → Supabase sync
+
+When you add, update, or remove keys in `scripts/locale-seeds/*.json`:
+
+1. Keep all language seed files in sync (same keys across en, ko, ja, etc.).
+2. **Always run** `npm run seed:languages` from the repo root before finishing the task.
+3. If seed fails (missing credentials), report the error and tell the user which env vars are needed (`SUPABASE_SERVICE_ROLE_KEY` or `SUPABASE_ANON_KEY` in `.env` or `trace-proxy-server/.env`).
+4. Do not ask whether to sync — syncing is mandatory whenever locale seeds change.
+
+The seed script upserts all packs via `upsert_language_pack` and deactivates legacy lang codes.

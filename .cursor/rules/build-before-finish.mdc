@@ -1,0 +1,15 @@
+---
+description: Run production build before finishing implementation tasks
+alwaysApply: true
+---
+
+# Build before finish
+
+When you change source code (`src/**`, `public/**`, config, or TypeScript/build files):
+
+1. **Always run** `npm run build` from the repo root before finishing the task.
+2. If the build fails, fix TypeScript/Vite errors and re-run until it passes.
+3. Do not ask whether to build — building is mandatory after code changes.
+4. Locale seed changes still require `npm run seed:languages` per the locale sync rule (run both when both apply).
+
+Report build failures clearly; do not mark the task complete with a broken build.

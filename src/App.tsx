@@ -54,23 +54,12 @@ const FALLBACK_SEASONS: Season[] = [
   { id: 1, name: "Season 27 : Split 2", startTime: 0, endTime: new Date("2026-02-10T18:00:00Z").getTime() }
 ];
 
-const ProfileLoadingOverlay = ({ label, stickToScrollport = false }: { label: string; stickToScrollport?: boolean }) => (
+const ProfileLoadingOverlay = ({ label }: { label: string }) => (
     <div
         aria-busy
         style={{
-            /* stickToScrollport: overlay stays on the visible area of overflow:auto.
-               Absolute+inset:0 only covers the first viewport, so scrolling revealed content. */
-            ...(stickToScrollport
-                ? {
-                    position: 'sticky' as const,
-                    top: 0,
-                    height: '100%',
-                    marginBottom: '-100%',
-                }
-                : {
-                    position: 'absolute' as const,
-                    inset: 0,
-                }),
+            position: 'absolute',
+            inset: 0,
             zIndex: 50,
             background: 'color-mix(in srgb, var(--color-bg-main) 88%, transparent)',
             display: 'flex',
@@ -1370,6 +1359,18 @@ const App = () => {
                         </div>
                     </div>
                 
+                    <div style={{
+                        flex: 1,
+                        minHeight: 0,
+                        minWidth: 0,
+                        position: 'relative',
+                        overflow: 'hidden',
+                        display: 'flex',
+                        flexDirection: 'column',
+                    }}>
+                        {isProfileLoading && (mainTab === "DASHBOARD" || mainTab === "STATISTICS") && (
+                            <ProfileLoadingOverlay label={t('search.loadingProfile')} />
+                        )}
                     <div ref={mainScrollRef} style={{
                         padding: mainTab === 'TIER_TABLE' ? 0 : (isNarrowLayout ? '16px' : '30px'),
                         overflowY: (
@@ -1379,12 +1380,10 @@ const App = () => {
                         overflowX: 'hidden',
                         flex: 1,
                         height: '100%',
+                        minHeight: 0,
                         position: 'relative',
                         minWidth: 0,
                     }}>
-                        {isProfileLoading && (mainTab === "DASHBOARD" || mainTab === "STATISTICS") && (
-                            <ProfileLoadingOverlay stickToScrollport label={t('search.loadingProfile')} />
-                        )}
                         {(mainTab === "DASHBOARD" || mainTab === "STATISTICS") && (
                             <InlineProfileSection
                                 modeTabsSlot={mainTab === "DASHBOARD" ? (
@@ -1748,6 +1747,7 @@ const App = () => {
                                 )}
                             </>
                         )}
+                    </div>
                     </div>
                 </div>
                 {showDesktopAds && <AdsRail paused={adsPaused} />}
