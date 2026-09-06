@@ -1172,9 +1172,23 @@ const applyMatchSummaryToMatch = (match, raw) => {
                 isDead: !!match.isDead,
             });
         }
+        const prevSummaryRank = match._matchSummaryRank;
         match.placement = rank;
         match._guessedRank = rank;
         match._matchSummaryRank = rank;
+        if (prevSummaryRank !== rank) {
+            // Always-on audit (WARN survives in background.html.log) — pairs with
+            // "[MatchAudit] placement resolved" so summary delivery can be verified per match.
+            console.warn(`[MatchAudit] match_summary applied ${JSON.stringify({
+                matchId: match.matchId,
+                rank,
+                previousSummaryRank: prevSummaryRank ?? null,
+                previousEstimate: prevEstimated ?? null,
+                squadEliminated: !!match._squadEliminated,
+                isDead: !!match.isDead,
+                ending: !!match._ending,
+            })}`);
+        }
         // Summary beats tabs/teams estimates for both value and quality flags.
         delete match._estimatedPlacement;
         if (Array.isArray(match.missingSignals)) {
@@ -1274,7 +1288,9 @@ const handleTeamInfoUpdate = (match, raw) => {
 
 const applyInfoToMatch = (infoRoot, match) => {
     if (!match) return;
-    const info = infoRoot?.info || infoRoot;
+    // onInfoUpdates2 nests under `.info`; overwolf.games.events.getInfo returns `{ success, res }`.
+    // Without `.res` the post-match_end refresh polling silently applied nothing.
+    const info = infoRoot?.info || infoRoot?.res || infoRoot;
     if (!info || typeof info !== 'object') return;
 
     const data = {

@@ -107,11 +107,15 @@
                 }
             });
 
-            if (updates.length > 0) {
+            // A full roster (~60) in one POST pushed the proxy past its 10s limit (504).
+            // Send sequential chunks so each function invocation stays well under it.
+            const CHUNK_SIZE = 20;
+            for (let i = 0; i < updates.length; i += CHUNK_SIZE) {
+                const chunk = updates.slice(i, i + CHUNK_SIZE);
                 try {
-                    await requestProxy('/address-book', 'POST', { updates });
+                    await requestProxy('/address-book', 'POST', { updates: chunk });
                 } catch (e) {
-                    console.error(`[Repository] Bulk Update Failed:`, e);
+                    console.error(`[Repository] Bulk Update Failed (chunk ${i / CHUNK_SIZE + 1}):`, e);
                 }
             }
         },
