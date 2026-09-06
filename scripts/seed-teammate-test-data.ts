@@ -107,52 +107,48 @@ const toNumber = (value: unknown, fallback = 0) => {
 
 const toArray = <T>(value: unknown): T[] => (Array.isArray(value) ? value as T[] : []);
 
-const sanitizeLegacyMatch = (match: LegacyMatch) => ({ ...match });
-
-const legacyMatchFromRow = (row: Record<string, unknown>, includeDetail = false): LegacyMatch => {
-    const legacy = sanitizeLegacyMatch((row.legacy_match ?? {}) as LegacyMatch);
-    const rank = (legacy.rank ?? row.rank ?? {}) as LegacyMatch['rank'];
-    const loadout = (legacy.loadout ?? row.loadout ?? {}) as LegacyMatch['loadout'];
+const matchFromRow = (row: Record<string, unknown>, includeDetail = false): LegacyMatch => {
+    const rank = (row.rank ?? {}) as LegacyMatch['rank'];
+    const loadout = (row.loadout ?? {}) as LegacyMatch['loadout'];
 
     return {
-        ...legacy,
-        matchId: String(legacy.matchId ?? row.match_id),
-        platformId: String(legacy.platformId ?? row.uid ?? TARGET_UID),
-        playerName: legacy.playerName ?? TARGET_PLAYER_NAME,
-        mode: String(legacy.mode ?? row.mode ?? 'Ranked'),
-        map: String(legacy.map ?? row.map ?? 'Unknown'),
-        legend: String(legacy.legend ?? row.legend ?? 'wraith'),
-        placement: toNumber(legacy.placement ?? row.placement),
-        kills: toNumber(legacy.kills ?? row.kills),
-        assists: toNumber(legacy.assists ?? row.assists),
-        knocks: toNumber(legacy.knocks ?? row.knocks),
-        damage: toNumber(legacy.damage ?? row.damage),
-        squadKills: toNumber(legacy.squadKills ?? row.squad_kills),
-        ultimatesUsed: toNumber(legacy.ultimatesUsed ?? row.ultimates_used),
-        headshots: toNumber(legacy.headshots ?? row.headshots),
+        matchId: String(row.match_id),
+        platformId: String(row.uid ?? TARGET_UID),
+        playerName: (row.player_name as string | undefined) ?? TARGET_PLAYER_NAME,
+        mode: String(row.mode ?? 'Ranked'),
+        map: String(row.map ?? 'Unknown'),
+        legend: String(row.legend ?? 'wraith'),
+        placement: toNumber(row.placement),
+        kills: toNumber(row.kills),
+        assists: toNumber(row.assists),
+        knocks: toNumber(row.knocks),
+        damage: toNumber(row.damage),
+        squadKills: toNumber(row.squad_kills),
+        ultimatesUsed: toNumber(row.ultimates_used),
+        headshots: toNumber(row.headshots),
         rank: {
             name: rank.name ?? 'Platinum',
             score: toNumber(rank.score),
             startScore: toNumber(rank.startScore),
         },
-        rpChange: toNumber(legacy.rpChange ?? row.rp_change),
-        rpProcessed: Boolean(legacy.rpProcessed ?? row.rp_processed),
-        startTime: toNumber(legacy.startTime ?? row.start_time),
-        endTime: toNumber(legacy.endTime ?? row.end_time),
+        rpChange: toNumber(row.rp_change),
+        rpProcessed: Boolean(row.rp_processed),
+        startTime: toNumber(row.start_time),
+        endTime: toNumber(row.end_time),
         loadout: {
             primary: loadout.primary ?? 'r301',
             secondary: loadout.secondary ?? 'mastiff',
         },
-        path: includeDetail ? toArray(legacy.path ?? row.path) : [],
-        ringRounds: includeDetail ? toArray(legacy.ringRounds ?? row.ring_rounds) : [],
-        weaponTimeline: includeDetail ? toArray(legacy.weaponTimeline ?? row.weapon_timeline) : [],
-        events: includeDetail ? toArray(legacy.events ?? row.events) : [],
-        teamStats: toArray(legacy.teamStats ?? row.team_stats),
-        teammateKills: (legacy.teammateKills ?? row.teammate_kills ?? {}) as Record<string, number>,
+        path: includeDetail ? toArray(row.path) : [],
+        ringRounds: includeDetail ? toArray(row.ring_rounds) : [],
+        weaponTimeline: includeDetail ? toArray(row.weapon_timeline) : [],
+        events: includeDetail ? toArray(row.events) : [],
+        teamStats: toArray(row.team_stats),
+        teammateKills: (row.teammate_kills ?? {}) as Record<string, number>,
     };
 };
 
-const normalizedRowFromLegacyMatch = (uid: string, match: LegacyMatch, seasonId: number) => ({
+const rowFromMatch = (uid: string, match: LegacyMatch, seasonId: number) => ({
     match_id: String(match.matchId),
     uid,
     season_id: seasonId,
@@ -161,6 +157,7 @@ const normalizedRowFromLegacyMatch = (uid: string, match: LegacyMatch, seasonId:
     mode: match.mode,
     map: match.map,
     legend: match.legend,
+    player_name: match.playerName ?? TARGET_PLAYER_NAME,
     placement: match.placement,
     kills: match.kills,
     assists: match.assists,
@@ -182,8 +179,7 @@ const normalizedRowFromLegacyMatch = (uid: string, match: LegacyMatch, seasonId:
     ring_rounds: [],
     weapon_timeline: [],
     teammate_kills: match.teammateKills,
-    legacy_match: sanitizeLegacyMatch(match),
-    schema_version: 2,
+    missing_signals: null,
 });
 
 const matchTime = (match: LegacyMatch) => match.startTime ?? match.endTime;
@@ -217,7 +213,7 @@ async function recomputePlayerSeasonStats(uid: string, seasonId: number, mode: S
 
     let query = supabase
         .from('matches')
-        .select('match_id, uid, start_time, end_time, mode, map, legend, placement, kills, assists, knocks, damage, squad_kills, ultimates_used, headshots, rank, loadout, team_stats, teammate_kills, legacy_match, schema_version, season_id')
+        .select('match_id, uid, start_time, end_time, mode, map, legend, player_name, placement, kills, assists, knocks, damage, squad_kills, ultimates_used, headshots, rank, loadout, team_stats, teammate_kills, season_id')
         .eq('uid', uid)
         .gte('start_time', season.start_time)
         .order('start_time', { ascending: false });
@@ -230,7 +226,7 @@ async function recomputePlayerSeasonStats(uid: string, seasonId: number, mode: S
     if (error) throw error;
 
     const summaryMatches = (rows ?? [])
-        .map(row => legacyMatchFromRow(row as Record<string, unknown>, false))
+        .map(row => matchFromRow(row as Record<string, unknown>, false))
         .filter(match => matchesStatisticsMode(match.mode, mode));
 
     let payload = { matches: [] as LegacyMatch[] };
@@ -244,7 +240,6 @@ async function recomputePlayerSeasonStats(uid: string, seasonId: number, mode: S
         mode,
         match_count: summaryMatches.length,
         payload,
-        schema_version: 1,
         updated_at: new Date().toISOString(),
     };
 
@@ -357,7 +352,7 @@ async function cleanTestData() {
 
 async function seedTestData() {
     const matches = buildTestMatches();
-    const rows = matches.map(match => normalizedRowFromLegacyMatch(TARGET_UID, match, CURRENT_SEASON_ID));
+    const rows = matches.map(match => rowFromMatch(TARGET_UID, match, CURRENT_SEASON_ID));
 
     const { error: upsertError } = await supabase
         .from('matches')

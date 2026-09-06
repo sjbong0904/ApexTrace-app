@@ -35,9 +35,6 @@ export const resolveMapName = (raw: string): string | null => {
     return TARGET_MAPS.find(t => t.toLowerCase() === normalized.toLowerCase()) ?? normalized;
 };
 
-const isUsableWeaponSlot = (fileId: string | null | undefined): fileId is string =>
-    Boolean(fileId) && fileId !== 'unknown' && fileId !== 'none';
-
 /**
  * Usage × performance for Top Legends / Weapons.
  * `priorVolume` shrinks tiny samples (e.g. 4 min hold with KD 8) so they
@@ -169,32 +166,7 @@ export const aggregateWeaponStatsForMatches = (matches: MatchHistory[]): Aggrega
             weaponTimeline?: unknown;
         });
 
-        const combatKeys = Object.keys(combat);
-        const hasRich = combatKeys.some(k =>
-            combat[k].holdMs > 0 || combat[k].deaths > 0 || combat[k].qualify || combat[k].kills > 0,
-        );
-
-        if (!hasRich) {
-            // Legacy summary: attribute match totals to final loadout slots.
-            const loadoutWeapons = [m.loadout?.primary, m.loadout?.secondary].filter(isUsableWeaponSlot);
-            if (loadoutWeapons.length === 0) return;
-            const matchDeath = getMatchDeaths(m);
-            loadoutWeapons.forEach(fileId => {
-                if (!map[fileId]) {
-                    map[fileId] = { holdMs: 0, kills: 0, deaths: 0, qualifyGames: 0, wins: 0, placement: 0, legends: {} };
-                }
-                const entry = map[fileId];
-                entry.qualifyGames++;
-                entry.kills += m.kills || 0;
-                entry.deaths += matchDeath;
-                entry.placement += matchPlacement;
-                if (isWin) entry.wins++;
-                if (legend) entry.legends[legend] = (entry.legends[legend] || 0) + 1;
-            });
-            return;
-        }
-
-        combatKeys.forEach(fileId => {
+        Object.keys(combat).forEach(fileId => {
             const c = combat[fileId];
             if (!map[fileId]) {
                 map[fileId] = { holdMs: 0, kills: 0, deaths: 0, qualifyGames: 0, wins: 0, placement: 0, legends: {} };

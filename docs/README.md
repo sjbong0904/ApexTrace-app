@@ -8,7 +8,7 @@
 |------|------|
 | [RELEASE_NOTES.md](./RELEASE_NOTES.md) | 버전 변경 이력 |
 | [ROADMAP.md](./ROADMAP.md) | 제품 향후 계획 + Overwolf API 후보 (**Free QA 후 Premium 출시 체크리스트** 포함) |
-| [ARCHITECTURE.md](./ARCHITECTURE.md) | 매치 데이터 V3 (summary/detail, seasons, season stats) |
+| [ARCHITECTURE.md](./ARCHITECTURE.md) | 매치 데이터 V3 (컬럼 전용 저장, summary/detail, seasons, 로스터 트래픽) |
 | [PLAYSTYLE.md](./PLAYSTYLE.md) | 매치 플레이스타일 서사·키 설계 (초기본, QA 후 구현) |
 | [NICKNAME-SEARCH.md](./NICKNAME-SEARCH.md) | 닉변·alias·exact 검색·keep-alive / ALS 예산 |
 | [GEP-BUGS.md](./GEP-BUGS.md) | Apex GEP에서 실측한 버그·quirk |

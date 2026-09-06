@@ -9,7 +9,7 @@ import ChartContainer from './ChartContainer';
 import { FaLock, FaHistory, FaInfoCircle, FaSync } from 'react-icons/fa';
 import { COLORS, TARGET_MAPS, MAP_THUMBNAILS, LEGENDS_LIST } from '../utils/gameData';
 import { useTranslation } from 'react-i18next';
-import type { MatchHistory, Season } from '../utils/match';
+import { hasUsableMatchStats, type MatchHistory, type Season } from '../utils/match';
 import { normalizeHistoryForFrontend } from '../utils/matchNormalizer';
 import { fetchPlayerStats, type StatisticsMode } from '../utils/playerStatsApi';
 import { isSamePlayer, isKnownLegend, normalizeLegendKey, getTeammateSortKey, getAvgPlacementColor, getWinRateColor, getKdColor, getKadColor, getAvgDamageColor, getWinRateChipStyle, getMatchDeaths } from '../utils/helpers';
@@ -1462,10 +1462,7 @@ const OverviewView = ({
 
     const trendData = useMemo(() => {
         return [...data]
-            .filter((m: MatchHistory) =>
-                m.dataQuality !== 'incomplete'
-                && m.placement != null
-                && !(m.kills == null && m.assists == null && m.damage == null))
+            .filter((m: MatchHistory) => hasUsableMatchStats(m))
             .slice(0, 20)
             .reverse()
             .map((m: MatchHistory, i) => {
@@ -2159,10 +2156,7 @@ const TeammatesView = ({ data, profileUid, profileName }: { data: MatchHistory[]
         const map: Record<string, TeammateMatchStat & { legendCounts: Record<string, number> }> = {};
 
         data.forEach(m => {
-            if (m.dataQuality === 'incomplete' || m.placement == null
-                || (m.kills == null && m.assists == null && m.damage == null)) {
-                return;
-            }
+            if (!hasUsableMatchStats(m)) return;
             const teamStats = (m as any).teamStats as Array<{ name?: string; uid?: string | null; legend?: string }> | undefined;
             if (!teamStats?.length) return;
 

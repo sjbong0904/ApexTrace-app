@@ -6,9 +6,8 @@
     // 공통 Fetch 헬퍼
     const requestProxy = async (endpoint, method, body = null) => {
         try {
-            const separator = endpoint.includes('?') ? '&' : '?';
             const PROXY_BASE_URL = getProxyBaseUrl();
-            const url = `${PROXY_BASE_URL}${endpoint}${separator}t=${Date.now()}`;
+            const url = `${PROXY_BASE_URL}${endpoint}`;
             const options = { method };
             if (body) {
                 options.headers = { 'Content-Type': 'application/json' };
@@ -28,6 +27,21 @@
             return null;
         }
     };
+
+    const lastProfileWrite = new Map();
+    const profileWriteFingerprint = (data) => JSON.stringify({
+        name: data.name ?? null,
+        linked_uid: data.linked_uid ?? null,
+        hw: data.hw ?? null,
+        platform: data.platform ?? null,
+        level: data.level ?? null,
+        prestige: data.prestige ?? null,
+        rank_score: data.rank_score ?? null,
+        rank_name: data.rank_name ?? null,
+        legend: data.legend ?? null,
+        avatar: data.avatar ?? null,
+        role: data.role ?? null,
+    });
 
     const AddressBookModule = {
         // 이름으로 후보군 찾기 (Autocomplete)
@@ -85,7 +99,10 @@
             if (stats.legend) updateData.legend = stats.legend;
             if (stats.avatar) updateData.avatar = stats.avatar;
 
+            const fingerprint = profileWriteFingerprint(updateData);
+            if (lastProfileWrite.get(String(uid)) === fingerprint) return;
             await requestProxy('/address-book', 'POST', { updates: [updateData] });
+            lastProfileWrite.set(String(uid), fingerprint);
         },
 
         bulkUpdate: async (rosterList) => {
@@ -161,8 +178,6 @@
             if (result && result.success) {
                 window.Utils.matchLog('Saved via proxy', {
                     matchId: matchData?.matchId,
-                    dataQuality: matchData?.dataQuality,
-                    confidence: matchData?.confidence,
                     missingSignals: matchData?.missingSignals,
                     legend: matchData?.legend,
                     placement: matchData?.placement,
@@ -171,7 +186,6 @@
             } else {
                 window.Utils.matchLog('Save failed via proxy', {
                     matchId: matchData?.matchId,
-                    dataQuality: matchData?.dataQuality,
                 });
                 return [];
             }

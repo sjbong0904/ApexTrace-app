@@ -133,9 +133,9 @@
 
 ## 5.1 Incomplete match (tabs / combat mismatch) — v0.0.12
 
-- [x] tabs/combat mismatch 시 매치 폐기 대신 incomplete 저장 로직 `코드` (`utils.js` / `matchService.js`)
-- [x] Partial 배지·null combat UI 분기 `코드` (`App.tsx` badge, `match.ts` / Sidebar / Statistics 제외)
-- [x] incomplete 매치는 사이드바 / Statistics 평균에 **미포함** `코드` (`isTrustedMatchStats` / filters)
+- [x] tabs/combat mismatch 시 매치 폐기 대신 incomplete 저장 로직 `코드` (`utils.js` / `matchService.js`) — placement/kills/assists/damage/knocks를 null, `missingSignals`에 `tabs_combat_mismatch`
+- [x] Partial 배지·null combat UI 분기 `코드` (`App.tsx` badge tooltip = `missingSignals`, `hasUsableMatchStats` / Sidebar / Statistics 제외)
+- [x] incomplete 매치는 사이드바 / Statistics 평균에 **미포함** `코드` (`hasUsableMatchStats`: placement null 또는 combat 전부 null. `dataQuality` 필드 없음)
 - [ ] (재현 시) 실제 매치로 저장·배지·회귀 확인
 - [ ] 정상 매치는 숫자·등수 색·배지 없음으로 회귀
 
@@ -303,6 +303,11 @@
 추가 (2026-09-05):
 - 프로필 로드 중 스크롤하면 로딩 가림막이 벗겨지고 내용이 보임 → 가림막을 스크롤 영역 **바깥** 전체 커버로 옮김 (padding 위·아래 빈틈 포함). **실기 재확인**
 
+추가 (2026-09-06):
+- `getInfo` 폴링이 `{ success, res }`인데 `.info`만 읽어 `match_summary`가 무시됨 → `applyInfoToMatch`가 `.res`도 읽음. **같은 판을 같이 뛴 뒤 등수가 맞는지** 실기
+- 로스터 `POST /address-book` 504 → 변경 UID만 + 4초 debounce + 서버 no-op skip. 백그라운드 로그에 504가 반복되지 않는지
+- 불완전 배지 툴팁이 목록(summary)에서도 뜨는지 (`missing_signals` 컬럼)
+
 ---
 
 ## 결과 메모
@@ -314,6 +319,7 @@
 | 2026-09-03 | 수동 OW (데스크톱) | Partial | #1 #2 #5 Pass. #3 흰 배경 Fail. #4 튜토리얼 타이틀바 드래그 Fail. Settings 광고 숨김 Pass. 빈 프로필 점선 드래그로 창 이동 OK. 인게임 미실시. 언락 카드 스크롤 이슈. |
 | 2026-09-04 | 수동 OW (데스크톱) | #3 Pass | 광고 슬롯/레터박스 배경 투명 확인 (`color-scheme: light` + parent `transparent`). CurseForge와 동일 패턴. |
 | 2026-09-05 | Agent (코드) | 반영 | 프로필 로드 가림막이 스크롤과 함께 벗겨지던 문제 — sticky + 로딩 중 스크롤 잠금. 실기 미확인. |
+| 2026-09-06 | Agent (코드) | 반영 | match_end `getInfo` `.res` 파싱, 주소록 diff/debounce/no-op skip, `legacy_match`/`dataQuality`/`schema_version` 제거. 런타임 미실시. |
 
 실패·미확인 항목은 이슈 번호·재현 절차를 아래에 적기:
 

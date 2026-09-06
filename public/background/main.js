@@ -1348,8 +1348,6 @@ const CoreController = {
         // Detach previous session for upload without blocking the next capture.
         if (window.Store.activeMatch) await CoreController.endMatch();
 
-        window.SyncManager._hwSaved = false;
-        window.SyncManager._lastRosterSize = 0;
         const anonymousUser = { uid: null, name: "Unknown", rankScore: 0, rankName: 'Unknown', level: 0 };
 
         const service = window.MatchService;
@@ -1443,6 +1441,7 @@ const CoreController = {
         match._ending = true;
         window.Store.activeMatch = null;
         window.Utils.sendWorkerMessage('CMD_STOP_SCAN');
+        window.SyncManager.flushPendingRoster();
         GameStatePoller.stop();
         CoreController._rememberSessionEndPos(match);
 
@@ -1482,9 +1481,49 @@ const CoreController = {
 window.CoreController = CoreController;
 
 window.SyncManager = {
-    _lastRosterUpdate: 0,
-    _hwSaved: false,
-    _lastRosterSize: 0,
+    _sentRoster: new Map(),
+    _pendingRoster: new Map(),
+    _rosterFlushTimer: null,
+    ROSTER_DEBOUNCE_MS: 4000,
+
+    _rosterFingerprint: (player) => [
+        String(player?.name ?? ''),
+        player?.hw == null ? '' : String(player.hw),
+        player?.linked_uid == null ? '' : String(player.linked_uid),
+        player?.platform == null ? '' : String(player.platform),
+    ].join('\0'),
+
+    _queueRosterUpdates: (list) => {
+        if (!window.CloudRepository || !Array.isArray(list) || list.length === 0) return;
+        let queued = 0;
+        for (const player of list) {
+            if (!player?.uid) continue;
+            const uid = String(player.uid);
+            const fingerprint = SyncManager._rosterFingerprint(player);
+            if (SyncManager._sentRoster.get(uid) === fingerprint) continue;
+            SyncManager._pendingRoster.set(uid, player);
+            queued += 1;
+        }
+        if (queued === 0 || SyncManager._rosterFlushTimer) return;
+        SyncManager._rosterFlushTimer = setTimeout(() => {
+            SyncManager._rosterFlushTimer = null;
+            SyncManager.flushPendingRoster();
+        }, SyncManager.ROSTER_DEBOUNCE_MS);
+    },
+
+    flushPendingRoster: () => {
+        if (SyncManager._rosterFlushTimer) {
+            clearTimeout(SyncManager._rosterFlushTimer);
+            SyncManager._rosterFlushTimer = null;
+        }
+        if (!window.CloudRepository || SyncManager._pendingRoster.size === 0) return;
+        const batch = [...SyncManager._pendingRoster.values()];
+        SyncManager._pendingRoster.clear();
+        for (const player of batch) {
+            SyncManager._sentRoster.set(String(player.uid), SyncManager._rosterFingerprint(player));
+        }
+        window.CloudRepository.updateAddressBookBulk(batch);
+    },
 
     receiveWorkerResult: (payload) => {
         if (payload.uid && payload.source === 'roster_local') {
@@ -1500,26 +1539,7 @@ window.SyncManager = {
         }
 
         if (payload.addressBook && Array.isArray(payload.addressBook) && payload.addressBook.length > 0) {
-            if (window.CloudRepository) {
-                const now = Date.now();
-                const syncConfig = window.SYNC_CONFIG ?? { roster_update_cooldown_ms: 300000 };
-                const COOLDOWN = syncConfig.roster_update_cooldown_ms;
-                const isExpired = now - window.SyncManager._lastRosterUpdate > COOLDOWN;
-                const hasHw = payload.addressBook.some(u => u.hw !== null && u.hw !== undefined);
-                const currentSize = payload.addressBook.length;
-                const prevSize = window.SyncManager._lastRosterSize;
-
-                // ✅ roster가 커졌으면 (더 많은 플레이어 발견) 즉시 전송
-                const isGrowing = currentSize > prevSize;
-
-                if ((!window.SyncManager._hwSaved && hasHw) || isGrowing || isExpired) {
-                    window.CloudRepository.updateAddressBookBulk(payload.addressBook);
-                    window.SyncManager._lastRosterSize = currentSize;
-                    
-                    if (hasHw) window.SyncManager._hwSaved = true;
-                    if (isExpired || isGrowing) window.SyncManager._lastRosterUpdate = now;
-                }
-            }
+            SyncManager._queueRosterUpdates(payload.addressBook);
         }
     }
 };

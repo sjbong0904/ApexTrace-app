@@ -4,7 +4,7 @@ ApexTrace 매치 데이터·통계·클라이언트 로딩 전략.
 *(구 파일명: `match-data-architecture-v3.md`.)*
 
 **상태:** Shipped. Supabase 마이그레이션 적용됨. 프로덕션 프록시: `trace-proxy-server.vercel.app`.  
-**관련 코드:** `trace-proxy-server/api/history.js`, `src/App.tsx`, `src/components/StatisticsTab.tsx`, `public/background/services/matchService.js`
+**관련 코드:** `trace-proxy-server/lib/matchHistory.js` (`rowFromMatch` / `matchFromRow`), `api/history.js`, `api/address-book.js`, `src/App.tsx`, `src/components/StatisticsTab.tsx`, `public/background/services/matchService.js`, `public/background/main.js` (`SyncManager`)
 
 ---
 
@@ -48,7 +48,7 @@ Overwolf 확장이 담당:
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │ Tier 1 — Summary     목록 카드, 사이드바 태그, 스탯 입력용     │
-│                      (events / path / legacy_match 없음)        │
+│                      (events / path 없음)                       │
 ├─────────────────────────────────────────────────────────────────┤
 │ Tier 2 — Detail      events, path, weapon_timeline, ring_rounds │
 │                      펼침(또는 prefetch) 시 매치별 로드          │
@@ -85,7 +85,8 @@ Overwolf 확장이 담당:
 | 컬럼 | 타입 | 비고 |
 | --- | --- | --- |
 | `season_id` | `integer` nullable | INSERT/UPDATE 시 `public.seasons`에서 설정 |
-| `detail_schema_version` | `integer` | 선택; heavy 컬럼 shape 추적 |
+| `player_name` | `text` nullable | 로컬 플레이어 닉 (deaths/weaponCombat 식별) |
+| `missing_signals` | `jsonb` nullable | 불완전 배지 툴팁용 GEP 갭 목록 |
 
 **Heavy 컬럼** (Tier 2 — summary API에서 제외):
 
@@ -93,11 +94,10 @@ Overwolf 확장이 담당:
 - `path`
 - `weapon_timeline`
 - `ring_rounds`
-- `legacy_match` (읽기 deprecated; summary에 반환하지 않음)
 
 **Summary 컬럼** (Tier 1 — 목록/동기화 API 포함):
 
-- 스칼라 스탯, `rank`, `loadout`, `team_stats`, `teammate_kills`, 타임스탬프, mode, map, legend 등
+- 스칼라 스탯, `rank`, `loadout`, `weapon_combat`, `team_stats`, `teammate_kills`, `player_name`, `missing_signals`, 타임스탬프, mode, map, legend 등
 
 PK는 `(uid, match_id)`.
 
@@ -114,7 +114,6 @@ Statistics 탭용 사전집계.
 | `mode` | `text` | `ALL` \| `RANKED` \| `TRIO` \| `DUO` |
 | `match_count` | `integer` | 해당 버킷 매치 수 |
 | `payload` | `jsonb` | 집계 (§3.4) |
-| `schema_version` | `integer` | payload shape 버전 |
 | `updated_at` | `timestamptz` | 마지막 increment / recompute |
 
 **PK:** `(uid, season_id, mode)`
@@ -181,7 +180,7 @@ Statistics 필터 4모드. `src/utils/matchMode.ts`의 `matchesStatisticsMode()`
 | Query | 용도 |
 | --- | --- |
 | `uid` | 필수 |
-| `view=summary` | 기본. Tier 1만 (events/path/legacy_match 없음) |
+| `view=summary` | 기본. Tier 1만 (events/path 없음) |
 | `view=detail` | 내부 별칭; 단건은 `matchId` 사용 |
 | `matchId` | 설정 시 **한 판** 전체 (Tier 1 + 2) |
 | `matchIds` | 선택 배치 detail (콤마, 최대 ~5) |
@@ -197,26 +196,38 @@ Statistics 필터 4모드. `src/utils/matchMode.ts`의 `matchesStatisticsMode()`
 **응답:**
 
 ```json
-{ "history": [ /* legacy-shaped summary matches */ ] }
+{ "history": [ /* camelCase summary matches */ ], "view": "summary" }
 ```
+
+HTTP GET은 짧은 엣지 캐시 (`Cache-Control: public, max-age=0, s-maxage=30`). 클라이언트는 LocalDB·라이브 `Store.history`와 merge하므로 방금 끝난 본인 판이 가려지지 않음.
 
 ### 4.2 `POST /history`
 
 확장 쪽 진입점은 동일. Body:
 
 ```json
-{ "uid": "...", "match": { /* finalize된 full legacy match */ } }
+{ "uid": "...", "match": { /* finalize된 camelCase match */ } }
 ```
 
 **서버 처리 순서:**
 
 1. `resolveRelatedUids`로 `mainUid` 해석
 2. `public.seasons` + `match.startTime`으로 `season_id` 해석
-3. `public.matches`에 full row upsert
+3. `rowFromMatch`로 정규화 컬럼만 upsert (`player_name`, `missing_signals` 포함). `_` 키·`isDead`/`startPos`/`endPos`는 저장하지 않음
 4. `(mainUid, season_id, ALL|RANKED|TRIO|DUO)`에 대해 `player_season_stats` increment
 5. 해당 시 `daily_rank_snapshots` upsert (기존 경로)
 
-`match_archives`에는 **쓰지 않음**.
+`match_archives`에는 **쓰지 않음**. `legacy_match` / `schema_version` / `dataQuality` / `confidence` 컬럼은 없음. 불완전 판정은 클라이언트가 `placement`·combat null로 하고, 배지 툴팁만 `missing_signals`를 씀.
+
+### 4.2.1 `POST /address-book` (로스터)
+
+GEP 로스터는 매치당 최대 ~60명. 트래픽 가드:
+
+| 층 | 동작 |
+| --- | --- |
+| 클라이언트 `SyncManager` | 세션 중 이미 보낸 UID는 name/hw/linked_uid/platform이 같으면 스킵. 신규·변경분만 4초 debounce 후 전송. 매치 종료 시 flush |
+| 클라이언트 `repository` | 20명씩 순차 POST. 프로필 로드는 fingerprint가 같으면 POST 생략 |
+| 서버 | 기존 행과 comparable 필드가 같으면 upsert/`updated_at` 갱신 생략. 닉이 바뀐 UID만 alias sync (동시 5) |
 
 ### 4.3 `GET /player-stats`
 
@@ -234,7 +245,6 @@ Statistics 필터 4모드. `src/utils/matchMode.ts`의 `matchesStatisticsMode()`
   "season_id": 3,
   "mode": "ALL",
   "match_count": 847,
-  "schema_version": 1,
   "updated_at": "2026-06-28T12:00:00Z",
   "payload": { /* §3.4 */ }
 }
@@ -244,7 +254,9 @@ Statistics 필터 4모드. `src/utils/matchMode.ts`의 `matchesStatisticsMode()`
 
 ### 4.4 `GET /seasons`
 
-`public.seasons` 활성 목록 (앱 config sync가 기대하는 shape). 장기적으로 하드코딩/config-json 시즌을 대체.
+`public.seasons` 활성 목록 (앱 config sync가 기대하는 shape). 엣지 캐시 1시간 (`s-maxage=3600`). 장기적으로 하드코딩/config-json 시즌을 대체.
+
+읽기 GET 캐시 요약: `history` 30s · `search-candidates` 60s · `apex-stats` 180s · `seasons` 1h. 클라이언트는 `t=Date.now()` 캐시 버스터를 붙이지 않음.
 
 ---
 
@@ -486,7 +498,7 @@ SELECT * FROM matches WHERE uid = ? AND season_id = ?
 | `public.match_archives` | Deprecated — v3에서 읽기/쓰기 없음 |
 | `history` 기반 클라이언트 통계 | StatisticsTab 마이그레이션 후 deprecated |
 | `view=summary` 없이 full rows 반환하는 `GET /history` | Deprecated — 기본 summary |
-| API 응답의 `legacy_match` | Deprecated — 컬럼에서 재구성 |
+| `matches.legacy_match` / `schema_version` | 제거됨 — 정규화 컬럼 + `missing_signals` |
 | 권한원으로서의 `FALLBACK_SEASONS` | 부트스트랩만 |
 
 ---

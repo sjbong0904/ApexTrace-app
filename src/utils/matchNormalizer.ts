@@ -5,13 +5,10 @@ import { normalizeMapDisplayName } from './helpers';
 type JsonObject = Record<string, unknown>;
 type MaybeMatch = Partial<Match> & JsonObject;
 
-const PRIVATE_KEYS = [
-    '_saved',
-    '_currentPhase',
-    '_lastLocationTime',
-    'startPos',
-    'endPos',
-];
+/** Background runtime keys that may ride along on live Store matches. */
+const PRIVATE_KEYS = ['startPos', 'endPos', 'isDead'];
+/** `_`-prefixed keys are runtime state except the client's own detail marker. */
+const KEEP_UNDERSCORE_KEYS = new Set(['_detailLoaded']);
 
 const isObject = (value: unknown): value is JsonObject =>
     typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -38,35 +35,24 @@ const toArray = <T = unknown>(value: unknown): T[] => Array.isArray(value) ? val
 const toObject = <T extends JsonObject>(value: unknown, fallback: T): T =>
     isObject(value) ? value as T : fallback;
 
-const readLegacyPayload = (input: unknown): MaybeMatch | null => {
-    if (!isObject(input)) return null;
-
-    const legacy = input.legacy_match ?? input.legacyMatch;
-    if (isObject(legacy)) {
-        return { ...legacy, ...input } as MaybeMatch;
-    }
-
-    return input as MaybeMatch;
-};
-
 export const normalizeMatchForFrontend = (input: unknown): Match | null => {
-    const source = readLegacyPayload(input);
-    if (!source) return null;
+    if (!isObject(input)) return null;
+    const source = input as MaybeMatch;
 
     const rank: JsonObject = toObject(source.rank, {});
     const loadout: JsonObject = toObject(source.loadout, {});
-    const matchId = toStringValue(source.matchId ?? source.match_id ?? source.startTime ?? source.start_time);
+    const matchId = toStringValue(source.matchId ?? source.startTime);
     if (!matchId) return null;
 
     const events = toArray<MatchEvent>(source.events);
     const weaponCombat = normalizeWeaponCombat(
-        source.weaponCombat ?? source.weapon_combat,
+        source.weaponCombat,
     );
 
     const normalized = {
         ...source,
         matchId,
-        platformId: source.platformId === undefined ? toStringValue(source.uid, '') : source.platformId as string | null,
+        platformId: (source.platformId ?? null) as string | null,
         playerName: toStringValue(source.playerName, ''),
         mode: toStringValue(source.mode, 'Unknown'),
         map: normalizeMapDisplayName(toStringValue(source.map, 'Unknown')),
@@ -81,43 +67,43 @@ export const normalizeMatchForFrontend = (input: unknown): Match | null => {
             : toNumber(source.deaths),
         knocks: toNullableNumber(source.knocks, 0),
         damage: toNullableNumber(source.damage, 0),
-        squadKills: toNumber(source.squadKills ?? source.squad_kills),
-        ultimatesUsed: toNumber(source.ultimatesUsed ?? source.ultimates_used),
+        squadKills: toNumber(source.squadKills),
+        ultimatesUsed: toNumber(source.ultimatesUsed),
         headshots: toNumber(source.headshots),
-        grenadeDamage: (source.grenadeDamage ?? source.grenade_damage) as number | undefined,
+        grenadeDamage: source.grenadeDamage as number | undefined,
         rank: {
             name: toStringValue(rank.name, 'Unknown'),
             score: toNumber(rank.score),
             startScore: toNumber(rank.startScore),
         },
-        rpChange: toNumber(source.rpChange ?? source.rp_change),
-        rpProcessed: Boolean(source.rpProcessed ?? source.rp_processed),
-        rankScore: (source.rankScore ?? source.rank_score) as number | undefined,
-        startTime: toNumber(source.startTime ?? source.start_time),
-        endTime: toNumber(source.endTime ?? source.end_time),
+        rpChange: toNumber(source.rpChange),
+        rpProcessed: Boolean(source.rpProcessed),
+        rankScore: source.rankScore as number | undefined,
+        startTime: toNumber(source.startTime),
+        endTime: toNumber(source.endTime),
         loadout: {
             primary: (loadout.primary ?? null) as string | null,
             secondary: (loadout.secondary ?? null) as string | null,
         },
         weaponCombat,
         path: toArray(source.path),
-        ringRounds: toArray(source.ringRounds ?? source.ring_rounds),
-        weaponTimeline: toArray(source.weaponTimeline ?? source.weapon_timeline),
+        ringRounds: toArray(source.ringRounds),
+        weaponTimeline: toArray(source.weaponTimeline),
         events,
-        teamStats: toArray(source.teamStats ?? source.team_stats),
-        teammateKills: toObject(source.teammateKills ?? source.teammate_kills, {}),
-        isKillLeader: (source.isKillLeader ?? source.is_kill_leader) as boolean | undefined,
-        dataQuality: (source.dataQuality as Match['dataQuality']) ?? undefined,
-        confidence: source.confidence === undefined || source.confidence === null
-            ? undefined
-            : toNumber(source.confidence),
-        missingSignals: Array.isArray(source.missingSignals)
+        teamStats: toArray(source.teamStats),
+        teammateKills: toObject(source.teammateKills, {}),
+        isKillLeader: source.isKillLeader as boolean | undefined,
+        missingSignals: Array.isArray(source.missingSignals) && source.missingSignals.length > 0
             ? source.missingSignals as string[]
             : undefined,
     } satisfies Match;
 
+    const record = normalized as JsonObject;
     PRIVATE_KEYS.forEach((key) => {
-        delete (normalized as JsonObject)[key];
+        delete record[key];
+    });
+    Object.keys(record).forEach((key) => {
+        if (key.startsWith('_') && !KEEP_UNDERSCORE_KEYS.has(key)) delete record[key];
     });
 
     return normalized;

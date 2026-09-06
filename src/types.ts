@@ -60,9 +60,7 @@ export interface Match {
     deaths?: number | null;
     knocks: number | null;
     damage: number | null;
-    /** Persistable capture quality from background finalize. */
-    dataQuality?: 'complete' | 'estimated' | 'unrecoverable' | 'incomplete';
-    confidence?: number;
+    /** GEP signals missing/estimated at capture; shown in the incomplete-badge tooltip. */
     missingSignals?: string[];
     squadKills: number;
     ultimatesUsed: number;

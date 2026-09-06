@@ -1,8 +1,6 @@
 import type { MatchEvent } from '../types';
 import type { WeaponCombatMap } from './weaponCombat';
 
-export type MatchDataQuality = 'complete' | 'estimated' | 'unrecoverable' | 'incomplete';
-
 export interface MatchHistory {
     kills?: number | null;
     damage?: number | null;
@@ -24,24 +22,24 @@ export interface MatchHistory {
     weaponTimeline?: import('../types').WeaponTimelineEntry[];
     /** Present on detail-loaded matches; used as fallback for weaponCombat. */
     events?: MatchEvent[];
-    /** Persistable quality — incomplete GEP boundaries still keep the record. */
-    dataQuality?: MatchDataQuality;
-    confidence?: number;
+    /** GEP signals missing/estimated at capture; shown in the incomplete-badge tooltip. */
     missingSignals?: string[];
 }
 
 type MatchStatsLike = {
-    dataQuality?: MatchDataQuality | null;
     placement?: number | string | null;
     kills?: number | null;
     assists?: number | null;
     damage?: number | null;
 };
 
-/** Untrusted tab stats (null / incomplete) — exclude from averages and WR. */
+/**
+ * Untrusted tab stats — exclude from averages and WR.
+ * The background nulls placement/kills/assists/damage when the scoreboard was
+ * unreliable, so null stats are the incomplete marker.
+ */
 export const hasUsableMatchStats = (match?: MatchStatsLike | null): boolean => {
     if (!match) return false;
-    if (match.dataQuality === 'incomplete') return false;
     if (match.placement == null) return false;
     if (match.kills == null && match.assists == null && match.damage == null) return false;
     return true;

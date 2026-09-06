@@ -443,7 +443,7 @@ const Utils = {
         return local.kills > 0 || local.assists > 0;
     },
 
-    /** Null out untrusted tab stats and mark dataQuality incomplete. */
+    /** Null out untrusted tab stats and flag tabs_combat_mismatch. */
     applyIncompleteTabsCombatMismatch: (match) => {
         if (!match || !Utils.isIncompleteTabsCombatMismatch(match)) return false;
 
@@ -453,7 +453,6 @@ const Utils = {
         match.assists = null;
         match.damage = null;
         match.knocks = null;
-        match.dataQuality = 'incomplete';
         Utils.addMissingSignal(match, 'tabs_combat_mismatch');
         delete match._estimatedPlacement;
 
@@ -494,44 +493,32 @@ const Utils = {
     },
 
     /**
-     * Persistable match quality for history UI.
-     * Prefer incomplete-but-present records over discarding play.
+     * Persist the GEP gaps that the history badge tooltip shows.
+     * Incomplete stats themselves are the null placement/kills/assists/damage
+     * written by applyIncompleteTabsCombatMismatch — no separate quality enum.
      */
     finalizeMatchDataQuality: (match) => {
         if (!match) return null;
 
         const missing = Utils.ensureMissingSignals(match);
 
-        // Tabs/combat mismatch already nulled untrusted stats — keep as incomplete.
-        if (match.dataQuality === 'incomplete'
-            || missing.includes('tabs_combat_mismatch')) {
+        if (missing.includes('tabs_combat_mismatch')) {
             Utils.addMissingSignal(match, 'tabs_combat_mismatch');
-            match.dataQuality = 'incomplete';
-            match.confidence = Math.min(
-                typeof match.confidence === 'number' ? match.confidence : 35,
-                35,
-            );
             match.missingSignals = [...Utils.ensureMissingSignals(match)];
-            Utils.matchLog('Data quality', {
+            delete match.dataQuality;
+            delete match.confidence;
+            Utils.matchLog('Missing signals', {
                 matchId: match.matchId,
-                dataQuality: 'incomplete',
-                confidence: match.confidence,
                 missingSignals: match.missingSignals,
                 legend: match.legend,
                 placement: match.placement,
             });
-            return {
-                dataQuality: 'incomplete',
-                confidence: match.confidence,
-                missingSignals: match.missingSignals,
-            };
+            return { missingSignals: match.missingSignals };
         }
 
-        // Content: we never resolved the local player's legend for history.
         if (!match._hadLocalLegendSelect) {
             Utils.addMissingSignal(match, 'no_legend_select');
         }
-        // Boundary: no squad legendSelect_* at all (weaker match-start proof).
         if (!match._hadSquadLegendSelect) {
             Utils.addMissingSignal(match, 'no_squad_legend_select');
         }
@@ -541,8 +528,6 @@ const Utils = {
         if (match._boundaryInferred) {
             Utils.addMissingSignal(match, 'boundary_inferred');
         }
-        // Authoritative GEP match_summary / victory ⇒ not an estimate —
-        // unless the summary arrived while teammates were still alive (left early).
         if ((match._matchSummaryRank || match._isVictory) && !match._summaryWhileSquadAlive) {
             const idx = missing.indexOf('placement_estimated');
             if (idx >= 0) missing.splice(idx, 1);
@@ -553,36 +538,12 @@ const Utils = {
             Utils.addMissingSignal(match, 'no_match_start');
         }
 
-        let score = 0;
-        // Boundary proof: any of legendSelect_0..2 (not required to be is_local).
-        if (match._hadSquadLegendSelect) score += 25;
-        if (match._gepPseudoMatchId || match._sawGepPseudo) score += 20;
-        if (match._matchSummaryRank) score += 30;
-        if (Utils.hasRealMatchEvidence(match)) score += 25;
-        if (match._boundaryInferred) score -= 20;
+        match.missingSignals = [...Utils.ensureMissingSignals(match)];
+        delete match.dataQuality;
+        delete match.confidence;
 
-        score = Math.max(0, Math.min(100, score));
-
-        const criticalMissing = missing.some((s) =>
-            s === 'no_legend_select'
-            || s === 'no_squad_legend_select'
-            || s === 'boundary_inferred'
-            || s === 'no_match_start'
-            || s === 'pseudo_stale'
-        );
-
-        let dataQuality = 'complete';
-        if (score < 40) dataQuality = 'unrecoverable';
-        else if (score < 70 || criticalMissing) dataQuality = 'estimated';
-
-        match.confidence = score;
-        match.dataQuality = dataQuality;
-        match.missingSignals = [...missing];
-
-        Utils.matchLog('Data quality', {
+        Utils.matchLog('Missing signals', {
             matchId: match.matchId,
-            dataQuality,
-            confidence: score,
             missingSignals: match.missingSignals,
             hadLocalLegendSelect: !!match._hadLocalLegendSelect,
             hadSquadLegendSelect: !!match._hadSquadLegendSelect,
@@ -591,7 +552,7 @@ const Utils = {
             placement: match.placement,
         });
 
-        return { dataQuality, confidence: score, missingSignals: match.missingSignals };
+        return { missingSignals: match.missingSignals };
     },
 
     isUnknownLegend: (legend) => {

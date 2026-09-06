@@ -6,7 +6,7 @@ import {
 } from 'react-icons/fa';
 import { GiBullets, GiGunshot } from 'react-icons/gi';
 import { useTranslation } from 'react-i18next';
-import type { MatchHistory } from '../utils/match';
+import { hasUsableMatchStats, type MatchHistory } from '../utils/match';
 import { formatFullRankName, isKnownLegend } from '../utils/helpers';
 import { getWeaponTagTheme, getLegendImageId, getWeaponImageId, type WeaponTagTier } from '../utils/weaponTheme';
 import ProfileTagIcon from './ProfileTagIcon';
@@ -179,10 +179,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         const weaponStats: Record<string, { count: number; kills: number; damage: number }> = {};
 
         recent.forEach(match => {
-            if (match.dataQuality === 'incomplete' || match.placement == null
-                || (match.kills == null && match.assists == null && match.damage == null)) {
-                return;
-            }
+            if (!hasUsableMatchStats(match)) return;
             const k = match.kills || 0;
             const d = match.damage || 0;
             const a = match.assists || 0;

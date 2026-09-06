@@ -70,6 +70,13 @@ ALS(Apex Legends Status) 예산(현재 키 기준 약 10 req/s)을 검색 엔진
 | 명시 검색·프로필 | `/apex-stats` | `als` |
 | 백그라운드 갱신 | `/keep-alive` | `keep-alive` |
 
+GEP 로스터는 인원이 늘어날 때마다 전체 60명을 다시 보내지 않는다.
+
+- 클라이언트(`SyncManager`): 세션 동안 보낸 UID fingerprint(name/hw/linked_uid/platform)와 같으면 스킵. 신규·변경분만 4초 debounce 후 전송, 매치 종료 시 flush. 프로필 로드도 값이 같으면 POST 생략.
+- 서버(`api/address-book.js`): 기존 행과 comparable 필드가 같으면 upsert를 건너뛰어 `updated_at`만 갱신하는 no-op write를 막음. alias sync는 **닉이 바뀐 UID만**, 동시 5개.
+
+전체 로스터를 한 번에 보내면 Vercel 10초 제한을 넘겨 504가 났음. 클라이언트는 그래도 20명 청크로 나눈다.
+
 규칙:
 
 1. 들어오는 닉이 기존 현닉과 norm이 같으면 alias 작업 최소(현닉과 겹치는 alias만 제거).

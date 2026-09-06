@@ -13,7 +13,7 @@ const APIService = {
         const API_BASE_URL = getApiBaseUrl();
         if (!query) return null;
         const safeQuery = encodeURIComponent(query);
-        const url = `${API_BASE_URL}/apex-stats?query=${safeQuery}&type=${type}&t=${Date.now()}`;
+        const url = `${API_BASE_URL}/apex-stats?query=${safeQuery}&type=${type}`;
 
         try {
             const response = await fetch(url);
