@@ -2,12 +2,17 @@
 
 ## Unreleased
 
+---
+
+## v0.0.13 — 2026-09-06
+
+등수 폴링 복구, 주소록 504/트래픽 절감, 매치 스키마를 컬럼 전용으로 정리. GitHub `v0.0.13`.
+
 ### 수정
 
 - **프로필 로드 가림막 빈틈** — 오버레이가 스크롤 영역 padding 안에 있어 위·아래로 내용이 비침. 스크롤 패널 전체를 덮는 레이어로 옮김.
 - **match_end 이후 GEP 재조회가 무시됨** — `overwolf.games.events.getInfo`는 `{ success, res }`로 응답하는데 `applyInfoToMatch`가 `.info`/root만 읽어 폴링 결과(특히 `match_summary`)가 조용히 버려졌음. `.res`도 읽도록 수정. 같은 판에서 클라이언트마다 등수가 갈리던 사례 중 라이브 `match_summary`를 놓친 쪽이 폴링으로 복구되도록. `[MatchAudit] match_summary applied` WARN 로그 추가.
 - **주소록 갱신 504** — 매 매치 후 로스터(~60명) 전체를 한 번의 `POST /address-book`으로 보내 Vercel 10초 제한을 넘김. 클라이언트는 20명씩 순차 전송, 서버(`trace-proxy-server`)는 닉이 바뀐 UID만 alias 동기화하고 5개 병렬 처리.
-
 - **로스터 주소록 재전송** — 매치 중 로스터가 커질 때마다 전체 ~60명을 다시 보내지 않고, 세션 동안 처음 보이거나 name/hw가 바뀐 UID만 4초 debounce 후 전송. 프로필 로드 시 값이 같으면 `address-book` POST를 건너뜀.
 - **프록시 캐시 버스터 제거** — `t=Date.now()`를 빼서 `/api/seasons`, `/api/search-candidates`, `/api/apex-stats`, `/api/history` GET의 엣지 캐시가 동작하도록.
 
