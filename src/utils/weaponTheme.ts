@@ -1,4 +1,4 @@
-import { AMMO_COLORS } from './gameData';
+import { AMMO_COLORS, SHORT_WEAPON_NAMES } from './gameData';
 import { WEAPONS_DB, type WeaponInfo, type WeaponVariant } from './WeaponsData';
 
 export interface WeaponTagTheme {
@@ -36,6 +36,47 @@ export function findWeaponByLoadoutId(rawName: string): WeaponInfo | undefined {
 
     if (partial.length === 0) return undefined;
     return partial.find(w => w.variant === 'STANDARD') ?? partial[0];
+}
+
+/** Canonical catalog id when known (e.g. weapon_prowler → prowler). */
+export function getCanonicalWeaponId(rawName: string): string {
+    return findWeaponByLoadoutId(rawName)?.id ?? rawName;
+}
+
+const looksLikeI18nKey = (value: string): boolean =>
+    value.includes('.') && (
+        value.startsWith('weaponDb.')
+        || value.startsWith('statistics.')
+        || value.startsWith('sidebar.')
+    );
+
+/**
+ * Human label for loadout / combat ids.
+ * Prefer short names over i18n so missing weaponDb packs don't show raw keys.
+ */
+export function getWeaponDisplayName(rawName: string): string {
+    const found = findWeaponByLoadoutId(rawName);
+    const short =
+        SHORT_WEAPON_NAMES(rawName)
+        ?? (found ? SHORT_WEAPON_NAMES(found.id) : null);
+    if (short) return short;
+
+    if (found) {
+        const localized = found.name();
+        if (localized && !looksLikeI18nKey(localized)) return localized;
+    }
+
+    return String(rawName)
+        .replace(/^weapon[_-]?/i, '')
+        .replace(/[-_]/g, ' ')
+        .trim()
+        .toUpperCase() || rawName;
+}
+
+export function weaponsMatchId(a: string, b: string): boolean {
+    if (!a || !b) return false;
+    if (a === b) return true;
+    return getCanonicalWeaponId(a) === getCanonicalWeaponId(b);
 }
 
 const darkenHex = (hex: string, factor: number): string => {
@@ -99,6 +140,13 @@ export function getWeaponTagTheme(rawName: string, tier: WeaponTagTier = 'master
 
 export function getWeaponImageId(rawName: string): string {
     return findWeaponByLoadoutId(rawName)?.id ?? rawName;
+}
+
+/** Prefer catalog `image` URL (handles special files like c.a.r..png). */
+export function getWeaponImageUrl(rawName: string): string {
+    const found = findWeaponByLoadoutId(rawName);
+    if (found?.image) return found.image;
+    return `${PROFILE_IMAGE_BASE}/${getWeaponImageId(rawName)}.png`;
 }
 
 export function getLegendImageId(rawName: string): string {

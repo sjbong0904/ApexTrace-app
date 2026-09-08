@@ -601,7 +601,8 @@
     },
     "common": {
       "avgPlacement": "Avg Placement",
-      "avgPlacementShort": "Avg #"
+      "avgPlacementShort": "Avg #",
+      "na": "N/A"
     },
     "showingStatsFor": "Stats for:",
     "allBrModes": "All BR Modes",
@@ -730,7 +731,8 @@
       "mostUsed": "🏆 Most Used",
       "pick": "#{{rank}}",
       "matches": "Matches",
-      "usageTime": "Usage",
+      "usageTime": "Matches",
+      "usageHint": "Matches where this weapon was used (1 per match, even if you swapped).",
       "kd": "K/D",
       "kad": "KA/D",
       "winPercent": "Win%",
@@ -740,7 +742,20 @@
       "rank": "Rank",
       "weapon": "Weapon",
       "winRate": "Win Rate",
-      "noMoreWeapons": "No more weapons used."
+      "noMoreWeapons": "No more weapons used.",
+      "overview": "Overview",
+      "topWeapons": "Top Weapons",
+      "topThreats": "Weapons That Eliminated You",
+      "threatKills": "Elims",
+      "threatKnockdowns": "Knocks",
+      "noThreatData": "No elimination weapon data yet.",
+      "top5Usage": "Top 5 Usage",
+      "pairedWeapons": "Paired Weapons",
+      "weaponLegends": "Legends With This Weapon",
+      "breakdownSubtitle": "While using {{weapon}}",
+      "noPairedData": "No paired weapon data for this pick.",
+      "noLegendData": "No legend data for this weapon.",
+      "noMatchesFound": "No matches recorded with {{weapon}}"
     },
     "teammates": {
       "kadTooltip": "Your (Kills + Assists) / Deaths ratio in matches played with this teammate.",

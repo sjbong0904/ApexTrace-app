@@ -386,8 +386,9 @@ class MatchService {
         ));
 
         if (myData) {
-            if (myData.legendName) {
-                const legend = window.Utils.normalizeLegend(myData.legendName);
+            const rawLegend = myData.legendName || myData.legend || myData.characterName;
+            if (rawLegend) {
+                const legend = window.Utils.normalizeLegend(rawLegend);
                 if (match.legend !== legend) match.legend = legend;
                 match._hadLocalLegendSelect = true;
                 // Local legend implies squad character-select boundary evidence.
@@ -428,7 +429,7 @@ class MatchService {
             match.teamStats.push({
                 name: finalName,
                 uid: tmUid || null,
-                legend: window.Utils.normalizeLegend(tm.legendName),
+                legend: window.Utils.normalizeLegend(tm.legendName || tm.legend || tm.characterName),
                 state: existing ? existing.state : 'alive',
                 kills: existing ? existing.kills : 0
             });
@@ -467,7 +468,8 @@ class MatchService {
         if (!match.isDead) return false;
         const teammates = match.teamStats || [];
         if (teammates.length === 0) return true;
-        return !teammates.some((t) => t.state && t.state !== 'death');
+        if (window.Utils?.hasLivingTeammate) return !window.Utils.hasLivingTeammate(match);
+        return !teammates.some((t) => t.state && t.state !== 'death' && t.state !== 'knocked_out');
     }
 
     static resolveFinalPlacement(match) {
@@ -480,11 +482,11 @@ class MatchService {
         const asEstimate = (value) => Math.max(floor, value);
         if (match.placement > 0 && match.placement < 20) return asEstimate(match.placement);
         if (match._estimatedPlacement) return asEstimate(match._estimatedPlacement);
-        if (MatchService._isSquadOut(match)) {
-            const estimate = window.Utils?.estimatePlacementFromTeamsAlive?.(match);
-            if (estimate) return asEstimate(estimate);
-        }
-        return match.placement ? asEstimate(match.placement) : 20;
+        // Prefer observed min tabs.teams even when squad-out inference missed
+        // (e.g. teammates stuck in knocked_out and placement stayed at default 20).
+        const fromTeams = window.Utils?.estimatePlacementFromTeamsAlive?.(match);
+        if (fromTeams) return asEstimate(fromTeams);
+        return match.placement && match.placement < 20 ? asEstimate(match.placement) : 20;
     }
 
     static isGhostMatch(match, durationSeconds) {

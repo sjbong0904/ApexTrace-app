@@ -19,6 +19,8 @@ export interface MatchHistory {
     };
     /** Per-weapon combat summary (summary-safe). */
     weaponCombat?: WeaponCombatMap;
+    /** Weapons that knocked / eliminated the local player (summary-safe). */
+    weaponThreats?: import('../types').WeaponThreatMap;
     weaponTimeline?: import('../types').WeaponTimelineEntry[];
     /** Present on detail-loaded matches; used as fallback for weaponCombat. */
     events?: MatchEvent[];

@@ -149,9 +149,11 @@
 
 **반영 (코드)** — `Utils.applyPlacementEstimate` (utils.js) 단일 게이트로 통일. `matchService` `TEAMS_ALIVE` / `events.js` `applyTabsToMatch` · `applyPlacementEstimate` 모두 여기로 위임.
 
-- 사용자 사망 ≠ 스쿼드 전멸. **생존 팀원이 있으면 추정 안 함.**
+- 사용자 사망 ≠ 스쿼드 전멸. **생존(업) 팀원이 있으면 추정 안 함.**
 - 로컬 사망 + 로스터 비어 있음(추정만) → **provisional**: `tabs.teams` 최솟값을 계속 따라 내려감 (팀원이 계속 플레이 중).
+- 로컬 사망 + 팀원 전원 **`knocked_out`만** (death 미도착) → 역시 provisional로 min teams 추적. `hasLivingTeammate`는 `knocked_out`을 생존으로 보지 않음 (2026-09-07 Crypto 20등 오판 수정).
 - `_squadEliminated`(GEP 신호) 또는 **알려진 팀원 전부 death** → **frozen** (`_placementEstimateFrozen`). 관전 중 teams가 더 줄어도 등수 안 좋아짐.
+- finalize 시 summary가 없으면 `_minTeamsAlive` 기반 추정을 기본 20보다 우선 (`resolveFinalPlacement`).
 - 로스터가 stale(death→alive 갱신)이면 unfreeze 후 provisional 유지, 전멸 시 재계산.
 - lobby/loading 120초 fallback으로 끝낼 때 팀원이 살아 있으면(=먼저 나감) 현재 teams 추정을 **`placement_estimated` 플래그와 함께** 저장 (`applyLeftEarlyPlacement`). 맨 20등 대신.
 - 팀원이 살아 있는데 `match_summary`가 오면(먼저 나가서 본 요약) rank는 쓰되 `_summaryWhileSquadAlive` → `placement_estimated`. 이후 전멸 신호가 오면 플래그 해제.

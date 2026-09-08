@@ -35,13 +35,23 @@ export type WeaponCombatEntry = {
     assists: number;
     /** Total possession time in this match (ms). */
     holdMs: number;
-    /** K/D deaths attributed this match. */
+    /** K/D deaths attributed this match (may be fractional via hold-time share). */
     deaths: number;
     /** Whether this weapon qualifies for win rate / avg placement. */
     qualify: boolean;
 };
 
 export type WeaponCombatMap = Record<string, WeaponCombatEntry>;
+
+/** Weapons that knocked / eliminated the local player (summary-safe). */
+export type WeaponThreatEntry = {
+    /** Deaths credited via knockdown-preferring weapon logic. */
+    kills: number;
+    /** Times the local player was knocked by this weapon. */
+    knockdowns: number;
+};
+
+export type WeaponThreatMap = Record<string, WeaponThreatEntry>;
 
 export interface Match {
     matchId: string;
@@ -87,7 +97,9 @@ export interface Match {
 
     /** Per-weapon kill/assist counts from combat log (summary-safe). */
     weaponCombat?: WeaponCombatMap;
-    
+    /** Weapons that knocked / eliminated the local player (summary-safe). */
+    weaponThreats?: WeaponThreatMap;
+
     path: { x: number; y: number; t?: number; p?: string; s?: number }[];
     ringRounds?: RingRound[];
     weaponTimeline?: WeaponTimelineEntry[];

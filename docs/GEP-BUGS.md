@@ -12,6 +12,12 @@
 
 - 관측: 2026-08-02 TST2 — Crypto 판(23:07 `match_start`) 이후 다음 `match_end`가 23:36. 그 사이 Axle 셀렉·새 팀으로 재큐.
 
+### 전멸 직후 직전 판 `match_summary` 재주입 + `match_end`
+로컬 death 직후 GEP가 **직전 판과 JSON이 동일한** `match_summary`(예: `rank`/`teams`/`squadKills`)를 다시 보내고 바로 `match_end`·`phase: match_summary`→`loading_screen`으로 넘어가는 경우가 있다. 이번 판의 진짜 등수가 아니라 **이전 HUD summary 잔상(stale replay)** 이다.
+
+- 관측: 2026-09-07 SiNiz — Crypto 판(22:35~, 전멸 직전 `tabs.teams:8`) 로컬 death **22:45:20**과 동시에 `match_summary={"rank":"2","teams":"20","squadKills":"7"}` + `match_end`. 직전 Bangalore 판(22:33) summary와 **동일 JSON**. 이후 22:47 Bangalore 재큐·`match_start`·summary rank 8.
+- 앱: stale JSON을 등수로 쓰지 않음(이미 거절/미적용). **진짜 Crypto 등수를 GEP에서 복원하지는 않음** — 추정은 `tabs.teams` 최소값 경로만 사용. 이 케이스는 보정 금지·관측 기록만.
+
 ### 셀렉트 직후 `match_start` 재발송
 `legendSelect`로 세션이 이미 열린 뒤, 드롭십 진입 시점에 `match_start`가 다시 온다.  
 (정상 계약에 가깝지만, 빈 roster만 보고 이전 세션을 끊으면 오분할됨.)

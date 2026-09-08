@@ -8,7 +8,7 @@ import { GiBullets, GiGunshot } from 'react-icons/gi';
 import { useTranslation } from 'react-i18next';
 import { hasUsableMatchStats, type MatchHistory } from '../utils/match';
 import { formatFullRankName, isKnownLegend } from '../utils/helpers';
-import { getWeaponTagTheme, getLegendImageId, getWeaponImageId, type WeaponTagTier } from '../utils/weaponTheme';
+import { getWeaponTagTheme, getLegendImageId, getWeaponImageId, getWeaponDisplayName, type WeaponTagTier } from '../utils/weaponTheme';
 import ProfileTagIcon from './ProfileTagIcon';
 
 // ✅ 최소 타입 정의
@@ -257,8 +257,7 @@ const Sidebar: React.FC<SidebarProps> = ({
             const pickRate = wstats.count / totalGames;
             const avgWpnKills = wstats.kills / wstats.count;
             const avgWpnDmg = wstats.damage / wstats.count;
-            const weaponKey = key.replace(/[-. ]/g, '').toLowerCase();
-            const weaponLocalizedName = t(`sidebar.weaponNames.${weaponKey}`, key);
+            const weaponLocalizedName = getWeaponDisplayName(key);
 
             if (pickRate >= 0.3 && (avgWpnKills >= 5 || avgWpnDmg >= 1200)) {
                 const theme = getWeaponTagTheme(key, 'god');

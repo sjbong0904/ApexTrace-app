@@ -4,6 +4,38 @@
 
 ---
 
+## v0.0.14 — 2026-09-09
+
+무기 통계·Weapons 탭 개편. 상세 기준: [WEAPON-STATS.md](WEAPON-STATS.md). GitHub `v0.0.14`.
+
+### 개선
+
+- **킬 귀속** — 무기 통계 kill은 확킬 피드가 아니라 **녹다운 무기 우선** (`resolveKillCreditWeapon`). 클라이언트·background·프록시 동기화.
+- **데스 귀속** — 로컬 데스마다 1.0을 생존 구간의 **유효 총기 홀드 시간 비율**로 분배. mid-match “킬만 있으면 deaths=1” 보정 제거. deaths=0이면 무기 **K/D·KA/D = N/A**.
+- **Top Threats** — 나를 죽인/녹다운한 적 무기 집계 (`weaponThreats`). finalize 시 저장. 시즌 fetch 시 프록시 backfill.
+- **Weapons 탭 UI** — Legends와 유사 레이아웃: Top Weapons / Top Threats → 피커 → 선택 무기 요약(매치·승률·평균순위·K/D·KA/D) → Paired weapons / Weapon legends 카드·표. Usage → **Matches**. 기본 선택 = 카탈로그 첫 무기.
+- **매치 수** — 무기 사용 매치는 **정수 1/매치**로 통일 (소수 매치 폐기).
+- **표시명** — `getWeaponDisplayName` / SHORT 이름 우선, i18n raw 키 노출 완화. `languages_cache_v4`. `statistics.common.na`.
+- **팀메이트 표** — 최대 30명, UID 없는 닉은 집계에는 포함·목록에서 제외.
+
+### 수정
+
+- **레전드 피커 리사이즈 쏠림** — 최대화↔복원 시 선택창이 왼쪽으로 압축되던 레이아웃.
+- **C.A.R. 이미지** — 로드아웃 id ↔ 카탈로그/이미지 매칭.
+- **K/D raw 표기** — `calculateStats`가 deaths=0일 때 킬 정수를 그대로 넣던 문제, `parseFloat`로 trailing zero가 사라지던 표시를 `toFixed(2)` / N/A로 통일.
+- **Weapons 표 이름 줄바꿈** — 무기·레전드명 한 줄 + ellipsis.
+
+### 서버 (trace-proxy-server, 별도 레포)
+
+- `weaponCombat` 데스 분배·킬 크레딧 동기화.
+- 시즌 stats 경로에서 비어 있는 `weaponThreats` events 기반 backfill + persist.
+
+### 문서
+
+- [WEAPON-STATS.md](WEAPON-STATS.md) — 지표·킬/데스 모델·배포 메모.
+
+---
+
 ## v0.0.13 — 2026-09-06
 
 등수 폴링 복구, 주소록 504/트래픽 절감, 매치 스키마를 컬럼 전용으로 정리. GitHub `v0.0.13`.

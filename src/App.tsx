@@ -135,8 +135,8 @@ const getTabStyle = (isActive: boolean): React.CSSProperties => ({
 const App = () => {
     const { t, i18n } = useTranslation(); // 🌟 훅 사용
     const [SEASONS, setSeasons] = useState<Season[]>(FALLBACK_SEASONS);
-    /** Free tier for store QA (ads on desktop; analytics tabs gated). */
-    const isPremium = false;
+    /** TEMP local preview — set back to false before store QA / commit. */
+    const isPremium = true;
     /** false until window name is known — avoids mounting AdsRail on in-game briefly */
     const [isDesktopWindow, setIsDesktopWindow] = useState(false);
     const [history, setHistory] = useState<any[]>([]);

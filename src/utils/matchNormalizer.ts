@@ -1,5 +1,5 @@
 import type { Match, MatchEvent } from '../types';
-import { normalizeWeaponCombat } from './weaponCombat';
+import { normalizeWeaponCombat, normalizeWeaponThreats } from './weaponCombat';
 import { normalizeMapDisplayName } from './helpers';
 
 type JsonObject = Record<string, unknown>;
@@ -48,6 +48,7 @@ export const normalizeMatchForFrontend = (input: unknown): Match | null => {
     const weaponCombat = normalizeWeaponCombat(
         source.weaponCombat,
     );
+    const weaponThreats = normalizeWeaponThreats(source.weaponThreats);
 
     const normalized = {
         ...source,
@@ -86,6 +87,7 @@ export const normalizeMatchForFrontend = (input: unknown): Match | null => {
             secondary: (loadout.secondary ?? null) as string | null,
         },
         weaponCombat,
+        weaponThreats,
         path: toArray(source.path),
         ringRounds: toArray(source.ringRounds),
         weaponTimeline: toArray(source.weaponTimeline),

@@ -1,7 +1,19 @@
 import i18n from '../i18n';
 import { supabase } from '../lib/supabase';
+import { SHORT_WEAPON_NAMES } from './gameData';
 import { WEAPON_FALLBACK_ROWS, type WeaponRow } from './weaponFallbackRows';
 import type { WeaponDbRow, WeaponInfo } from './weaponTypes';
+
+const looksLikeI18nKey = (value: string): boolean =>
+    value.includes('.') && (value.startsWith('weaponDb.') || value.startsWith('statistics.') || value.startsWith('sidebar.'));
+
+const fallbackWeaponLabel = (id: string): string =>
+    SHORT_WEAPON_NAMES(id)
+    ?? (String(id)
+        .replace(/^weapon[_-]?/i, '')
+        .replace(/[-_]/g, ' ')
+        .trim()
+        .toUpperCase() || id);
 
 export type {
     LevelStats,
@@ -26,8 +38,16 @@ export function rowToWeaponInfo(row: WeaponRow): WeaponInfo {
         hopup: row.hopup,
         care_hopup: row.care_hopup,
         hopup_point: row.hopup_point,
-        name: () => i18n.t(row.nameKey),
-        description: () => i18n.t(row.descKey),
+        name: () => {
+            const translated = String(i18n.t(row.nameKey, { defaultValue: '' }) || '');
+            if (translated && !looksLikeI18nKey(translated)) return translated;
+            return fallbackWeaponLabel(row.id);
+        },
+        description: () => {
+            const translated = String(i18n.t(row.descKey, { defaultValue: '' }) || '');
+            if (translated && !looksLikeI18nKey(translated)) return translated;
+            return '';
+        },
     };
 }
 

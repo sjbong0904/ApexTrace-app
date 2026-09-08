@@ -8,11 +8,17 @@ import {
 export type { WeaponCombatEntry, WeaponCombatMap } from '../types';
 export {
     computeMatchWeaponCombat,
+    computeMatchWeaponThreats,
     normalizeWeaponCombat,
+    normalizeWeaponThreats,
     resolveWeaponCombatForMatch,
+    resolveWeaponThreatsForMatch,
     formatHoldDuration,
+    formatUsageGames,
     loadoutAtTimestamp,
     isRichWeaponCombatEntry,
+    resolveKillCreditWeapon,
+    resolveDeathCreditWeapon,
 } from './weaponMatchStats';
 
 /** @deprecated Prefer computeMatchWeaponCombat — kills/assists only. */

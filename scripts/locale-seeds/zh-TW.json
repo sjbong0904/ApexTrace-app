@@ -590,7 +590,8 @@
     },
     "common": {
       "avgPlacement": "平均排名",
-      "avgPlacementShort": "平均 #"
+      "avgPlacementShort": "平均 #",
+      "na": "N/A"
     },
     "showingStatsFor": "統計範圍：",
     "allBrModes": "全部大逃殺模式",
@@ -719,7 +720,7 @@
       "mostUsed": "🏆 最常用",
       "pick": "第 {{rank}} 名",
       "matches": "場次",
-      "usageTime": "使用時間",
+      "usageTime": "場次",
       "kd": "K/D",
       "kad": "KA/D",
       "winPercent": "勝率%",
@@ -729,7 +730,21 @@
       "rank": "排名",
       "weapon": "武器",
       "winRate": "勝率",
-      "noMoreWeapons": "沒有更多使用的武器。"
+      "noMoreWeapons": "沒有更多使用的武器。",
+      "usageHint": "使用此武器的場次數（同場換槍仍計為1）。",
+      "overview": "概覽",
+      "topWeapons": "武器 TOP 3",
+      "topThreats": "擊敗你的武器 TOP 3",
+      "threatKills": "淘汰",
+      "threatKnockdowns": "擊倒",
+      "noThreatData": "尚無被擊敗武器資料。",
+      "top5Usage": "使用量 TOP 5",
+      "pairedWeapons": "搭配武器",
+      "weaponLegends": "常用此武器的傳奇",
+      "breakdownSubtitle": "使用 {{weapon}} 時",
+      "noPairedData": "尚無此武器的搭配資料。",
+      "noLegendData": "尚無使用此武器的傳奇資料。",
+      "noMatchesFound": "沒有使用 {{weapon}} 的對局紀錄"
     },
     "teammates": {
       "kadTooltip": "與該隊友一起比賽時的（擊殺+助攻）/ 死亡比率。",

@@ -99,12 +99,16 @@ export const getWinRateColor = (
 };
 
 /** K/D: <0.8 gray · 0.8–1.2 white · 1.2–2 green · ≥2 gold. */
-export const getKdColor = (kd: string | number): string =>
-    colorForHigherIsBetter(kd, 0.8, 1.2, 2);
+export const getKdColor = (kd: string | number | null | undefined): string => {
+    if (kd == null || kd === '' || kd === '-' || kd === 'N/A') return STAT_TIER_COLOR.missing;
+    return colorForHigherIsBetter(kd, 0.8, 1.2, 2);
+};
 
 /** KA/D: <1 gray · 1–1.5 white · 1.5–2.5 green · ≥2.5 gold. */
-export const getKadColor = (kad: string | number): string =>
-    colorForHigherIsBetter(kad, 1, 1.5, 2.5);
+export const getKadColor = (kad: string | number | null | undefined): string => {
+    if (kad == null || kad === '' || kad === '-' || kad === 'N/A') return STAT_TIER_COLOR.missing;
+    return colorForHigherIsBetter(kad, 1, 1.5, 2.5);
+};
 
 /** Avg damage: <300 gray · 300–500 white · 500–800 green · ≥800 gold. */
 export const getAvgDamageColor = (avgDamage: string | number): string =>

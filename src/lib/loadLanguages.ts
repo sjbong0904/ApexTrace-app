@@ -1,7 +1,8 @@
 import i18n from 'i18next';
 import { supabase } from './supabase';
 
-const CACHE_KEY = 'languages_cache_v3';
+/** Bump when locale shape/keys change so stale Overwolf localStorage packs refresh. */
+const CACHE_KEY = 'languages_cache_v4';
 
 type LanguageRow = { lang: string; strings: Record<string, unknown>; version?: number };
 type LanguageVersionRow = { lang: string; version: number | null };

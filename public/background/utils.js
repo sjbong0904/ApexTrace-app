@@ -564,11 +564,36 @@ const Utils = {
      * GEP often skips local legendSelect when the player keeps the same legend.
      * Fill from the previous closed session (or newest history card) only inside
      * LEGEND_PREV_MATCH_MAX_GAP_MS — never live ALS / profile.
+     * Prefer an in-hand GEP local select slot over carry-over (requeue handoff).
      */
     applyLegendFromPreviousMatch: (match) => {
         // Only runs when local select is missing and legend is still Unknown.
         if (!match || match._hadLocalLegendSelect) return false;
         if (!Utils.isUnknownLegend(match.legend)) return false;
+
+        // Live GEP select already on the wire — absorb it instead of prev-match crypto.
+        const slots = window.MatchBoundary?._selectSlots;
+        if (slots && typeof slots === 'object') {
+            for (const payload of Object.values(slots)) {
+                if (!payload) continue;
+                const isLocal = payload.is_local === true
+                    || payload.is_local === 'true'
+                    || payload.is_local === 1
+                    || String(payload.is_local) === '1';
+                if (!isLocal) continue;
+                const raw = payload.legendName || payload.legend || payload.characterName;
+                const legend = Utils.normalizeLegend(raw);
+                if (Utils.isUnknownLegend(legend)) continue;
+                match.legend = legend;
+                match._hadLocalLegendSelect = true;
+                match._hadSquadLegendSelect = true;
+                Utils.matchLog('Legend filled from live GEP select slot', {
+                    matchId: match.matchId,
+                    legend,
+                });
+                return true;
+            }
+        }
 
         const maxGap = window.MatchBoundary?.LEGEND_PREV_MATCH_MAX_GAP_MS ?? (20 * 60 * 1000);
         const startAt = match.startTime || Date.now();
@@ -719,15 +744,39 @@ const Utils = {
         return null;
     },
 
-    /** Any known teammate whose last state is not death. */
+    /**
+     * Teammate still up and able to play. `knocked_out` is downed — not living for
+     * placement / boundary gates (can still be revived → state returns to alive).
+     */
+    isTeammateCombatCapable: (teammate) => {
+        const s = String(teammate?.state || '').toLowerCase();
+        if (!s) return false;
+        return s !== 'death' && s !== 'knocked_out';
+    },
+
+    /** Fully eliminated only — knocked_out can still be revived. */
+    isTeammateNotDead: (teammate) => {
+        const s = String(teammate?.state || '').toLowerCase();
+        return !!s && s !== 'death';
+    },
+
+    /** Any known teammate still up (not death / knocked_out). */
     hasLivingTeammate: (match) => {
         const teammates = match?.teamStats || [];
-        return teammates.some((t) => t?.state && t.state !== 'death');
+        return teammates.some((t) => Utils.isTeammateCombatCapable(t));
+    },
+
+    /** Any known teammate not fully dead (knocked_out counts — blocks freeze). */
+    hasNonDeadTeammate: (match) => {
+        const teammates = match?.teamStats || [];
+        return teammates.some((t) => Utils.isTeammateNotDead(t));
     },
 
     /**
      * Squad-out inferred from local death only (no GEP elimination signal).
      * Empty roster ⇒ true (solo / roster never captured) but stays *provisional*.
+     * All teammates knocked_out (and local dead) also counts — estimate can track
+     * min teams; freeze still waits for death / `_squadEliminated`.
      */
     isSquadOutInferred: (match) => {
         if (!match?.isDead) return false;
@@ -740,11 +789,11 @@ const Utils = {
      * Placement estimate from tabs.teams (QA §5.2 이슈 A).
      *
      * Local death ≠ squad elimination. The estimate is:
-     *  - never applied while a known teammate is still alive,
-     *  - *provisional* while squad-out is only inferred (local dead, roster empty) —
-     *    it keeps following tabs.teams minimum down as teammates keep playing,
+     *  - never applied while a known teammate is still up (alive),
+     *  - *provisional* while squad-out is only inferred (local dead, roster empty,
+     *    or teammates only knocked_out) — keeps following tabs.teams minimum down,
      *  - *frozen* once `_squadEliminated` (GEP signal) or when every known teammate
-     *    is dead — spectating lowers tabs.teams further and must not improve the rank.
+     *    is death — spectating lowers tabs.teams further and must not improve the rank.
      * Summary / victory always win and are handled by the callers.
      */
     applyPlacementEstimate: (match, teamsAlive) => {
@@ -758,7 +807,7 @@ const Utils = {
         const confirmed = !!match._squadEliminated;
 
         if (match._placementEstimateFrozen) {
-            // Roster looked all-dead but a teammate is alive again (late/stale state) — back to provisional.
+            // Roster looked all-dead but a teammate is up again (revive / late state).
             if (!confirmed && Utils.hasLivingTeammate(match)) {
                 delete match._placementEstimateFrozen;
             } else {
@@ -769,7 +818,8 @@ const Utils = {
         if (!confirmed && !Utils.isSquadOutInferred(match)) return match._estimatedPlacement || null;
 
         const teammates = match.teamStats || [];
-        const rosterAllDead = teammates.length > 0 && !Utils.hasLivingTeammate(match);
+        // Freeze only on full death — knocked_out stays provisional so min teams can fall.
+        const rosterAllDead = teammates.length > 0 && !Utils.hasNonDeadTeammate(match);
         const freeze = confirmed || rosterAllDead;
 
         const estimate = Utils.estimatePlacementFromTeamsAlive(match, teamsAlive);
@@ -835,6 +885,74 @@ const Utils = {
         return { primary, secondary };
     },
 
+    /**
+     * Prefer knockdown weapon for the same victim; else kill-feed weapon.
+     * Matches src/utils/weaponMatchStats.ts resolveKillCreditWeapon.
+     */
+    resolveKillCreditWeapon: (events, killEvent, playerName) => {
+        const killTs = Number(killEvent?.timestamp) || 0;
+        const killVictim = killEvent?.victim;
+        let best = null;
+        for (const event of events || []) {
+            if (!event) continue;
+            if (String(event.type || '').toLowerCase() !== 'knockdown') continue;
+            if (playerName && !Utils._isSamePlayerName(event.attacker, playerName)) continue;
+            if (!Utils.isUsableWeaponId(event.weapon)) continue;
+            const ts = Number(event.timestamp) || 0;
+            if (killTs && ts > killTs) continue;
+            if (killVictim) {
+                if (!event.victim || !Utils._isSamePlayerName(event.victim, killVictim)) continue;
+            }
+            if (!best || ts >= best.ts) best = { ts, weapon: event.weapon };
+        }
+        if (best) return best.weapon;
+        return Utils.isUsableWeaponId(killEvent?.weapon) ? killEvent.weapon : null;
+    },
+
+    /**
+     * Prefer knockdown weapon that downed the local player; else death-feed weapon.
+     */
+    resolveDeathCreditWeapon: (events, deathEvent, playerName) => {
+        const deathTs = Number(deathEvent?.timestamp) || 0;
+        let best = null;
+        for (const event of events || []) {
+            if (!event) continue;
+            if (String(event.type || '').toLowerCase() !== 'knockdown') continue;
+            if (!playerName || !Utils._isSamePlayerName(event.victim, playerName)) continue;
+            if (!Utils.isUsableWeaponId(event.weapon)) continue;
+            const ts = Number(event.timestamp) || 0;
+            if (deathTs && ts > deathTs) continue;
+            if (!best || ts >= best.ts) best = { ts, weapon: event.weapon };
+        }
+        if (best) return best.weapon;
+        return Utils.isUsableWeaponId(deathEvent?.weapon) ? deathEvent.weapon : null;
+    },
+
+    /** Per-match weapons that knocked / eliminated the local player. */
+    computeMatchWeaponThreats: (match) => {
+        const map = {};
+        if (!match) return map;
+        const playerName = match.playerName || '';
+        const events = Array.isArray(match.events) ? match.events : [];
+        if (!playerName) return map;
+        const ensure = (weapon) => {
+            if (!map[weapon]) map[weapon] = { kills: 0, knockdowns: 0 };
+            return map[weapon];
+        };
+        for (const event of events) {
+            if (!event) continue;
+            const type = String(event.type || '').toLowerCase();
+            if (type === 'knockdown' && Utils._isSamePlayerName(event.victim, playerName) && Utils.isUsableWeaponId(event.weapon)) {
+                ensure(event.weapon).knockdowns += 1;
+            }
+            if (type === 'death' && Utils._isSamePlayerName(event.victim, playerName)) {
+                const creditWeapon = Utils.resolveDeathCreditWeapon(events, event, playerName);
+                if (creditWeapon) ensure(creditWeapon).kills += 1;
+            }
+        }
+        return map;
+    },
+
     /** Full per-match weapon combat summary (hold/kills/deaths/qualify). */
     computeMatchWeaponCombat: (match) => {
         const map = {};
@@ -887,21 +1005,25 @@ const Utils = {
 
         const finalPrimary = Utils.isUsableWeaponId(match.loadout?.primary) ? match.loadout.primary : null;
         const finalSecondary = Utils.isUsableWeaponId(match.loadout?.secondary) ? match.loadout.secondary : null;
-        const finalSet = new Set();
-        if (finalPrimary) { finalSet.add(finalPrimary); ensure(finalPrimary).qualify = true; }
-        if (finalSecondary) { finalSet.add(finalSecondary); ensure(finalSecondary).qualify = true; }
+        if (finalPrimary) ensure(finalPrimary).qualify = true;
+        if (finalSecondary) ensure(finalSecondary).qualify = true;
 
         const playerName = match.playerName || '';
         const events = Array.isArray(match.events) ? match.events : [];
+        const deathTimestamps = [];
         for (const event of events) {
             if (!event) continue;
             const type = String(event.type || '').toLowerCase();
             const ts = Number(event.timestamp) || 0;
 
-            if (type === 'kill' && Utils.isUsableWeaponId(event.weapon)) {
+            // Kill credit prefers the knockdown weapon (same victim) over finisher.
+            if (type === 'kill') {
                 if (!playerName || Utils._isSamePlayerName(event.attacker, playerName)) {
-                    ensure(event.weapon).kills += 1;
-                    ensure(event.weapon).qualify = true;
+                    const creditWeapon = Utils.resolveKillCreditWeapon(events, event, playerName);
+                    if (creditWeapon) {
+                        ensure(creditWeapon).kills += 1;
+                        ensure(creditWeapon).qualify = true;
+                    }
                 }
             }
             if (type === 'assist' && Utils.isUsableWeaponId(event.weapon)) {
@@ -920,21 +1042,92 @@ const Utils = {
             }
 
             if (type === 'death' && ts && playerName && Utils._isSamePlayerName(event.victim, playerName)) {
-                const slots = Utils.loadoutAtTimestamp(match, ts);
-                if (Utils.isUsableWeaponId(slots.primary)) ensure(slots.primary).deaths += 1;
-                if (Utils.isUsableWeaponId(slots.secondary)) ensure(slots.secondary).deaths += 1;
+                deathTimestamps.push(ts);
             }
         }
 
-        Object.keys(map).forEach((weapon) => {
-            const entry = map[weapon];
-            if (entry.kills > 0 && !finalSet.has(weapon) && entry.deaths === 0) {
-                entry.deaths = 1;
+        deathTimestamps.sort((a, b) => a - b);
+        let segmentStart = start;
+        for (const deathTs of deathTimestamps) {
+            const from = segmentStart > 0 ? segmentStart : deathTs;
+            if (deathTs > from) {
+                Utils.distributeSegmentDeath(map, match, from, deathTs, ensure);
             }
-            entry.qualify = Boolean(entry.qualify);
+            segmentStart = deathTs;
+        }
+
+        Object.keys(map).forEach((weapon) => {
+            map[weapon].qualify = Boolean(map[weapon].qualify);
         });
 
         return map;
+    },
+
+    /** Hold ms per usable weapon in [rangeStart, rangeEnd]. */
+    holdMsByWeaponInRange: (match, rangeStart, rangeEnd) => {
+        const out = {};
+        if (!match) return out;
+        const matchStart = Number(match.startTime) || 0;
+        const matchEnd = Number(match.endTime) || matchStart;
+        if (!matchStart || matchEnd <= matchStart) return out;
+        const from = Math.max(matchStart, rangeStart);
+        const to = Math.min(matchEnd, rangeEnd);
+        if (!(to > from)) return out;
+
+        const add = (weapon, ms) => {
+            if (!Utils.isUsableWeaponId(weapon) || !(ms > 0)) return;
+            out[weapon] = (out[weapon] || 0) + ms;
+        };
+
+        const timeline = Array.isArray(match.weaponTimeline)
+            ? [...match.weaponTimeline].sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0))
+            : [];
+
+        if (timeline.length === 0) {
+            add(match.loadout?.primary, to - from);
+            add(match.loadout?.secondary, to - from);
+            return out;
+        }
+
+        const atFrom = Utils.loadoutAtTimestamp(match, from);
+        let primary = atFrom.primary;
+        let secondary = atFrom.secondary;
+        let cursor = from;
+
+        for (const entry of timeline) {
+            const rawT = Number(entry.timestamp) || matchStart;
+            if (rawT <= from) continue;
+            const t = Math.min(to, Math.max(from, rawT));
+            if (t > cursor) {
+                add(primary, t - cursor);
+                add(secondary, t - cursor);
+                cursor = t;
+            }
+            if (rawT >= to) break;
+            if (entry.primary !== undefined) {
+                primary = Utils.isUsableWeaponId(entry.primary) ? entry.primary : null;
+            }
+            if (entry.secondary !== undefined) {
+                secondary = Utils.isUsableWeaponId(entry.secondary) ? entry.secondary : null;
+            }
+        }
+
+        if (to > cursor) {
+            add(primary, to - cursor);
+            add(secondary, to - cursor);
+        }
+        return out;
+    },
+
+    /** Split 1.0 death by hold share in the survival segment. */
+    distributeSegmentDeath: (map, match, segmentStart, deathTs, ensure) => {
+        const holds = Utils.holdMsByWeaponInRange(match, segmentStart, deathTs);
+        const total = Object.values(holds).reduce((sum, ms) => sum + ms, 0);
+        if (!(total > 0)) return;
+        Object.entries(holds).forEach(([weapon, ms]) => {
+            if (!(ms > 0)) return;
+            ensure(weapon).deaths += ms / total;
+        });
     },
 
     /** Count local-player death events (finisher + inferred squad-elim). */
@@ -1263,13 +1456,14 @@ const Utils = {
         return delta;
     },
 
-    /** Recompute SSOT weaponCombat at finalize. */
+    /** Recompute SSOT weaponCombat + weaponThreats at finalize. */
     syncWeaponCombatFromEvents: (match) => {
         if (!match) return {};
         Utils.syncKillCombatLogs(match);
         Utils.syncAssistCombatLogs(match);
         Utils.fillDeathAttackers(match);
         match.weaponCombat = Utils.computeMatchWeaponCombat(match);
+        match.weaponThreats = Utils.computeMatchWeaponThreats(match);
         return match.weaponCombat;
     },
 };

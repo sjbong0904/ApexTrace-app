@@ -1,5 +1,6 @@
 import { LEGENDS_LIST } from './gameData';
 import { WEAPONS_DB, type WeaponCategory } from './WeaponsData';
+import { getWeaponDisplayName } from './weaponTheme';
 
 export type TierTableMode = 'legend' | 'weapon';
 
@@ -91,7 +92,7 @@ export const buildWeaponItems = (): TierTableItem[] => {
             seen.add(baseKey);
             items.push({
                 id: weapon.id,
-                label: weapon.name(),
+                label: getWeaponDisplayName(weapon.id),
                 image: weapon.image,
             });
         }

@@ -1,4 +1,11 @@
-import type { MatchEvent, WeaponCombatEntry, WeaponCombatMap, WeaponTimelineEntry } from '../types';
+import type {
+    MatchEvent,
+    WeaponCombatEntry,
+    WeaponCombatMap,
+    WeaponThreatEntry,
+    WeaponThreatMap,
+    WeaponTimelineEntry,
+} from '../types';
 import { isSamePlayer } from './helpers';
 
 export type MatchWeaponStatsInput = {
@@ -100,39 +107,152 @@ const accumulateHoldTimes = (match: MatchWeaponStatsInput, map: WeaponCombatMap)
 };
 
 /**
+ * Hold time per usable weapon overlapping [rangeStart, rangeEnd]
+ * (primary + secondary counted independently = real equipped time).
+ */
+export const holdMsByWeaponInRange = (
+    match: MatchWeaponStatsInput,
+    rangeStart: number,
+    rangeEnd: number,
+): Record<string, number> => {
+    const out: Record<string, number> = {};
+    const matchStart = Number(match.startTime) || 0;
+    const matchEnd = Number(match.endTime) || matchStart;
+    if (!matchStart || matchEnd <= matchStart) return out;
+
+    const from = Math.max(matchStart, rangeStart);
+    const to = Math.min(matchEnd, rangeEnd);
+    if (!(to > from)) return out;
+
+    const add = (weapon: string | null | undefined, ms: number) => {
+        if (!isUsableWeapon(weapon) || ms <= 0) return;
+        out[weapon] = (out[weapon] || 0) + ms;
+    };
+
+    const timeline = Array.isArray(match.weaponTimeline)
+        ? [...match.weaponTimeline].sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0))
+        : [];
+
+    if (timeline.length === 0) {
+        add(match.loadout?.primary, to - from);
+        add(match.loadout?.secondary, to - from);
+        return out;
+    }
+
+    const atFrom = loadoutAtTimestamp(match, from);
+    let primary = atFrom.primary;
+    let secondary = atFrom.secondary;
+    let cursor = from;
+
+    for (const entry of timeline) {
+        const rawT = Number(entry.timestamp) || matchStart;
+        if (rawT <= from) continue;
+        const t = Math.min(to, Math.max(from, rawT));
+        if (t > cursor) {
+            add(primary, t - cursor);
+            add(secondary, t - cursor);
+            cursor = t;
+        }
+        if (rawT >= to) break;
+        if (entry.primary !== undefined) {
+            primary = isUsableWeapon(entry.primary) ? entry.primary : null;
+        }
+        if (entry.secondary !== undefined) {
+            secondary = isUsableWeapon(entry.secondary) ? entry.secondary : null;
+        }
+    }
+
+    if (to > cursor) {
+        add(primary, to - cursor);
+        add(secondary, to - cursor);
+    }
+
+    return out;
+};
+
+/** Distribute 1.0 death across usable weapons by hold share in the segment. */
+const distributeSegmentDeath = (
+    map: WeaponCombatMap,
+    match: MatchWeaponStatsInput,
+    segmentStart: number,
+    deathTs: number,
+) => {
+    const holds = holdMsByWeaponInRange(match, segmentStart, deathTs);
+    const total = Object.values(holds).reduce((sum, ms) => sum + ms, 0);
+    if (!(total > 0)) return;
+
+    for (const [weapon, ms] of Object.entries(holds)) {
+        if (!(ms > 0)) continue;
+        ensureEntry(map, weapon).deaths += ms / total;
+    }
+};
+
+/**
+ * Attribute elim kills to the knockdown weapon when we downed the same victim,
+ * then finished with another gun. Falls back to the kill-feed weapon (one-shot /
+ * teammate knock / missing knock row).
+ */
+export const resolveKillCreditWeapon = (
+    events: MatchEvent[] | null | undefined,
+    killEvent: MatchEvent,
+    playerName: string,
+): string | null => {
+    const killTs = Number(killEvent.timestamp) || 0;
+    const killVictim = killEvent.victim;
+    let best: { ts: number; weapon: string } | null = null;
+
+    for (const event of events || []) {
+        if (!event) continue;
+        if (String(event.type || '').toLowerCase() !== 'knockdown') continue;
+        if (playerName && !isSamePlayer(event.attacker, playerName)) continue;
+        if (!isUsableWeapon(event.weapon)) continue;
+        const ts = Number(event.timestamp) || 0;
+        if (killTs && ts > killTs) continue;
+        if (killVictim) {
+            if (!event.victim || !isSamePlayer(event.victim, killVictim)) continue;
+        }
+        if (!best || ts >= best.ts) best = { ts, weapon: event.weapon };
+    }
+
+    if (best) return best.weapon;
+    return isUsableWeapon(killEvent.weapon) ? killEvent.weapon : null;
+};
+
+/**
  * Per-match weapon combat summary (hold time, kills, deaths, WR/placement qualify).
- * Spec: final loadout always qualifies; kill weapons qualify; both slots at combat times qualify.
- * Deaths: +1 per local death to both slots at that time; mid-kill with 0 real deaths → death = 1.
+ * Spec: final loadout always qualifies; kill credit prefers knockdown weapon;
+ * both slots at combat times qualify.
+ * Deaths: each local death distributes 1.0 by hold-time share in the survival
+ * segment (prev death|match start → this death) among weapons with real hold.
  */
 export const computeMatchWeaponCombat = (match: MatchWeaponStatsInput): WeaponCombatMap => {
     const map: WeaponCombatMap = {};
     const playerName = match.playerName || '';
     const events = Array.isArray(match.events) ? match.events : [];
+    const matchStart = Number(match.startTime) || 0;
 
     accumulateHoldTimes(match, map);
 
     const finalPrimary = isUsableWeapon(match.loadout?.primary) ? match.loadout!.primary! : null;
     const finalSecondary = isUsableWeapon(match.loadout?.secondary) ? match.loadout!.secondary! : null;
-    const finalSet = new Set<string>();
-    if (finalPrimary) {
-        finalSet.add(finalPrimary);
-        ensureEntry(map, finalPrimary).qualify = true;
-    }
-    if (finalSecondary) {
-        finalSet.add(finalSecondary);
-        ensureEntry(map, finalSecondary).qualify = true;
-    }
+    if (finalPrimary) ensureEntry(map, finalPrimary).qualify = true;
+    if (finalSecondary) ensureEntry(map, finalSecondary).qualify = true;
+
+    const deathTimestamps: number[] = [];
 
     for (const event of events) {
         if (!event) continue;
         const type = String(event.type || '').toLowerCase();
         const ts = Number(event.timestamp) || 0;
 
-        if (type === 'kill' && isUsableWeapon(event.weapon)) {
+        if (type === 'kill') {
             // Our kill rows use local player as attacker.
             if (!playerName || isSamePlayer(event.attacker, playerName)) {
-                ensureEntry(map, event.weapon).kills += 1;
-                ensureEntry(map, event.weapon).qualify = true;
+                const creditWeapon = resolveKillCreditWeapon(events, event, playerName);
+                if (creditWeapon) {
+                    ensureEntry(map, creditWeapon).kills += 1;
+                    ensureEntry(map, creditWeapon).qualify = true;
+                }
             }
         }
 
@@ -154,17 +274,21 @@ export const computeMatchWeaponCombat = (match: MatchWeaponStatsInput): WeaponCo
         }
 
         if (type === 'death' && ts && playerName && isSamePlayer(event.victim, playerName)) {
-            const slots = loadoutAtTimestamp(match, ts);
-            if (isUsableWeapon(slots.primary)) ensureEntry(map, slots.primary).deaths += 1;
-            if (isUsableWeapon(slots.secondary)) ensureEntry(map, slots.secondary).deaths += 1;
+            deathTimestamps.push(ts);
         }
     }
 
-    // Mid-match kill weapon with no real deaths while held → exactly 1 death (correction).
-    for (const [weapon, entry] of Object.entries(map)) {
-        if (entry.kills > 0 && !finalSet.has(weapon) && entry.deaths === 0) {
-            entry.deaths = 1;
+    deathTimestamps.sort((a, b) => a - b);
+    let segmentStart = matchStart;
+    for (const deathTs of deathTimestamps) {
+        const from = segmentStart > 0 ? segmentStart : deathTs;
+        if (deathTs > from) {
+            distributeSegmentDeath(map, match, from, deathTs);
         }
+        segmentStart = deathTs;
+    }
+
+    for (const entry of Object.values(map)) {
         entry.qualify = Boolean(entry.qualify);
     }
 
@@ -219,6 +343,88 @@ export const resolveWeaponCombatForMatch = (
     return normalizeWeaponCombat(raw);
 };
 
+/**
+ * Attribute deaths of the local player to the knockdown weapon when possible
+ * (enemy Nemesis knock → R-99 finish still credits Nemesis).
+ */
+export const resolveDeathCreditWeapon = (
+    events: MatchEvent[] | null | undefined,
+    deathEvent: MatchEvent,
+    playerName: string,
+): string | null => {
+    const deathTs = Number(deathEvent.timestamp) || 0;
+    let best: { ts: number; weapon: string } | null = null;
+
+    for (const event of events || []) {
+        if (!event) continue;
+        if (String(event.type || '').toLowerCase() !== 'knockdown') continue;
+        if (!playerName || !isSamePlayer(event.victim, playerName)) continue;
+        if (!isUsableWeapon(event.weapon)) continue;
+        const ts = Number(event.timestamp) || 0;
+        if (deathTs && ts > deathTs) continue;
+        if (!best || ts >= best.ts) best = { ts, weapon: event.weapon };
+    }
+
+    if (best) return best.weapon;
+    return isUsableWeapon(deathEvent.weapon) ? deathEvent.weapon : null;
+};
+
+export const computeMatchWeaponThreats = (
+    match: Pick<MatchWeaponStatsInput, 'playerName' | 'events'>,
+): WeaponThreatMap => {
+    const map: WeaponThreatMap = {};
+    const playerName = match.playerName || '';
+    const events = Array.isArray(match.events) ? match.events : [];
+    if (!playerName) return map;
+
+    const ensure = (weapon: string): WeaponThreatEntry => {
+        if (!map[weapon]) map[weapon] = { kills: 0, knockdowns: 0 };
+        return map[weapon];
+    };
+
+    for (const event of events) {
+        if (!event) continue;
+        const type = String(event.type || '').toLowerCase();
+
+        if (type === 'knockdown' && isSamePlayer(event.victim, playerName) && isUsableWeapon(event.weapon)) {
+            ensure(event.weapon).knockdowns += 1;
+        }
+
+        if (type === 'death' && isSamePlayer(event.victim, playerName)) {
+            const creditWeapon = resolveDeathCreditWeapon(events, event, playerName);
+            if (creditWeapon) ensure(creditWeapon).kills += 1;
+        }
+    }
+
+    return map;
+};
+
+export const normalizeWeaponThreats = (value: unknown): WeaponThreatMap => {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+    const out: WeaponThreatMap = {};
+    for (const [rawKey, rawEntry] of Object.entries(value as Record<string, unknown>)) {
+        if (!isUsableWeapon(rawKey)) continue;
+        const entry = rawEntry && typeof rawEntry === 'object' && !Array.isArray(rawEntry)
+            ? rawEntry as Record<string, unknown>
+            : {};
+        const kills = Number(entry.kills) || 0;
+        const knockdowns = Number(entry.knockdowns) || 0;
+        if (kills === 0 && knockdowns === 0) continue;
+        out[rawKey] = { kills, knockdowns };
+    }
+    return out;
+};
+
+/** Prefer events when present; otherwise stored summary map. */
+export const resolveWeaponThreatsForMatch = (
+    match: Pick<MatchWeaponStatsInput, 'playerName' | 'events'> & { weaponThreats?: unknown },
+): WeaponThreatMap => {
+    if (Array.isArray(match.events) && match.events.length > 0) {
+        return computeMatchWeaponThreats(match);
+    }
+    return normalizeWeaponThreats(match.weaponThreats);
+};
+
 /** Format milliseconds as hh:mm (table-friendly; seconds omitted). */
 export const formatHoldDuration = (ms: number): string => {
     const totalMin = Math.max(0, Math.floor((Number(ms) || 0) / 60000));
@@ -226,3 +432,7 @@ export const formatHoldDuration = (ms: number): string => {
     const m = totalMin % 60;
     return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
 };
+
+/** Integer match count for weapon usage display. */
+export const formatUsageGames = (usageGames: number): string =>
+    String(Math.max(0, Math.round(Number.isFinite(usageGames) ? usageGames : 0)));

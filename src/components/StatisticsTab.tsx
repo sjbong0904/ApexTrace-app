@@ -1,7 +1,6 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import {
-    CartesianGrid, Tooltip,
-    Cell, PieChart, Pie, Legend as RechartsLegend,
+    CartesianGrid, Tooltip, Cell,
     Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
     Line, Bar, BarChart, LineChart, XAxis, YAxis, ReferenceLine
 } from 'recharts';
@@ -21,9 +20,14 @@ import {
     resolveMapName,
     aggregateLegendStatsForMatches,
     aggregateWeaponStatsForMatches,
+    aggregateThreatWeaponStatsForMatches,
+    aggregatePairedWeaponsForWeapon,
+    aggregateLegendsForWeapon,
     aggregateMapStatsForMatches,
     calculateStats,
 } from '../utils/statsAggregation';
+import { buildWeaponItems } from '../utils/tierTableData';
+import { getWeaponDisplayName, findWeaponByLoadoutId, getWeaponImageUrl } from '../utils/weaponTheme';
 import {
     type TeammateMatchStat,
     MIN_GAMES_FOR_TEAMMATE_DELTA,
@@ -52,7 +56,6 @@ import {
     computeOverviewAnalytics,
 } from '../utils/statsScoring';
 import { WEAPONS_DB, type WeaponCategory } from '../utils/WeaponsData';
-import { findWeaponByLoadoutId } from '../utils/weaponTheme';
 import RankProgressChart from './RankProgressChart';
 import PremiumBlurGate from './PremiumBlurGate';
 
@@ -67,42 +70,24 @@ const formatWeaponWinRate = (winRate: string, hasWinRate?: boolean) => {
     return `${winRate}%`;
 };
 
+const formatKdNumber = (value: number) => value.toFixed(2);
+
+const formatWeaponKd = (
+    value: number | null | undefined,
+    hasKd: boolean | undefined,
+    naLabel: string,
+) => {
+    if (hasKd === false || value == null) {
+        // Fallback if locale pack/cache is missing the key (i18n returns the key path).
+        return naLabel.includes('.') ? 'N/A' : naLabel;
+    }
+    return formatKdNumber(value);
+};
+
 const MAP_IMAGE_BASE = 'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/';
 
 const getMapThumbnailUrl = (mapName: string) =>
     `${MAP_IMAGE_BASE}${MAP_THUMBNAILS[mapName] || 'thumbnail-kings_canyon.png'}`;
-
-const WeaponTopLegends = ({ legendIds }: { legendIds: string[] }) => {
-    if (legendIds.length === 0) return null;
-    return (
-        <div style={{ display: 'flex', alignItems: 'center', marginLeft: '8px', flexShrink: 0, isolation: 'isolate' }}>
-            {legendIds.map((id, i) => (
-                <div
-                    key={id}
-                    title={formatLegendDisplayName(id)}
-                    style={{
-                        width: '22px',
-                        height: '22px',
-                        borderRadius: '50%',
-                        overflow: 'hidden',
-                        background: 'rgba(255,255,255,0.05)',
-                        border: '1px solid var(--color-border)',
-                        marginLeft: i > 0 ? '-6px' : 0,
-                        zIndex: legendIds.length - i,
-                        position: 'relative',
-                    }}
-                >
-                    <img
-                        src={`${MAP_IMAGE_BASE}${id}.png`}
-                        alt={id}
-                        style={{ width: '100%', height: '100%', objectFit: 'contain' }}
-                        onError={(e) => { e.currentTarget.src = `${MAP_IMAGE_BASE}unknown.png`; }}
-                    />
-                </div>
-            ))}
-        </div>
-    );
-};
 
 const mapBreakdownTableStyle: React.CSSProperties = {
     width: '100%',
@@ -370,20 +355,21 @@ const legendBreakdownPanelStyle: React.CSSProperties = {
 
 const LegendWeaponMapBreakdown = ({ matches, legendName }: { matches: MatchHistory[]; legendName: string }) => {
     const { t } = useTranslation();
-    type WeaponSortCol = 'name' | 'holdMs' | 'winRate' | 'avgPlacement' | 'kd';
+    type WeaponSortCol = 'name' | 'usageGames' | 'winRate' | 'avgPlacement' | 'kd';
     const [weaponSort, setWeaponSort] = useState<TableSortState<WeaponSortCol>>(createDefaultTableSort);
     const weaponStats = useMemo(() => aggregateWeaponStatsForMatches(matches).slice(0, 8), [matches]);
     const sortedWeaponStats = useMemo(
         () => applyTableSort(weaponStats, weaponSort, {
             name: (a, b) => compareWeaponDbOrder(a.id, b.id),
-            holdMs: (a, b) => compareNumbers(a.holdMs, b.holdMs),
+            usageGames: (a, b) => compareNumbers(a.usageGames, b.usageGames),
             winRate: (a, b) => compareNumericStrings(a.winRate, b.winRate),
             avgPlacement: (a, b) => compareAvgPlacement(a.avgPlacement, b.avgPlacement),
-            kd: (a, b) => compareNumbers(a.kd, b.kd),
+            kd: (a, b) => compareNumbers(a.kd ?? -1, b.kd ?? -1),
         }, {
             isMissing: {
                 winRate: (w) => !w.hasWinRate,
                 avgPlacement: (w) => !w.hasWinRate,
+                kd: (w) => !w.hasKd,
             },
         }),
         [weaponStats, weaponSort],
@@ -424,8 +410,8 @@ const LegendWeaponMapBreakdown = ({ matches, legendName }: { matches: MatchHisto
                                     <SortableTh column="name" sortState={weaponSort} onSort={(col) => setWeaponSort((prev) => toggleCatalogNameTableSort(prev, col))} style={{ ...mapBreakdownHeadCellStyle, textAlign: 'left' }}>
                                         {t('statistics.weapons.weapon')}
                                     </SortableTh>
-                                    <SortableTh column="holdMs" sortState={weaponSort} onSort={(col) => setWeaponSort((prev) => toggleCatalogNameTableSort(prev, col))} style={{ ...mapBreakdownHeadCellStyle, textAlign: 'center' }}>
-                                        {t('statistics.weapons.usageTime')}
+                                    <SortableTh column="usageGames" sortState={weaponSort} onSort={(col) => setWeaponSort((prev) => toggleCatalogNameTableSort(prev, col))} style={{ ...mapBreakdownHeadCellStyle, textAlign: 'center' }} title={t('statistics.weapons.usageHint')}>
+                                        {t('statistics.weapons.matches')}
                                     </SortableTh>
                                     <SortableTh column="winRate" sortState={weaponSort} onSort={(col) => setWeaponSort((prev) => toggleCatalogNameTableSort(prev, col))} style={{ ...mapBreakdownHeadCellStyle, textAlign: 'center' }}>
                                         {t('statistics.weapons.winPercent')}
@@ -455,10 +441,10 @@ const LegendWeaponMapBreakdown = ({ matches, legendName }: { matches: MatchHisto
                                                 <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }} title={w.name}>{w.name}</span>
                                             </div>
                                         </td>
-                                        <td style={{ ...mapBreakdownBodyCellStyle, textAlign: 'center', color: 'var(--color-text-dim)', fontVariantNumeric: 'tabular-nums' }}>{w.holdTime}</td>
+                                        <td style={{ ...mapBreakdownBodyCellStyle, textAlign: 'center', color: 'var(--color-text-dim)', fontVariantNumeric: 'tabular-nums' }} title={w.holdTime}>{w.usageLabel}</td>
                                         <td style={{ ...mapBreakdownBodyCellStyle, textAlign: 'center', fontWeight: 'bold', color: getWinRateColor(w.winRate, { hasValue: w.hasWinRate }) }}>{formatWeaponWinRate(w.winRate, w.hasWinRate)}</td>
                                         <AvgPlacementCell value={w.avgPlacement} padding="10px 12px" />
-                                        <td style={{ ...mapBreakdownBodyCellStyle, textAlign: 'center', fontWeight: 'bold', color: getKdColor(w.kd) }}>{w.kd}</td>
+                                        <td style={{ ...mapBreakdownBodyCellStyle, textAlign: 'center', fontWeight: 'bold', color: getKdColor(w.hasKd ? w.kd : null) }}>{formatWeaponKd(w.kd, w.hasKd, t('statistics.common.na'))}</td>
                                     </tr>
                                 ))}
                             </tbody>
@@ -679,7 +665,7 @@ const MapLegendBreakdown = ({
                                             <td style={{ ...mapBreakdownBodyCellStyle, textAlign: 'center', color: 'var(--color-text-dim)' }}>{leg.games}</td>
                                             <td style={{ ...mapBreakdownBodyCellStyle, textAlign: 'center', fontWeight: 'bold', color: getWinRateColor(leg.winRate) }}>{leg.winRate}%</td>
                                             <AvgPlacementCell value={leg.avgPlacement} padding="10px 12px" />
-                                            <td style={{ ...mapBreakdownBodyCellStyle, textAlign: 'center', fontWeight: 'bold', color: getKdColor(leg.kd) }}>{leg.kd}</td>
+                                            <td style={{ ...mapBreakdownBodyCellStyle, textAlign: 'center', fontWeight: 'bold', color: getKdColor(leg.kd) }}>{formatKdNumber(leg.kd)}</td>
                                             <td style={{ ...mapBreakdownBodyCellStyle, textAlign: 'center', fontWeight: 'bold', color: getAvgDamageColor(leg.avgDamage) }}>{leg.avgDamage}</td>
                                         </tr>
                                     ))}
@@ -808,6 +794,7 @@ const OverviewRankCard = ({
 }) => {
     const isFirst = rank === 0;
     const isLegend = media === 'legend';
+    const imageSrc = isLegend ? `${MAP_IMAGE_BASE}${id}.png` : getWeaponImageUrl(id);
     return (
         <div style={{
             flex: 1,
@@ -836,7 +823,7 @@ const OverviewRankCard = ({
                 flexShrink: 0,
             }}>
                 <img
-                    src={`${MAP_IMAGE_BASE}${id}.png`}
+                    src={imageSrc}
                     alt={name}
                     style={isLegend
                         ? { width: '42px', height: '42px', objectFit: 'contain' }
@@ -1729,7 +1716,7 @@ const MapOverviewPanel = ({
                                 <OverviewRankCard key={leg.id} rank={i} id={leg.id} name={leg.name} media="legend">
                                     <MapOverviewTopCardStat label={t('statistics.maps.legendMatches')} value={leg.games} />
                                     <MapOverviewTopCardStat label={t('statistics.maps.legendWinPercent')} value={`${leg.winRate}%`} color={getWinRateColor(leg.winRate)} />
-                                    <MapOverviewTopCardStat label={t('statistics.maps.legendKd')} value={leg.kd} color={getKdColor(leg.kd)} />
+                                    <MapOverviewTopCardStat label={t('statistics.maps.legendKd')} value={formatKdNumber(leg.kd)} color={getKdColor(leg.kd)} />
                                 </OverviewRankCard>
                             ))}
                         </OverviewRankCardRow>
@@ -1743,8 +1730,8 @@ const MapOverviewPanel = ({
                         <OverviewRankCardRow>
                             {topWeapons.map((w, i) => (
                                 <OverviewRankCard key={w.id} rank={i} id={w.id} name={w.name} media="weapon">
-                                    <MapOverviewTopCardStat label={t('statistics.weapons.usageTime')} value={w.holdTime} />
-                                    <MapOverviewTopCardStat label={t('statistics.weapons.kd')} value={w.kd} color={getKdColor(w.kd)} />
+                                    <MapOverviewTopCardStat label={t('statistics.weapons.matches')} value={w.usageLabel} />
+                                    <MapOverviewTopCardStat label={t('statistics.weapons.kd')} value={formatWeaponKd(w.kd, w.hasKd, t('statistics.common.na'))} color={getKdColor(w.hasKd ? w.kd : null)} />
                                 </OverviewRankCard>
                             ))}
                         </OverviewRankCardRow>
@@ -1855,8 +1842,8 @@ const LegendOverviewPanel = ({
                         <OverviewRankCardRow>
                             {topWeapons.map((w, i) => (
                                 <OverviewRankCard key={w.id} rank={i} id={w.id} name={w.name} media="weapon">
-                                    <MapOverviewTopCardStat label={t('statistics.weapons.usageTime')} value={w.holdTime} />
-                                    <MapOverviewTopCardStat label={t('statistics.weapons.kd')} value={w.kd} color={getKdColor(w.kd)} />
+                                    <MapOverviewTopCardStat label={t('statistics.weapons.matches')} value={w.usageLabel} />
+                                    <MapOverviewTopCardStat label={t('statistics.weapons.kd')} value={formatWeaponKd(w.kd, w.hasKd, t('statistics.common.na'))} color={getKdColor(w.hasKd ? w.kd : null)} />
                                 </OverviewRankCard>
                             ))}
                         </OverviewRankCardRow>
@@ -1944,24 +1931,19 @@ const LegendsView = ({ data, profileUid, profileName }: { data: MatchHistory[]; 
     const stats = useMemo(() => calculateStats(legendMatches), [legendMatches]);
     const legendDisplayName = formatLegendDisplayName(selectedLegend);
 
-    const pieData = useMemo(() => {
-        if (!data || data.length === 0) return [];
-        const counts: Record<string, number> = {};
-        data.forEach(m => {
-            if (!isKnownLegend(m.legend)) return;
-            const l = normalizeLegendKey(m.legend);
-            counts[l] = (counts[l] || 0) + 1;
-        });
-        return Object.entries(counts)
-            .sort((a, b) => b[1] - a[1])
-            .slice(0, 5)
-            .map(([name, value]) => ({ name: formatLegendDisplayName(name), value }));
+    const mostUsedLegend = useMemo(() => {
+        const list = aggregateLegendStatsForMatches(data);
+        if (list.length === 0) return null;
+        return [...list].sort((a, b) => {
+            if (b.games !== a.games) return b.games - a.games;
+            return b.rankScore - a.rankScore;
+        })[0];
     }, [data]);
 
     return (
         <div style={{ animation: 'fadeIn 0.3s' }}>
-            <div style={{ display: 'flex', gap: '20px', marginBottom: '20px' }}>
-                <div style={{ flex: 2, display: 'flex', flexWrap: 'wrap', gap: '8px', padding: '15px', background: 'var(--color-bg-deep)', borderRadius: '10px', border: '1px solid var(--color-border)', maxHeight: '300px', overflowY: 'auto' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(220px, 1fr)', gap: '20px', marginBottom: '20px', alignItems: 'stretch' }}>
+                <div style={{ minWidth: 0, display: 'flex', flexWrap: 'wrap', gap: '8px', padding: '15px', background: 'var(--color-bg-deep)', borderRadius: '10px', border: '1px solid var(--color-border)', maxHeight: '300px', overflowY: 'auto', alignContent: 'flex-start' }}>
                     {LEGENDS_LIST.map(legend => {
                         const isSelected = selectedLegend === legend;
                         const legendTitle = formatLegendDisplayName(legend);
@@ -1985,27 +1967,65 @@ const LegendsView = ({ data, profileUid, profileName }: { data: MatchHistory[]; 
                         );
                     })}
                 </div>
-                <div style={{ flex: 1, background: 'var(--color-bg-card)', borderRadius: '10px', border: '1px solid var(--color-border)', padding: '10px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                    <h5 style={{ margin: '0 0 10px 0', color: 'var(--color-text-dim)' }}>{t('statistics.legends.top5PickRates')}</h5>
-                    {pieData.length > 0 ? (
-                        <div style={{ width: '100%', height: '200px' }}>
-                            <ChartContainer height={200} minHeight={200}>
-                                <PieChart>
-                                    <Pie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={40} outerRadius={60} paddingAngle={2}>
-                                        {pieData.map((_, index) => <Cell key={`cell-${index}`} fill={COLORS.CHART[index % COLORS.CHART.length]} />)}
-                                    </Pie>
-                                    <Tooltip contentStyle={{ backgroundColor: 'var(--color-bg-deep)', border: '1px solid var(--color-border-light)', fontSize: '12px' }} itemStyle={{ color: 'var(--color-text-primary)' }} />
-                                    <RechartsLegend
-                                        layout="vertical"
-                                        verticalAlign="middle"
-                                        align="right"
-                                        wrapperStyle={{ fontSize: '10px', cursor: 'default', pointerEvents: 'none' }}
+                <div style={{
+                    minWidth: 0,
+                    background: 'var(--color-bg-card)',
+                    borderRadius: '10px',
+                    border: '1px solid var(--color-border)',
+                    padding: '14px 16px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                }}>
+                    {mostUsedLegend ? (
+                        <>
+                            <div
+                                onClick={() => setSelectedLegend(mostUsedLegend.id)}
+                                style={{
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    alignItems: 'center',
+                                    textAlign: 'center',
+                                    paddingBottom: '12px',
+                                    marginBottom: '4px',
+                                    borderBottom: '1px solid var(--color-border)',
+                                    cursor: 'pointer',
+                                }}
+                                title={mostUsedLegend.name}
+                            >
+                                <div style={{
+                                    width: '56px',
+                                    height: '56px',
+                                    borderRadius: '50%',
+                                    overflow: 'hidden',
+                                    border: '2px solid #e17055',
+                                    background: 'rgba(255,255,255,0.05)',
+                                    marginBottom: '8px',
+                                    flexShrink: 0,
+                                }}>
+                                    <img
+                                        src={`${MAP_IMAGE_BASE}${mostUsedLegend.id}.png`}
+                                        alt={mostUsedLegend.name}
+                                        style={{ width: '100%', height: '100%', objectFit: 'cover', transform: 'scale(1.12)' }}
+                                        onError={(e) => { e.currentTarget.src = `${MAP_IMAGE_BASE}unknown.png`; }}
                                     />
-                                </PieChart>
-                            </ChartContainer>
-                        </div>
+                                </div>
+                                <div style={{ fontSize: '10px', color: 'var(--color-text-muted)', fontWeight: 600, marginBottom: '3px' }}>
+                                    {t('statistics.maps.mostPlayedLegend')}
+                                </div>
+                                <div style={{ fontSize: '14px', fontWeight: 'bold', color: 'var(--color-text-dim)', lineHeight: 1.25, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%' }}>
+                                    {mostUsedLegend.name}
+                                </div>
+                            </div>
+                            <OverviewSideStatRow label={t('statistics.legends.matches')} value={mostUsedLegend.games} />
+                            <OverviewSideStatRow label={t('statistics.legends.winRate')} value={`${mostUsedLegend.winRate}%`} color={getWinRateColor(mostUsedLegend.winRate)} />
+                            <OverviewSideStatRow label={t('statistics.common.avgPlacementShort')} value={`#${mostUsedLegend.avgPlacement}`} color={getAvgPlacementColor(mostUsedLegend.avgPlacement)} />
+                            <OverviewSideStatRow label={t('statistics.legends.kd')} value={formatKdNumber(mostUsedLegend.kd)} color={getKdColor(mostUsedLegend.kd)} />
+                            <OverviewSideStatRow label={t('statistics.legends.avgDamage')} value={mostUsedLegend.avgDamage} color={getAvgDamageColor(mostUsedLegend.avgDamage)} noBorder />
+                        </>
                     ) : (
-                        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--color-text-faint)', fontSize: '12px' }}>{t('statistics.legends.noData')}</div>
+                        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--color-text-faint)', fontSize: '12px' }}>
+                            {t('statistics.legends.noData')}
+                        </div>
                     )}
                 </div>
             </div>
@@ -2022,118 +2042,379 @@ const LegendsView = ({ data, profileUid, profileName }: { data: MatchHistory[]; 
 
 const WeaponsView = ({ data }: { data: MatchHistory[] }) => {
     const { t } = useTranslation();
-    type WeaponSortCol = 'name' | 'holdMs' | 'winRate' | 'kd' | 'avgPlacement';
-    const [weaponSort, setWeaponSort] = useState<TableSortState<WeaponSortCol>>(createDefaultTableSort);
+    const weaponCatalog = useMemo(() => buildWeaponItems(), []);
     const weaponStats = useMemo(() => aggregateWeaponStatsForMatches(data), [data]);
-    const sortedWeaponStats = useMemo(
-        () => applyTableSort(weaponStats, weaponSort, {
+    const threatWeapons = useMemo(() => aggregateThreatWeaponStatsForMatches(data).slice(0, 3), [data]);
+    const topWeapons = useMemo(() => weaponStats.slice(0, 3), [weaponStats]);
+
+    const [selectedWeaponId, setSelectedWeaponId] = useState<string>(
+        () => weaponCatalog[0]?.id ?? 'r-301',
+    );
+
+    const selectedStat = useMemo(
+        () => weaponStats.find(w => w.id === selectedWeaponId) ?? null,
+        [weaponStats, selectedWeaponId],
+    );
+    const pairedWeapons = useMemo(
+        () => aggregatePairedWeaponsForWeapon(data, selectedWeaponId),
+        [data, selectedWeaponId],
+    );
+    const weaponLegends = useMemo(
+        () => aggregateLegendsForWeapon(data, selectedWeaponId),
+        [data, selectedWeaponId],
+    );
+    const topPaired = pairedWeapons.slice(0, 3);
+    const topWeaponLegends = weaponLegends.slice(0, 3);
+    const selectedName = selectedStat?.name ?? getWeaponDisplayName(selectedWeaponId);
+    const headerBgUrl = getMapThumbnailUrl(TARGET_MAPS[0]);
+
+    type PairSortCol = 'name' | 'games' | 'winRate' | 'avgPlacement' | 'kd' | 'kda';
+    type LegendSortCol = 'name' | 'games' | 'winRate' | 'avgPlacement' | 'kd' | 'kda';
+    const [pairSort, setPairSort] = useState<TableSortState<PairSortCol>>(createDefaultTableSort);
+    const [legendSort, setLegendSort] = useState<TableSortState<LegendSortCol>>(createDefaultTableSort);
+    const sortedPairs = useMemo(
+        () => applyTableSort(pairedWeapons, pairSort, {
             name: (a, b) => compareWeaponDbOrder(a.id, b.id),
-            holdMs: (a, b) => compareNumbers(a.holdMs, b.holdMs),
+            games: (a, b) => compareNumbers(a.games, b.games),
             winRate: (a, b) => compareNumericStrings(a.winRate, b.winRate),
-            kd: (a, b) => compareNumbers(a.kd, b.kd),
             avgPlacement: (a, b) => compareAvgPlacement(a.avgPlacement, b.avgPlacement),
+            kd: (a, b) => compareNumbers(a.kd ?? -1, b.kd ?? -1),
+            kda: (a, b) => compareNumbers(a.kda ?? -1, b.kda ?? -1),
         }, {
             isMissing: {
                 winRate: (w) => !w.hasWinRate,
                 avgPlacement: (w) => !w.hasWinRate,
+                kd: (w) => !w.hasKd,
+                kda: (w) => !w.hasKd,
             },
         }),
-        [weaponStats, weaponSort],
+        [pairedWeapons, pairSort],
+    );
+    const sortedLegends = useMemo(
+        () => applyTableSort(weaponLegends, legendSort, {
+            name: (a, b) => compareStrings(a.name, b.name),
+            games: (a, b) => compareNumbers(a.games, b.games),
+            winRate: (a, b) => compareNumericStrings(a.winRate, b.winRate),
+            avgPlacement: (a, b) => compareAvgPlacement(a.avgPlacement, b.avgPlacement),
+            kd: (a, b) => compareNumbers(a.kd ?? -1, b.kd ?? -1),
+            kda: (a, b) => compareNumbers(a.kda ?? -1, b.kda ?? -1),
+        }, {
+            isMissing: {
+                kd: (leg) => !leg.hasKd,
+                kda: (leg) => !leg.hasKd,
+            },
+        }),
+        [weaponLegends, legendSort],
     );
 
-    const top3 = weaponStats.slice(0, 3);
+    const panelHeader = (title: string) => (
+        <div style={{
+            padding: '12px 16px',
+            borderBottom: '1px solid var(--color-border)',
+            background: 'var(--color-bg-table-header)',
+        }}>
+            <h4 style={{ margin: 0, color: 'var(--color-text-secondary)', fontSize: '13px' }}>{title}</h4>
+            <div style={{ fontSize: '11px', color: 'var(--color-text-faint)', marginTop: '2px' }}>
+                {t('statistics.weapons.breakdownSubtitle', { weapon: selectedName })}
+            </div>
+        </div>
+    );
+
+    const renderTopWeaponsSection = () => (
+        <OverviewRankSection title={t('statistics.weapons.topWeapons')}>
+            {topWeapons.length > 0 ? (
+                <OverviewRankCardRow>
+                    {topWeapons.map((w, i) => (
+                        <OverviewRankCard key={w.id} rank={i} id={w.id} name={w.name} media="weapon">
+                            <MapOverviewTopCardStat label={t('statistics.weapons.matches')} value={w.usageLabel} />
+                            <MapOverviewTopCardStat label={t('statistics.weapons.kd')} value={formatWeaponKd(w.kd, w.hasKd, t('statistics.common.na'))} color={getKdColor(w.hasKd ? w.kd : null)} />
+                            <MapOverviewTopCardStat label={t('statistics.weapons.winPercent')} value={formatWeaponWinRate(w.winRate, w.hasWinRate)} color={getWinRateColor(w.winRate, { hasValue: w.hasWinRate })} />
+                        </OverviewRankCard>
+                    ))}
+                </OverviewRankCardRow>
+            ) : (
+                <OverviewRankEmpty msg={t('statistics.weapons.noWeaponData')} />
+            )}
+        </OverviewRankSection>
+    );
+
+    const renderTopThreatsSection = () => (
+        <OverviewRankSection title={t('statistics.weapons.topThreats')}>
+            {threatWeapons.length > 0 ? (
+                <OverviewRankCardRow>
+                    {threatWeapons.map((w, i) => (
+                        <OverviewRankCard key={w.id} rank={i} id={w.id} name={w.name} media="weapon">
+                            <MapOverviewTopCardStat label={t('statistics.weapons.threatKills')} value={w.kills} color="#ff6b6b" />
+                            <MapOverviewTopCardStat label={t('statistics.weapons.threatKnockdowns')} value={w.knockdowns} color="#feca57" />
+                        </OverviewRankCard>
+                    ))}
+                </OverviewRankCardRow>
+            ) : (
+                <OverviewRankEmpty msg={t('statistics.weapons.noThreatData')} />
+            )}
+        </OverviewRankSection>
+    );
 
     return (
         <div style={{ animation: 'fadeIn 0.5s' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '20px', marginBottom: '30px' }}>
-                {top3.map((w, i) => (
-                    <div key={w.id} style={{
-                        background: i === 0 ? `linear-gradient(135deg, var(--color-warning-hover) 0%, var(--color-bg-card) 100%)` : 'var(--color-bg-card)',
-                        borderRadius: '12px', border: `1px solid ${i === 0 ? 'var(--color-warning)' : 'var(--color-border)'}`,
-                        padding: '20px', position: 'relative', overflow: 'hidden',
-                        boxShadow: i === 0 ? '0 0 15px rgba(230, 126, 34, 0.3)' : 'none'
-                    }}>
-                        <div style={{ fontSize: '12px', color: 'var(--color-text-dim)', marginBottom: '5px' }}>
-                            {i === 0 ? t('statistics.weapons.mostUsed') : t('statistics.weapons.pick', { rank: i + 1 })}
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'center', fontSize: '18px', fontWeight: '900', color: 'var(--color-text-primary)', marginBottom: '15px', minWidth: 0 }}>
-                            <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={w.name}>{w.name}</span>
-                            <WeaponTopLegends legendIds={w.topLegends} />
-                        </div>
-                        <div style={{ height: '80px', background: 'rgba(0,0,0,0.3)', borderRadius: '8px', marginBottom: '15px', display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden' }}>
-                            <img
-                                src={`https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/${w.id}.png`}
-                                alt={w.name}
-                                style={{ width: '90%', height: '90%', objectFit: 'contain' }}
-                                onError={(e) => {
-                                    e.currentTarget.style.display = 'none';
-                                    e.currentTarget.parentElement!.innerHTML = '<span style="font-size:30px">🔫</span>';
+            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.25fr) minmax(300px, 1.15fr)', gap: '20px', marginBottom: '20px', alignItems: 'start' }}>
+                <div style={{ minWidth: 0, display: 'flex', flexWrap: 'wrap', gap: '8px', padding: '15px', background: 'var(--color-bg-deep)', borderRadius: '10px', border: '1px solid var(--color-border)', maxHeight: '420px', overflowY: 'auto', alignContent: 'flex-start' }}>
+                    {weaponCatalog.map(weapon => {
+                        const isSelected = selectedWeaponId === weapon.id;
+                        return (
+                            <div
+                                key={weapon.id}
+                                onClick={() => setSelectedWeaponId(weapon.id)}
+                                style={{
+                                    width: '56px', height: '40px', borderRadius: '6px',
+                                    boxShadow: isSelected ? 'inset 0 0 0 2px #e17055' : 'inset 0 0 0 1px var(--color-border)',
+                                    overflow: 'hidden', cursor: 'pointer',
+                                    filter: isSelected ? 'grayscale(0%)' : 'grayscale(80%)',
+                                    opacity: isSelected ? 1 : 0.6, transition: '0.2s',
+                                    transform: isSelected ? 'scale(1.08)' : 'scale(1)',
+                                    zIndex: isSelected ? 1 : 0,
+                                    background: 'rgba(0,0,0,0.25)',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
                                 }}
-                            />
-                        </div>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '5px', fontSize: '13px' }}>
-                            <div style={{ textAlign: 'center' }}><div style={{ color: 'var(--color-text-muted)', fontSize: '10px' }}>{t('statistics.weapons.usageTime')}</div><div style={{ fontWeight: 'bold', fontVariantNumeric: 'tabular-nums' }}>{w.holdTime}</div></div>
-                            <div style={{ textAlign: 'center' }}><div style={{ color: 'var(--color-text-muted)', fontSize: '10px' }}>{t('statistics.weapons.kd')}</div><div style={{ fontWeight: 'bold', color: getKdColor(w.kd) }}>{w.kd}</div></div>
-                            <div style={{ textAlign: 'center' }}><div style={{ color: 'var(--color-text-muted)', fontSize: '10px' }}>{t('statistics.weapons.winPercent')}</div><div style={{ fontWeight: 'bold', color: getWinRateColor(w.winRate, { hasValue: w.hasWinRate }) }}>{formatWeaponWinRate(w.winRate, w.hasWinRate)}</div></div>
-                        </div>
-                    </div>
-                ))}
-                {top3.length === 0 && <div style={{ gridColumn: 'span 3' }}><EmptyState msg={t('statistics.weapons.noWeaponData')} /></div>}
+                                title={weapon.label}
+                            >
+                                <img
+                                    src={weapon.image || `${MAP_IMAGE_BASE}${weapon.id}.png`}
+                                    alt={weapon.label}
+                                    style={{ maxWidth: '90%', maxHeight: '85%', objectFit: 'contain' }}
+                                    onError={(e) => { (e.target as HTMLImageElement).style.opacity = '0'; }}
+                                />
+                            </div>
+                        );
+                    })}
+                </div>
+                <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                    {renderTopWeaponsSection()}
+                    {renderTopThreatsSection()}
+                </div>
             </div>
 
-            <div style={{ background: 'var(--color-bg-sub-header)', borderRadius: '12px', overflow: 'hidden', border: '1px solid var(--color-border)' }}>
-                <div style={{ padding: '15px 20px', borderBottom: '1px solid var(--color-border)', background: 'var(--color-bg-table-header)' }}>
-                    <h4 style={{ margin: 0, color: 'var(--color-text-secondary)', fontSize: '14px' }}>{t('statistics.weapons.detailedStatsTitle')}</h4>
-                </div>
-                <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px', textAlign: 'left' }}>
-                        <thead style={{ position: 'sticky', top: 0, background: 'var(--color-bg-table-header)', zIndex: 2 }}>
-                            <tr style={{ color: 'var(--color-text-muted)', fontSize: '11px', borderBottom: '1px solid var(--color-border)' }}>
-                                <th style={{ ...mainTableHeadCellStyle, width: '50px' }}>{t('statistics.weapons.rank')}</th>
-                                <SortableTh column="name" sortState={weaponSort} onSort={(col) => setWeaponSort((prev) => toggleCatalogNameTableSort(prev, col))} style={mainTableHeadCellStyle}>
-                                    {t('statistics.weapons.weapon')}
-                                </SortableTh>
-                                <SortableTh column="holdMs" sortState={weaponSort} onSort={(col) => setWeaponSort((prev) => toggleCatalogNameTableSort(prev, col))} style={{ ...mainTableHeadCellStyle, textAlign: 'center' }}>
-                                    {t('statistics.weapons.usageTime')}
-                                </SortableTh>
-                                <SortableTh column="winRate" sortState={weaponSort} onSort={(col) => setWeaponSort((prev) => toggleCatalogNameTableSort(prev, col))} style={{ ...mainTableHeadCellStyle, textAlign: 'center' }}>
-                                    {t('statistics.weapons.winRate')}
-                                </SortableTh>
-                                <SortableTh column="kd" sortState={weaponSort} onSort={(col) => setWeaponSort((prev) => toggleCatalogNameTableSort(prev, col))} style={{ ...mainTableHeadCellStyle, textAlign: 'center' }}>
-                                    {t('statistics.weapons.kd')}
-                                </SortableTh>
-                                <SortableTh column="avgPlacement" sortState={weaponSort} onSort={(col) => setWeaponSort((prev) => toggleCatalogNameTableSort(prev, col))} style={{ ...mainTableHeadCellStyle, textAlign: 'center' }} title={t('statistics.common.avgPlacement')}>
-                                    {t('statistics.common.avgPlacementShort')}
-                                </SortableTh>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {sortedWeaponStats.map((w, i) => (
-                                <tr key={w.id} style={{ borderBottom: '1px solid var(--color-bg-card-hover)' }} onMouseEnter={e => e.currentTarget.style.background = 'var(--color-bg-card-hover)'} onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
-                                    <td style={{ padding: '12px 20px', color: 'var(--color-text-faint)', fontWeight: 'bold' }}>#{i + 1}</td>
-                                    <td style={{ padding: '12px 20px', display: 'flex', alignItems: 'center', color: 'var(--color-text-dim)', fontWeight: 'bold', minWidth: 0 }}>
-                                        <div style={{ width: '50px', height: '25px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,255,255,0.05)', borderRadius: '4px', marginRight: '12px', flexShrink: 0 }}>
-                                            <img
-                                                src={`https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/${w.id}.png`}
-                                                alt={w.name}
-                                                style={{ maxWidth: '40px', maxHeight: '20px', objectFit: 'contain' }}
-                                                onError={(e) => { e.currentTarget.style.opacity = '0'; }}
-                                            />
-                                        </div>
-                                        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={w.name}>{w.name}</span>
-                                        <WeaponTopLegends legendIds={w.topLegends} />
-                                    </td>
-                                    <td style={{ padding: '12px 20px', textAlign: 'center', color: 'var(--color-text-dim)', fontVariantNumeric: 'tabular-nums' }}>{w.holdTime}</td>
-                                    <td style={{ padding: '12px 20px', textAlign: 'center', fontWeight: 'bold', color: getWinRateColor(w.winRate, { hasValue: w.hasWinRate }) }}>{formatWeaponWinRate(w.winRate, w.hasWinRate)}</td>
-                                    <td style={{ padding: '12px 20px', textAlign: 'center', fontWeight: 'bold', color: getKdColor(w.kd) }}>{w.kd}</td>
-                                    <AvgPlacementCell value={w.avgPlacement} padding="12px 20px" />
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                    {weaponStats.length === 0 && <div style={{ padding: '40px', textAlign: 'center', color: 'var(--color-text-faint)', fontSize: '12px' }}>{t('statistics.weapons.noWeaponData')}</div>}
-                </div>
-            </div>
+            {selectedStat ? (
+                <>
+                    <div style={{
+                        background: 'var(--color-bg-card)',
+                        borderRadius: '12px',
+                        border: '1px solid var(--color-border)',
+                        overflow: 'hidden',
+                        marginBottom: '24px',
+                    }}>
+                        <div style={{
+                            position: 'relative',
+                            padding: '22px 24px',
+                            borderBottom: '1px solid var(--color-border)',
+                            overflow: 'hidden',
+                        }}>
+                            <div style={{
+                                position: 'absolute',
+                                inset: 0,
+                                backgroundImage: `linear-gradient(135deg, rgba(0,0,0,0.82), rgba(0,0,0,0.55)), url(${headerBgUrl})`,
+                                backgroundSize: 'cover',
+                                backgroundPosition: 'center',
+                                opacity: 0.55,
+                            }} />
+                            <div style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center', gap: '18px' }}>
+                                <div style={{
+                                    width: '72px',
+                                    height: '72px',
+                                    borderRadius: '12px',
+                                    overflow: 'hidden',
+                                    border: '3px solid #e17055',
+                                    flexShrink: 0,
+                                    background: 'rgba(0,0,0,0.4)',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                }}>
+                                    <img
+                                        src={getWeaponImageUrl(selectedWeaponId)}
+                                        alt={selectedName}
+                                        style={{ maxWidth: '90%', maxHeight: '90%', objectFit: 'contain' }}
+                                        onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                                    />
+                                </div>
+                                <div style={{ minWidth: 0 }}>
+                                    <div style={{ fontSize: '11px', color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '4px' }}>
+                                        {t('statistics.weapons.overview')}
+                                    </div>
+                                    <h3 style={{ margin: 0, color: 'var(--color-text-primary)', fontSize: '22px', fontWeight: 900 }}>{selectedName}</h3>
+                                    <div style={{ marginTop: '6px', fontSize: '12px', color: 'var(--color-text-dim)' }}>
+                                        {t('statistics.weapons.matches')}: {selectedStat.usageLabel}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div style={{
+                            padding: '20px 24px',
+                            display: 'grid',
+                            gridTemplateColumns: 'repeat(auto-fit, minmax(96px, 1fr))',
+                            gap: '12px',
+                            borderBottom: '1px solid var(--color-border)',
+                        }}>
+                            <MapOverviewStat label={t('statistics.weapons.matches')} value={selectedStat.usageLabel} />
+                            <MapOverviewStat label={t('statistics.weapons.winRate')} value={formatWeaponWinRate(selectedStat.winRate, selectedStat.hasWinRate)} color={getWinRateColor(selectedStat.winRate, { hasValue: selectedStat.hasWinRate })} />
+                            <MapOverviewStat label={t('statistics.common.avgPlacementShort')} value={selectedStat.hasWinRate ? `#${selectedStat.avgPlacement}` : '-'} color={selectedStat.hasWinRate ? getAvgPlacementColor(selectedStat.avgPlacement) : undefined} />
+                            <MapOverviewStat label={t('statistics.weapons.kd')} value={formatWeaponKd(selectedStat.kd, selectedStat.hasKd, t('statistics.common.na'))} color={getKdColor(selectedStat.hasKd ? selectedStat.kd : null)} />
+                            <MapOverviewStat label={t('statistics.weapons.kad')} value={formatWeaponKd(selectedStat.kda, selectedStat.hasKd, t('statistics.common.na'))} color={getKadColor(selectedStat.hasKd ? selectedStat.kda : null)} />
+                        </div>
+
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', padding: '20px 24px 24px', alignItems: 'stretch' }}>
+                            <OverviewRankSection title={t('statistics.weapons.pairedWeapons')}>
+                                {topPaired.length > 0 ? (
+                                    <OverviewRankCardRow>
+                                        {topPaired.map((w, i) => (
+                                            <OverviewRankCard key={w.id} rank={i} id={w.id} name={w.name} media="weapon">
+                                                <MapOverviewTopCardStat label={t('statistics.weapons.matches')} value={w.games} />
+                                                <MapOverviewTopCardStat label={t('statistics.weapons.kd')} value={formatWeaponKd(w.kd, w.hasKd, t('statistics.common.na'))} color={getKdColor(w.hasKd ? w.kd : null)} />
+                                            </OverviewRankCard>
+                                        ))}
+                                    </OverviewRankCardRow>
+                                ) : (
+                                    <OverviewRankEmpty msg={t('statistics.weapons.noPairedData')} />
+                                )}
+                            </OverviewRankSection>
+
+                            <OverviewRankSection title={t('statistics.weapons.weaponLegends')}>
+                                {topWeaponLegends.length > 0 ? (
+                                    <OverviewRankCardRow>
+                                        {topWeaponLegends.map((leg, i) => (
+                                            <OverviewRankCard key={leg.id} rank={i} id={leg.id} name={leg.name} media="legend">
+                                                <MapOverviewTopCardStat label={t('statistics.weapons.matches')} value={leg.games} />
+                                                <MapOverviewTopCardStat label={t('statistics.weapons.kd')} value={formatWeaponKd(leg.kd, leg.hasKd, t('statistics.common.na'))} color={getKdColor(leg.hasKd ? leg.kd : null)} />
+                                            </OverviewRankCard>
+                                        ))}
+                                    </OverviewRankCardRow>
+                                ) : (
+                                    <OverviewRankEmpty msg={t('statistics.weapons.noLegendData')} />
+                                )}
+                            </OverviewRankSection>
+                        </div>
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                        <div style={legendBreakdownPanelStyle}>
+                            {panelHeader(t('statistics.weapons.pairedWeapons'))}
+                            <div style={{ maxHeight: '360px', overflowY: 'auto' }}>
+                                {pairedWeapons.length > 0 ? (
+                                    <table style={{ ...mapBreakdownTableStyle, tableLayout: 'auto' }}>
+                                        <thead style={{ position: 'sticky', top: 0, zIndex: 2 }}>
+                                            <tr style={{ borderBottom: '1px solid var(--color-border)' }}>
+                                                <th style={{ ...mapBreakdownHeadCellStyle, textAlign: 'center', width: '36px' }}>#</th>
+                                                <SortableTh column="name" sortState={pairSort} onSort={(col) => setPairSort((prev) => toggleCatalogNameTableSort(prev, col))} style={{ ...mapBreakdownHeadCellStyle, textAlign: 'left' }}>
+                                                    {t('statistics.weapons.weapon')}
+                                                </SortableTh>
+                                                <SortableTh column="games" sortState={pairSort} onSort={(col) => setPairSort((prev) => toggleCatalogNameTableSort(prev, col))} style={{ ...mapBreakdownHeadCellStyle, textAlign: 'center' }}>
+                                                    {t('statistics.weapons.matches')}
+                                                </SortableTh>
+                                                <SortableTh column="winRate" sortState={pairSort} onSort={(col) => setPairSort((prev) => toggleCatalogNameTableSort(prev, col))} style={{ ...mapBreakdownHeadCellStyle, textAlign: 'center' }}>
+                                                    {t('statistics.weapons.winPercent')}
+                                                </SortableTh>
+                                                <SortableTh column="avgPlacement" sortState={pairSort} onSort={(col) => setPairSort((prev) => toggleCatalogNameTableSort(prev, col))} style={{ ...mapBreakdownHeadCellStyle, textAlign: 'center' }} title={t('statistics.common.avgPlacement')}>
+                                                    {t('statistics.common.avgPlacementShort')}
+                                                </SortableTh>
+                                                <SortableTh column="kd" sortState={pairSort} onSort={(col) => setPairSort((prev) => toggleCatalogNameTableSort(prev, col))} style={{ ...mapBreakdownHeadCellStyle, textAlign: 'center' }}>
+                                                    {t('statistics.weapons.kd')}
+                                                </SortableTh>
+                                                <SortableTh column="kda" sortState={pairSort} onSort={(col) => setPairSort((prev) => toggleCatalogNameTableSort(prev, col))} style={{ ...mapBreakdownHeadCellStyle, textAlign: 'center' }}>
+                                                    {t('statistics.weapons.kad')}
+                                                </SortableTh>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {sortedPairs.map((w, i) => (
+                                                <tr key={w.id} style={{ borderBottom: '1px solid var(--color-bg-card-hover)' }}>
+                                                    <td style={{ ...mapBreakdownBodyCellStyle, textAlign: 'center', color: 'var(--color-text-faint)', fontWeight: 'bold' }}>{i + 1}</td>
+                                                    <td style={mapBreakdownLegendBodyCellStyle}>
+                                                        <div style={{ ...mapBreakdownLegendInnerStyle, alignItems: 'center' }}>
+                                                            <div style={{ width: '44px', height: '22px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,255,255,0.05)', borderRadius: '4px', flexShrink: 0 }}>
+                                                                <img src={getWeaponImageUrl(w.id)} alt={w.name} style={{ maxWidth: '40px', maxHeight: '18px', objectFit: 'contain' }} onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+                                                            </div>
+                                                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }} title={w.name}>{w.name}</span>
+                                                        </div>
+                                                    </td>
+                                                    <td style={{ ...mapBreakdownBodyCellStyle, textAlign: 'center', color: 'var(--color-text-dim)' }}>{w.games}</td>
+                                                    <td style={{ ...mapBreakdownBodyCellStyle, textAlign: 'center', fontWeight: 'bold', color: getWinRateColor(w.winRate, { hasValue: w.hasWinRate }) }}>{formatWeaponWinRate(w.winRate, w.hasWinRate)}</td>
+                                                    <AvgPlacementCell value={w.avgPlacement} padding="10px 12px" />
+                                                    <td style={{ ...mapBreakdownBodyCellStyle, textAlign: 'center', fontWeight: 'bold', color: getKdColor(w.hasKd ? w.kd : null) }}>{formatWeaponKd(w.kd, w.hasKd, t('statistics.common.na'))}</td>
+                                                    <td style={{ ...mapBreakdownBodyCellStyle, textAlign: 'center', fontWeight: 'bold', color: getKadColor(w.hasKd ? w.kda : null) }}>{formatWeaponKd(w.kda, w.hasKd, t('statistics.common.na'))}</td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                ) : (
+                                    <div style={{ padding: '32px 16px', textAlign: 'center', color: 'var(--color-text-faint)', fontSize: '12px' }}>
+                                        {t('statistics.weapons.noPairedData')}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        <div style={legendBreakdownPanelStyle}>
+                            {panelHeader(t('statistics.weapons.weaponLegends'))}
+                            <div style={{ maxHeight: '360px', overflowY: 'auto' }}>
+                                {weaponLegends.length > 0 ? (
+                                    <table style={{ ...mapBreakdownTableStyle, tableLayout: 'auto' }}>
+                                        <thead style={{ position: 'sticky', top: 0, zIndex: 2 }}>
+                                            <tr style={{ borderBottom: '1px solid var(--color-border)' }}>
+                                                <th style={{ ...mapBreakdownHeadCellStyle, textAlign: 'center', width: '36px' }}>#</th>
+                                                <SortableTh column="name" sortState={legendSort} onSort={(col) => setLegendSort((prev) => toggleCatalogNameTableSort(prev, col))} style={{ ...mapBreakdownHeadCellStyle, textAlign: 'left' }}>
+                                                    {t('statistics.tabs.legends')}
+                                                </SortableTh>
+                                                <SortableTh column="games" sortState={legendSort} onSort={(col) => setLegendSort((prev) => toggleCatalogNameTableSort(prev, col))} style={{ ...mapBreakdownHeadCellStyle, textAlign: 'center' }}>
+                                                    {t('statistics.weapons.matches')}
+                                                </SortableTh>
+                                                <SortableTh column="winRate" sortState={legendSort} onSort={(col) => setLegendSort((prev) => toggleCatalogNameTableSort(prev, col))} style={{ ...mapBreakdownHeadCellStyle, textAlign: 'center' }}>
+                                                    {t('statistics.weapons.winPercent')}
+                                                </SortableTh>
+                                                <SortableTh column="avgPlacement" sortState={legendSort} onSort={(col) => setLegendSort((prev) => toggleCatalogNameTableSort(prev, col))} style={{ ...mapBreakdownHeadCellStyle, textAlign: 'center' }} title={t('statistics.common.avgPlacement')}>
+                                                    {t('statistics.common.avgPlacementShort')}
+                                                </SortableTh>
+                                                <SortableTh column="kd" sortState={legendSort} onSort={(col) => setLegendSort((prev) => toggleCatalogNameTableSort(prev, col))} style={{ ...mapBreakdownHeadCellStyle, textAlign: 'center' }}>
+                                                    {t('statistics.weapons.kd')}
+                                                </SortableTh>
+                                                <SortableTh column="kda" sortState={legendSort} onSort={(col) => setLegendSort((prev) => toggleCatalogNameTableSort(prev, col))} style={{ ...mapBreakdownHeadCellStyle, textAlign: 'center' }}>
+                                                    {t('statistics.weapons.kad')}
+                                                </SortableTh>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {sortedLegends.map((leg, i) => (
+                                                <tr key={leg.id} style={{ borderBottom: '1px solid var(--color-bg-card-hover)' }}>
+                                                    <td style={{ ...mapBreakdownBodyCellStyle, textAlign: 'center', color: 'var(--color-text-faint)', fontWeight: 'bold' }}>{i + 1}</td>
+                                                    <td style={mapBreakdownLegendBodyCellStyle}>
+                                                        <div style={{ ...mapBreakdownLegendInnerStyle, alignItems: 'center' }}>
+                                                            <img src={`${MAP_IMAGE_BASE}${leg.id}.png`} alt={leg.name} style={{ width: '22px', height: '22px', borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} onError={(e) => { e.currentTarget.src = `${MAP_IMAGE_BASE}unknown.png`; }} />
+                                                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }} title={leg.name}>{leg.name}</span>
+                                                        </div>
+                                                    </td>
+                                                    <td style={{ ...mapBreakdownBodyCellStyle, textAlign: 'center', color: 'var(--color-text-dim)' }}>{leg.games}</td>
+                                                    <td style={{ ...mapBreakdownBodyCellStyle, textAlign: 'center', fontWeight: 'bold', color: getWinRateColor(leg.winRate) }}>{leg.winRate}%</td>
+                                                    <AvgPlacementCell value={leg.avgPlacement} padding="10px 12px" />
+                                                    <td style={{ ...mapBreakdownBodyCellStyle, textAlign: 'center', fontWeight: 'bold', color: getKdColor(leg.hasKd ? leg.kd : null) }}>{formatWeaponKd(leg.kd, leg.hasKd, t('statistics.common.na'))}</td>
+                                                    <td style={{ ...mapBreakdownBodyCellStyle, textAlign: 'center', fontWeight: 'bold', color: getKadColor(leg.hasKd ? leg.kda : null) }}>{formatWeaponKd(leg.kda, leg.hasKd, t('statistics.common.na'))}</td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                ) : (
+                                    <div style={{ padding: '32px 16px', textAlign: 'center', color: 'var(--color-text-faint)', fontSize: '12px' }}>
+                                        {t('statistics.weapons.noLegendData')}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </>
+            ) : (
+                <EmptyState msg={t('statistics.weapons.noMatchesFound', { weapon: selectedName })} />
+            )}
         </div>
     );
 };
@@ -2240,8 +2521,11 @@ const TeammatesView = ({ data, profileUid, profileName }: { data: MatchHistory[]
             .filter(tm => {
                 if (profileUid && tm.uid && String(tm.uid) === String(profileUid)) return false;
                 if (profileName && isSamePlayer(tm.name, profileName)) return false;
+                // Keep name-only rows in aggregation above; hide them from the list.
+                if (!tm.uid) return false;
                 return true;
-            });
+            })
+            .slice(0, 30);
     }, [data, profileUid, profileName, t]);
 
     const sortedTeammateStats = useMemo(

@@ -590,7 +590,8 @@
     },
     "common": {
       "avgPlacement": "平均順位",
-      "avgPlacementShort": "平均 #"
+      "avgPlacementShort": "平均 #",
+      "na": "N/A"
     },
     "showingStatsFor": "統計対象：",
     "allBrModes": "全BRモード",
@@ -718,8 +719,8 @@
       "kadTooltip": "この武器を装備中の（キル＋アシスト）÷デス比率。",
       "mostUsed": "🏆 最多使用",
       "pick": "#{{rank}}",
-      "matches": "マッチ数",
-      "usageTime": "使用時間",
+      "matches": "マッチ",
+      "usageTime": "マッチ",
       "kd": "K/D",
       "kad": "KA/D",
       "winPercent": "勝率",
@@ -729,7 +730,21 @@
       "rank": "順位",
       "weapon": "武器",
       "winRate": "勝率",
-      "noMoreWeapons": "これ以上の使用武器はありません。"
+      "noMoreWeapons": "これ以上の使用武器はありません。",
+      "usageHint": "この武器を使ったマッチ数（持ち替えても1）。",
+      "overview": "概要",
+      "topWeapons": "武器 TOP 3",
+      "topThreats": "倒された武器 TOP 3",
+      "threatKills": "キル",
+      "threatKnockdowns": "ノックダウン",
+      "noThreatData": "倒された武器データがまだありません。",
+      "top5Usage": "使用量 TOP 5",
+      "pairedWeapons": "併用武器",
+      "weaponLegends": "この武器を使ったレジェンド",
+      "breakdownSubtitle": "{{weapon}} 使用時",
+      "noPairedData": "この武器と併用した武器データがありません。",
+      "noLegendData": "この武器を使ったレジェンドデータがありません。",
+      "noMatchesFound": "{{weapon}} のマッチがありません"
     },
     "teammates": {
       "kadTooltip": "このチームメイトと一緒にプレイした試合での（キル＋アシスト）/ デス比率です。",

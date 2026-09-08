@@ -1372,6 +1372,15 @@ const CoreController = {
                 window.MatchService.updateSession(newSession, 'ROSTER_INFO', triggerData);
             }
 
+            // Seed from live GEP select slots first — preMatchRoster can be cleared by a
+            // concurrent upload finish while requeue select already landed in _selectSlots.
+            const selectSlots = window.MatchBoundary?._selectSlots;
+            if (selectSlots && typeof selectSlots === 'object') {
+                Object.values(selectSlots).forEach((info) => {
+                    if (info) window.MatchService.updateSession(newSession, 'ROSTER_INFO', info);
+                });
+            }
+
             if (window.Store.preMatchRoster.length > 0) {
                 window.Store.preMatchRoster.forEach(info => {
                     if (info) window.MatchService.updateSession(newSession, 'ROSTER_INFO', info);

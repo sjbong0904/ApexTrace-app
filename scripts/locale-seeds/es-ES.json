@@ -590,7 +590,8 @@
     },
     "common": {
       "avgPlacement": "Posición media",
-      "avgPlacementShort": "Media #"
+      "avgPlacementShort": "Media #",
+      "na": "N/A"
     },
     "showingStatsFor": "Estadísticas de:",
     "allBrModes": "Todos los modos BR",
@@ -719,7 +720,7 @@
       "mostUsed": "🏆 Más usada",
       "pick": "#{{rank}}",
       "matches": "Partidas",
-      "usageTime": "Tiempo",
+      "usageTime": "Partidas",
       "kd": "K/D",
       "kad": "KA/D",
       "winPercent": "Victoria %",
@@ -729,7 +730,21 @@
       "rank": "Rango",
       "weapon": "Arma",
       "winRate": "Tasa de victoria",
-      "noMoreWeapons": "No hay más armas usadas."
+      "noMoreWeapons": "No hay más armas usadas.",
+      "usageHint": "Partidas en las que usaste esta arma (1 por partida, aunque cambies).",
+      "overview": "Resumen",
+      "topWeapons": "Top armas",
+      "topThreats": "Armas que te eliminaron",
+      "threatKills": "Elims",
+      "threatKnockdowns": "Derribos",
+      "noThreatData": "Aún no hay datos de armas rivales.",
+      "top5Usage": "Top 5 de uso",
+      "pairedWeapons": "Armas emparejadas",
+      "weaponLegends": "Leyendas con esta arma",
+      "breakdownSubtitle": "Usando {{weapon}}",
+      "noPairedData": "Sin datos de armas emparejadas.",
+      "noLegendData": "Sin datos de leyendas para esta arma.",
+      "noMatchesFound": "No hay partidas con {{weapon}}"
     },
     "teammates": {
       "kadTooltip": "Tu ratio (Eliminaciones + Asistencias) / Muertes en partidas con este compañero.",

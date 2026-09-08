@@ -5,6 +5,7 @@ import { CgSmartphoneChip } from "react-icons/cg";
 import type { TFunction } from 'i18next';
 import { AMMO_COLORS } from '../utils/gameData';
 import { type WeaponCategory, type WeaponInfo, WEAPONS_DB, type WeaponVariant } from '../utils/WeaponsData';
+import { getWeaponDisplayName } from '../utils/weaponTheme';
 import { useTranslation } from 'react-i18next';
 
 const CATEGORIES: WeaponCategory[] = ['AR', 'SMG', 'LMG', 'MARKSMAN', 'SNIPER', 'SHOTGUN', 'PISTOL'];
@@ -492,12 +493,12 @@ const WeaponsTab = () => {
 
                                 <img
                                     src={currentVariant.image}
-                                    alt={currentVariant.name()}
+                                    alt={getWeaponDisplayName(currentVariant.id)}
                                     style={{ maxWidth: '100%', maxHeight: '180px', objectFit: 'contain', filter: 'drop-shadow(0 5px 10px rgba(0,0,0,0.5))', position: 'relative', zIndex: 2 }}
                                     onError={(e) => { e.currentTarget.src = FALLBACK_IMG; }}
                                 />
                                 <h1 style={{ marginTop: '20px', fontSize: '32px', color: themeColor, textTransform: 'uppercase', letterSpacing: '1px', position: 'relative', zIndex: 2 }}>
-                                    {currentVariant.name()}
+                                    {getWeaponDisplayName(currentVariant.id)}
                                 </h1>
                                 <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', marginTop: '15px', position: 'relative', zIndex: 2 }}>
                                     {currentVariant.ammoType.map(ammo => (
@@ -635,11 +636,11 @@ const WeaponsTab = () => {
                                 <img
                                     className="card-img"
                                     src={weapon.image}
-                                    alt={weapon.name()}
+                                    alt={getWeaponDisplayName(weapon.id)}
                                     style={{ maxHeight: '60px', maxWidth: '80%', objectFit: 'contain', marginBottom: '10px', transition: 'transform 0.3s' }}
                                 />
                                 <span style={{ fontSize: '16px', fontWeight: 'bold', color: isMythic ? 'var(--color-accent-hover)' : 'var(--color-text-secondary)' }}>
-                                    {weapon.name()}
+                                    {getWeaponDisplayName(weapon.id)}
                                 </span>
                                 <div style={{ display: 'flex', marginTop: '5px', gap: '4px' }}>
                                     {weapon.ammoType.map(ammo => (

@@ -577,13 +577,17 @@ const MatchBoundary = {
                 return;
             }
 
-            // After elim/victory: only local select hands off. Non-local selects here are
-            // often party lobby / spectate noise — rotating on them opened empty #20 ghosts
-            // that then ignored the real match_end (squad looked "alive").
+            // After local death (or elim/victory): local select hands off to the next lobby.
+            // Includes knocked_out-only squads — GEP often skips your_squad_is_eliminated.
             if (
                 pre
                 && !pre._ending
-                && (pre._squadEliminated || isEliminated(pre) || isMatchConcluded(pre))
+                && (
+                    pre._squadEliminated
+                    || isEliminated(pre)
+                    || isMatchConcluded(pre)
+                    || (isLocal && pre.isDead && !hasLivingTeammate(pre))
+                )
             ) {
                 if (isLocal) {
                     matchLog('Local legendSelect after match end — rotating session', {
@@ -592,6 +596,7 @@ const MatchBoundary = {
                         slot,
                         squadEliminated: !!pre._squadEliminated,
                         victory: !!pre._isVictory,
+                        localDead: !!pre.isDead,
                     });
                     this.markPendingSquadLegendSelect();
                     const rosters = Object.values(this._selectSlots).filter(Boolean);
@@ -782,17 +787,27 @@ const isSamePlayer = (name1, name2) => {
 /** 경기가 완전히 끝난 상태(우승 등). isDead는 부활/관전 중일 수 있어 제외 */
 const isMatchConcluded = (match) => !!match?._isVictory;
 
-/** 팀 전멸 등 복구 불가 elimination */
+/** 팀 전멸 등 복구 불가 elimination (knocked_out 포함 — 전원 다운이면 경계로 본다). */
 const isEliminated = (match) => {
     if (!match?.isDead) return false;
+    if (window.Utils?.isSquadOutInferred) return window.Utils.isSquadOutInferred(match);
     const teammates = match.teamStats || [];
     if (teammates.length === 0) return true;
-    return !teammates.some(t => t.state && t.state !== 'death');
+    return !teammates.some((t) => {
+        if (window.Utils?.isTeammateCombatCapable) return window.Utils.isTeammateCombatCapable(t);
+        const s = String(t?.state || '').toLowerCase();
+        return s && s !== 'death' && s !== 'knocked_out';
+    });
 };
 
 const hasLivingTeammate = (match) => {
+    if (window.Utils?.hasLivingTeammate) return window.Utils.hasLivingTeammate(match);
     const teammates = match?.teamStats || [];
-    return teammates.some((t) => t?.state && t.state !== 'death');
+    return teammates.some((t) => {
+        if (window.Utils?.isTeammateCombatCapable) return window.Utils.isTeammateCombatCapable(t);
+        const s = String(t?.state || '').toLowerCase();
+        return s && s !== 'death' && s !== 'knocked_out';
+    });
 };
 
 /**
