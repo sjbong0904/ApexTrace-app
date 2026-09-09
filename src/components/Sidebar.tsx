@@ -37,6 +37,8 @@ interface SidebarProps {
     layout?: 'panel' | 'inline';
     /** Smaller avatar/padding for narrow side-by-side layouts */
     dense?: boolean;
+    /** Hide pin / favorite controls (web shell). */
+    showFavoritePin?: boolean;
 }
 
 interface PlayerTag {
@@ -137,6 +139,7 @@ const SIDEBAR_STYLES = `
 const Sidebar: React.FC<SidebarProps> = ({
     user, history, isFavorite, isPinned, hasPinnedUser,
     onToggleFavorite, onTogglePin, onReturnToPinned,
+    showFavoritePin = true,
     layout = 'panel',
     dense = false,
 }) => {
@@ -404,7 +407,7 @@ const Sidebar: React.FC<SidebarProps> = ({
     const avatarSize = dense ? '56px' : effectiveMode === 'compact' ? '72px' : '100px';
     const rankIconSize = dense ? '24px' : effectiveMode === 'compact' ? '28px' : '40px';
     const containerPadding = effectiveMode === 'compact' ? '20px 15px' : '30px 20px';
-    const showReturnBtn = !isPinned && hasPinnedUser;
+    const showReturnBtn = showFavoritePin && !isPinned && hasPinnedUser;
     const btnSize = dense ? 20 : 24;
     const btnGap = dense ? 6 : 8;
     const totalLevel = ((user.prestige || 0) * 500) + (user.level || 0);
@@ -434,6 +437,7 @@ const Sidebar: React.FC<SidebarProps> = ({
             <div ref={contentRef} style={{ padding: isInline ? inlinePadding : containerPadding, display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
 
                 {/* 핀 & 즐겨찾기 */}
+                {showFavoritePin && (
                 <div style={{ position: 'absolute', top: dense ? 8 : 15, width: '100%', padding: dense ? '0 10px' : '0 20px', display: 'flex', justifyContent: 'space-between', left: 0, boxSizing: 'border-box', zIndex: 10, overflow: 'hidden', maxWidth: '100%' }}>
                     <button
                         onClick={onTogglePin}
@@ -451,6 +455,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                         {isFavorite ? <FaStar /> : <FaRegStar />}
                     </button>
                 </div>
+                )}
 
                 {/* 아바타 */}
                 <div style={{ width: avatarSize, height: avatarSize, borderRadius: '50%', border: `${avatarBorder} solid var(--color-border)`, overflow: 'hidden', background: 'var(--color-bg-deep)', marginBottom: avatarMarginBottom, marginTop: dense ? 4 : 10, boxShadow: '0 8px 20px rgba(0,0,0,0.3)', flexShrink: 0 }}>

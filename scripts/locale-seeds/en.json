@@ -11,7 +11,10 @@
     "failedToLoad": "Failed to load user data.",
     "serverError": "Server error. Unable to retrieve data.",
     "notFoundApi": "User not found.",
-    "loadingProfile": "Loading profile & match history..."
+    "loadingProfile": "Loading profile & match history...",
+    "recent": "Recent searches",
+    "clearRecent": "Clear",
+    "noRecent": "No recent searches"
   },
   "sync": {
     "archiveComplete": "Sync complete: {{count}} matches downloaded.",

@@ -2993,6 +2993,8 @@ interface StatisticsTabProps {
     profileUid?: string | null;
     profileName?: string | null;
     statsRefreshToken?: number;
+    /** Web: Overview content only — no MAPS/LEGENDS/… tabs or premium locks. */
+    overviewOnly?: boolean;
 }
 
 const StatisticsTab: React.FC<StatisticsTabProps> = ({
@@ -3002,6 +3004,7 @@ const StatisticsTab: React.FC<StatisticsTabProps> = ({
     profileUid,
     profileName,
     statsRefreshToken = 0,
+    overviewOnly = false,
 }) => {
     const { t } = useTranslation();
     const [activeSubTab, setActiveSubTab] = useState<'OVERVIEW' | 'MAPS' | 'LEGENDS' | 'WEAPONS' | 'TEAMMATES'>('OVERVIEW');
@@ -3079,7 +3082,7 @@ const StatisticsTab: React.FC<StatisticsTabProps> = ({
             );
         }
 
-        const isContentLocked = !isPremium && activeSubTab !== 'OVERVIEW';
+        const isContentLocked = !overviewOnly && !isPremium && activeSubTab !== 'OVERVIEW';
 
         const lockTitles: Record<string, string> = {
             MAPS: t('statistics.tabs.maps'),
@@ -3088,17 +3091,23 @@ const StatisticsTab: React.FC<StatisticsTabProps> = ({
             TEAMMATES: t('statistics.tabs.teammates'),
         };
 
+        const overviewContent = (
+            <OverviewView
+                data={statsHistory}
+                showRankProgress={selectedMode === 'ALL' || selectedMode === 'RANKED'}
+                profileUid={profileUid}
+                selectedSeasonId={selectedSeasonId}
+                seasons={seasons}
+            />
+        );
+
+        if (overviewOnly) {
+            return overviewContent;
+        }
+
         let content: React.ReactNode;
         switch (activeSubTab) {
-            case 'OVERVIEW': content = (
-                <OverviewView
-                    data={statsHistory}
-                    showRankProgress={selectedMode === 'ALL' || selectedMode === 'RANKED'}
-                    profileUid={profileUid}
-                    selectedSeasonId={selectedSeasonId}
-                    seasons={seasons}
-                />
-            ); break;
+            case 'OVERVIEW': content = overviewContent; break;
             case 'MAPS': content = <MapsView data={statsHistory} profileUid={profileUid} profileName={profileName} />; break;
             case 'LEGENDS': content = <LegendsView data={statsHistory} profileUid={profileUid} profileName={profileName} />; break;
             case 'WEAPONS': content = <WeaponsView data={statsHistory} />; break;
@@ -3121,7 +3130,7 @@ const StatisticsTab: React.FC<StatisticsTabProps> = ({
                     display: 'flex',
                     flexWrap: 'wrap',
                     alignItems: 'center',
-                    justifyContent: 'space-between',
+                    justifyContent: overviewOnly ? 'flex-end' : 'space-between',
                     rowGap: '10px',
                     columnGap: '12px',
                     marginBottom: '25px',
@@ -3141,6 +3150,7 @@ const StatisticsTab: React.FC<StatisticsTabProps> = ({
                         border-radius: 4px;
                     }
                 `}</style>
+                {!overviewOnly && (
                 <div
                     className="stats-subtab-scroll"
                     style={{
@@ -3181,8 +3191,9 @@ const StatisticsTab: React.FC<StatisticsTabProps> = ({
                         );
                     })}
                 </div>
+                )}
 
-                <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flex: '0 0 auto', marginLeft: 'auto' }}>
+                <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flex: '0 0 auto', marginLeft: overviewOnly ? 0 : 'auto' }}>
                     <div style={{ display: 'flex', gap: '5px', background: 'var(--color-bg-deep)', padding: '4px', borderRadius: '6px', flexShrink: 0 }}>
                         {(['ALL', 'RANKED', 'TRIO', 'DUO'] as const).map(mode => (
                             <button

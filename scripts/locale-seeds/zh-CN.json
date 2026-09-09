@@ -11,7 +11,10 @@
     "failedToLoad": "无法加载用户数据。",
     "serverError": "服务器错误，无法获取数据。",
     "notFoundApi": "未找到该用户。",
-    "loadingProfile": "正在加载个人资料与对局记录..."
+    "loadingProfile": "正在加载个人资料与对局记录...",
+    "recent": "最近搜索",
+    "clearRecent": "清除",
+    "noRecent": "暂无最近搜索"
   },
   "sync": {
     "archiveComplete": "同步完成：已下载 {{count}} 场对局。",

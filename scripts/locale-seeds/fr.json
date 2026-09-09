@@ -11,7 +11,10 @@
     "failedToLoad": "Échec du chargement des données utilisateur.",
     "serverError": "Erreur serveur. Impossible de récupérer les données.",
     "notFoundApi": "Utilisateur introuvable.",
-    "loadingProfile": "Chargement du profil et de l'historique..."
+    "loadingProfile": "Chargement du profil et de l'historique...",
+    "recent": "Recherches récentes",
+    "clearRecent": "Effacer",
+    "noRecent": "Aucune recherche récente"
   },
   "sync": {
     "archiveComplete": "Synchronisation terminée : {{count}} matchs téléchargés.",

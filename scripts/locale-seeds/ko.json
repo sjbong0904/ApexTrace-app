@@ -11,7 +11,10 @@
     "failedToLoad": "유저 데이터를 불러오지 못했습니다",
     "serverError": "서버 오류. 데이터를 가져올 수 없습니다",
     "notFoundApi": "유저를 찾을 수 없습니다",
-    "loadingProfile": "프로필 및 매치 기록 불러오는 중..."
+    "loadingProfile": "프로필 및 매치 기록 불러오는 중...",
+    "recent": "최근 검색",
+    "clearRecent": "전체 삭제",
+    "noRecent": "최근 검색 기록이 없습니다"
   },
   "sync": {
     "archiveComplete": "동기화 완료: {{count}}개 매치 다운로드",

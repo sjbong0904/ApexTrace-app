@@ -11,7 +11,10 @@
     "failedToLoad": "無法載入使用者資料。",
     "serverError": "伺服器錯誤，無法取得資料。",
     "notFoundApi": "未找到該使用者。",
-    "loadingProfile": "正在載入個人資料與對局記錄..."
+    "loadingProfile": "正在載入個人資料與對局記錄...",
+    "recent": "最近搜尋",
+    "clearRecent": "清除",
+    "noRecent": "尚無最近搜尋"
   },
   "sync": {
     "archiveComplete": "同步完成：已下載 {{count}} 場對局。",

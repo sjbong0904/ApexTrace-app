@@ -11,7 +11,10 @@
     "failedToLoad": "ユーザーデータの読み込みに失敗しました。",
     "serverError": "サーバーエラー。データを取得できません。",
     "notFoundApi": "ユーザーが見つかりません。",
-    "loadingProfile": "プロフィールとマッチ履歴を読み込み中..."
+    "loadingProfile": "プロフィールとマッチ履歴を読み込み中...",
+    "recent": "最近の検索",
+    "clearRecent": "クリア",
+    "noRecent": "最近の検索はありません"
   },
   "sync": {
     "archiveComplete": "同期完了：{{count}}件のマッチをダウンロードしました。",

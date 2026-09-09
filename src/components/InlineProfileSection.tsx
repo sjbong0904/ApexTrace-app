@@ -33,6 +33,8 @@ interface InlineProfileSectionProps {
     onTogglePin: () => void;
     onReturnToPinned: () => void;
     compact?: boolean;
+    /** Hide pin / favorite controls (web shell). */
+    showFavoritePin?: boolean;
 }
 
 /**
@@ -53,6 +55,7 @@ const InlineProfileSection: React.FC<InlineProfileSectionProps> = ({
     onTogglePin,
     onReturnToPinned,
     compact = false,
+    showFavoritePin = true,
 }) => {
     const showTrendInStatsColumn = Boolean(trendHistory) && !compact;
     const showTrendBelow = Boolean(trendHistory) && compact;
@@ -109,6 +112,7 @@ const InlineProfileSection: React.FC<InlineProfileSectionProps> = ({
                         onToggleFavorite={onToggleFavorite}
                         onTogglePin={onTogglePin}
                         onReturnToPinned={onReturnToPinned}
+                        showFavoritePin={showFavoritePin}
                     />
                 </div>
 

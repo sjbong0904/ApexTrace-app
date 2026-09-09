@@ -11,7 +11,10 @@
     "failedToLoad": "Falha ao carregar os dados do usuário.",
     "serverError": "Erro no servidor. Não foi possível obter os dados.",
     "notFoundApi": "Usuário não encontrado.",
-    "loadingProfile": "Carregando perfil e histórico de partidas..."
+    "loadingProfile": "Carregando perfil e histórico de partidas...",
+    "recent": "Pesquisas recentes",
+    "clearRecent": "Limpar",
+    "noRecent": "Nenhuma pesquisa recente"
   },
   "sync": {
     "archiveComplete": "Sincronização concluída: {{count}} partidas baixadas.",

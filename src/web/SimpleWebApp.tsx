@@ -1,66 +1,73 @@
-import { useEffect, useMemo, useState } from 'react';
-import { fetchHistoryByUid, fetchSeasons, fetchUserStatsByUid, searchCandidates, type RemoteUserStats, type SearchCandidate, type SeasonConfig } from './api';
-import { FaList, FaChartBar, FaSearch, FaLink, FaUserCircle } from 'react-icons/fa';
+import { memo, useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { FaChartBar, FaLink, FaList, FaSearch, FaSync, FaThList, FaTimes } from 'react-icons/fa';
+import Navigation, { type NavTabId } from '../components/Navigation';
+import InlineProfileSection from '../components/InlineProfileSection';
 import MapVisualizer from '../components/MapVisualizer';
-import MatchStats from '../components/MatchStats';
-import {
-    isSupportedMode,
-    matchesHistoryTab,
-} from '../utils/matchMode';
+import CombatLog from '../components/CombatLog';
+import MatchDetailTabs from '../components/MatchDetailTabs';
+import StatisticsTab from '../components/StatisticsTab';
+import TierTableTab from '../components/TierTableTab';
+import PlayerSelectionModal from '../components/PlayerSelectionModal';
+import AppSelect from '../components/AppSelect';
+import { APP_LANGUAGES } from '../constants/languages';
+import { NARROW_LAYOUT_WIDTH } from '../hooks/useWindowAutoResize';
+import { isIncompleteMatchStats } from '../utils/match';
+import { formatFullRankName, formatRelativeTime, getRankColor, getRankTierColor, getRelativeTime, normalizeMapDisplayName } from '../utils/helpers';
+import { getModeColor, getModeDisplayLabel, matchesHistoryTab } from '../utils/matchMode';
 import { getSelectableSeasons, resolveCurrentSeasonId, resolveSeasonEndMs } from '../utils/seasons';
+import {
+    fetchHistoryByUid,
+    fetchSeasons,
+    fetchUserStatsByUid,
+    searchCandidates,
+    type RemoteUserStats,
+    type SearchCandidate,
+    type SeasonConfig,
+} from './api';
+import {
+    clearRecentSearches,
+    loadRecentSearches,
+    pushRecentSearch,
+    removeRecentSearch,
+    type RecentSearchProfile,
+} from './recentSearches';
+import WebAdRail, { WEB_ADS_MIN_VIEWPORT } from './WebAdRail';
 
-const getNumeric = (value: unknown): number => {
-    const n = Number(value);
-    return Number.isFinite(n) ? n : 0;
+const WEB_NAV_TABS: NavTabId[] = ['DASHBOARD', 'STATISTICS', 'TIER_TABLE'];
+const MATCHES_PER_PAGE = 20;
+const noop = () => {};
+const LEGEND_IMG = (legend: string) =>
+    `https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/${(legend || 'unknown').toLowerCase()}.png`;
+const UNKNOWN_LEGEND_IMG = 'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/unknown.png';
+
+const FALLBACK_SEASONS: SeasonConfig[] = [
+    { id: 3, name: 'Season 28 : Split 2', startTime: new Date('2026-03-24T18:00:00Z').getTime(), endTime: new Date('2026-08-04T18:00:00Z').getTime() },
+    { id: 2, name: 'Season 28 : Split 1', startTime: new Date('2026-02-10T18:00:00Z').getTime(), endTime: new Date('2026-03-24T18:00:00Z').getTime() },
+    { id: 1, name: 'Season 27 : Split 2', startTime: 0, endTime: new Date('2026-02-10T18:00:00Z').getTime() },
+];
+
+type WebUser = {
+    uid: string | null;
+    name: string;
+    level: number;
+    prestige: number;
+    rankName: string;
+    rankScore: number;
+    legend: string;
+    avatar?: string | null;
 };
 
-const getPlacement = (match: any): number => {
-    const placement = Number(match?.placement);
-    return Number.isFinite(placement) && placement > 0 ? placement : 20;
-};
-
-const calcSummary = (history: any[]) => {
-    if (history.length === 0) {
-        return { matches: 0, wins: 0, kills: 0, avgDamage: 0, avgPlacement: 0 };
-    }
-    const matches = history.length;
-    const wins = history.filter((m) => getPlacement(m) === 1).length;
-    const kills = history.reduce((sum, m) => sum + getNumeric(m?.kills), 0);
-    const totalDamage = history.reduce((sum, m) => sum + getNumeric(m?.damage), 0);
-    const totalPlacement = history.reduce((sum, m) => sum + getPlacement(m), 0);
-
-    return {
-        matches,
-        wins,
-        kills,
-        avgDamage: Math.round(totalDamage / matches),
-        avgPlacement: Number((totalPlacement / matches).toFixed(1)),
-    };
-};
-
-const sectionStyle: React.CSSProperties = {
-    background: 'var(--color-bg-card)',
-    border: '1px solid var(--color-border)',
-    borderRadius: 12,
-    padding: 16,
-};
-
-const statTileStyle: React.CSSProperties = {
-    background: 'var(--color-bg-sub-header)',
-    border: '1px solid var(--color-border-light)',
-    borderRadius: 8,
-    padding: '10px 12px',
-    display: 'flex',
-    flexDirection: 'column',
-    gap: 4,
-};
-
-const panelCardStyle: React.CSSProperties = {
-    background: 'var(--color-bg-card)',
-    border: '1px solid var(--color-border)',
-    borderRadius: 10,
-    boxShadow: '0 2px 5px rgba(0,0,0,0.2)',
-};
+const emptyUser = (defaultName: string): WebUser => ({
+    uid: null,
+    name: defaultName,
+    level: 0,
+    prestige: 0,
+    rankName: '-',
+    rankScore: 0,
+    legend: 'unknown',
+    avatar: null,
+});
 
 const parseUidFromHash = (): string | null => {
     const hash = window.location.hash || '';
@@ -77,93 +84,337 @@ const toCandidate = (uid: string, stats: RemoteUserStats | null): SearchCandidat
     legend: stats?.legend || 'unknown',
 });
 
-const getMatchKey = (match: any): string =>
-    String(match.matchId || `${match.startTime || match.endTime || 0}-${match.mode || 'mode'}-${match.map || 'map'}`);
+const getTabStyle = (isActive: boolean): React.CSSProperties => ({
+    padding: '8px 16px',
+    cursor: 'pointer',
+    fontSize: '13px',
+    fontWeight: 'bold',
+    color: isActive ? 'var(--color-text-primary)' : 'var(--color-text-faint)',
+    borderTop: 'none',
+    borderLeft: 'none',
+    borderRight: 'none',
+    borderBottom: isActive ? '2px solid var(--color-text-primary)' : '2px solid transparent',
+    background: 'transparent',
+    outline: 'none',
+    boxShadow: 'none',
+    transition: 'all 0.2s',
+});
 
-const summarizeEvents = (match: any): string[] => {
-    const events = Array.isArray(match?.events) ? match.events : [];
-    if (events.length === 0) return [];
+const ProfileLoadingOverlay = ({ label }: { label: string }) => (
+    <div
+        aria-busy
+        style={{
+            position: 'absolute',
+            inset: 0,
+            zIndex: 50,
+            background: 'color-mix(in srgb, var(--color-bg-main) 88%, transparent)',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '10px',
+            backdropFilter: 'blur(2px)',
+            pointerEvents: 'auto',
+        }}
+    >
+        <FaSync className="spin-animation" size={22} color="var(--color-warning)" />
+        <span style={{ fontSize: '12px', color: 'var(--color-text-muted)', fontWeight: 'bold' }}>{label}</span>
+    </div>
+);
 
-    const killEvents = events
-        .filter((e: any) => ['kill', 'knockdown', 'assist', 'death'].includes(String(e?.type || '').toLowerCase()))
-        .slice(0, 4);
+const SearchBar = memo(({
+    onSearch,
+    isSearching,
+    resetKey,
+    recent,
+    onSelectRecent,
+    onRemoveRecent,
+    onClearRecent,
+}: {
+    onSearch: (query: string) => void;
+    isSearching: boolean;
+    resetKey: number;
+    recent: RecentSearchProfile[];
+    onSelectRecent: (profile: RecentSearchProfile) => void;
+    onRemoveRecent: (uid: string) => void;
+    onClearRecent: () => void;
+}) => {
+    const [localQuery, setLocalQuery] = useState('');
+    const [open, setOpen] = useState(false);
+    const [hoveredUid, setHoveredUid] = useState<string | null>(null);
+    const rootRef = useRef<HTMLDivElement>(null);
+    const { t } = useTranslation();
 
-    return killEvents.map((e: any) => {
-        const type = String(e?.type || 'event').toUpperCase();
-        const attacker = e?.attacker ? String(e.attacker) : '-';
-        const victim = e?.victim ? String(e.victim) : '-';
-        const weapon = e?.weapon ? ` (${String(e.weapon)})` : '';
-        return `${type}: ${attacker} -> ${victim}${weapon}`;
-    });
-};
+    useEffect(() => {
+        if (resetKey > 0) setLocalQuery('');
+    }, [resetKey]);
+
+    useEffect(() => {
+        const onPointerDown = (event: MouseEvent) => {
+            if (!rootRef.current?.contains(event.target as Node)) {
+                setOpen(false);
+            }
+        };
+        document.addEventListener('mousedown', onPointerDown);
+        return () => document.removeEventListener('mousedown', onPointerDown);
+    }, []);
+
+    const handleSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (localQuery.trim().length > 0) {
+            setOpen(false);
+            onSearch(localQuery);
+        }
+    };
+
+    const showDropdown = open && !isSearching && localQuery.trim().length === 0;
+
+    return (
+        <div ref={rootRef} style={{ position: 'relative', width: '100%' }}>
+            <form
+                id="search-bar"
+                onSubmit={handleSubmit}
+                style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    background: 'var(--color-bg-card)',
+                    borderRadius: '6px',
+                    border: '1px solid var(--color-border-light)',
+                    padding: '0 10px',
+                    height: '40px',
+                    boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.2)',
+                }}
+            >
+                <FaSearch color="var(--color-text-faint)" style={{ marginRight: '8px' }} />
+                <input
+                    type="text"
+                    value={localQuery}
+                    onChange={(e) => {
+                        setLocalQuery(e.target.value);
+                        if (e.target.value.trim().length === 0) setOpen(true);
+                        else setOpen(false);
+                    }}
+                    onFocus={() => setOpen(true)}
+                    placeholder={t('search.placeholder')}
+                    disabled={isSearching}
+                    autoComplete="off"
+                    style={{
+                        background: 'transparent',
+                        border: 'none',
+                        color: 'var(--color-text-secondary)',
+                        fontSize: '14px',
+                        width: '100%',
+                        outline: 'none',
+                        fontWeight: '500',
+                    }}
+                />
+                {isSearching && <FaSync className="spin-animation" color="var(--color-warning)" />}
+            </form>
+
+            {showDropdown && (
+                <div
+                    style={{
+                        position: 'absolute',
+                        top: 'calc(100% + 6px)',
+                        left: 0,
+                        right: 0,
+                        zIndex: 40,
+                        background: 'var(--color-bg-sub-header)',
+                        border: '1px solid var(--color-border-light)',
+                        borderRadius: 10,
+                        boxShadow: '0 12px 28px rgba(0,0,0,0.45)',
+                        overflow: 'hidden',
+                    }}
+                >
+                    <div
+                        style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            padding: '10px 12px 8px',
+                            borderBottom: '1px solid var(--color-border)',
+                        }}
+                    >
+                        <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--color-text-muted)', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+                            {t('search.recent')}
+                        </span>
+                        {recent.length > 0 && (
+                            <button
+                                type="button"
+                                onClick={onClearRecent}
+                                style={{
+                                    background: 'transparent',
+                                    border: 'none',
+                                    color: 'var(--color-text-faint)',
+                                    fontSize: 11,
+                                    cursor: 'pointer',
+                                    padding: 0,
+                                }}
+                            >
+                                {t('search.clearRecent')}
+                            </button>
+                        )}
+                    </div>
+
+                    {recent.length === 0 ? (
+                        <div style={{ padding: '16px 12px', fontSize: 12, color: 'var(--color-text-faint)', textAlign: 'center' }}>
+                            {t('search.noRecent')}
+                        </div>
+                    ) : (
+                        <div style={{ padding: 6 }}>
+                            {recent.map((profile) => {
+                                const rankLabel = profile.rankName === 'Apex Predator'
+                                    ? t('favorites.predator')
+                                    : formatFullRankName(profile.rankName) || t('favorites.unranked');
+                                const totalLevel = (profile.prestige || 0) * 500 + (profile.level || 0);
+                                const hovered = hoveredUid === profile.uid;
+                                return (
+                                    <div
+                                        key={profile.uid}
+                                        onMouseEnter={() => setHoveredUid(profile.uid)}
+                                        onMouseLeave={() => setHoveredUid(null)}
+                                        style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: 10,
+                                            padding: '8px 8px',
+                                            borderRadius: 8,
+                                            cursor: 'pointer',
+                                            background: hovered ? 'var(--color-bg-card-hover)' : 'transparent',
+                                            transition: 'background 0.15s',
+                                        }}
+                                        onClick={() => {
+                                            setOpen(false);
+                                            onSelectRecent(profile);
+                                        }}
+                                    >
+                                        <div
+                                            style={{
+                                                width: 36,
+                                                height: 36,
+                                                borderRadius: '50%',
+                                                overflow: 'hidden',
+                                                border: `2px solid ${getRankTierColor(profile.rankName)}`,
+                                                flexShrink: 0,
+                                                background: 'var(--color-bg-deep)',
+                                            }}
+                                        >
+                                            <img
+                                                src={LEGEND_IMG(profile.legend)}
+                                                alt=""
+                                                style={{ width: '100%', height: '100%', objectFit: 'cover', transform: 'scale(1.08)' }}
+                                                onError={(e) => {
+                                                    (e.target as HTMLImageElement).src = UNKNOWN_LEGEND_IMG;
+                                                }}
+                                            />
+                                        </div>
+                                        <div style={{ flex: 1, minWidth: 0 }}>
+                                            <div
+                                                style={{
+                                                    fontSize: 13,
+                                                    fontWeight: 700,
+                                                    color: 'var(--color-text-primary)',
+                                                    whiteSpace: 'nowrap',
+                                                    overflow: 'hidden',
+                                                    textOverflow: 'ellipsis',
+                                                }}
+                                            >
+                                                {profile.name}
+                                            </div>
+                                            <div style={{ fontSize: 11, color: 'var(--color-text-muted)', marginTop: 2, display: 'flex', gap: 6, minWidth: 0 }}>
+                                                <span style={{ color: getRankTierColor(profile.rankName), fontWeight: 700, whiteSpace: 'nowrap' }}>
+                                                    {rankLabel}
+                                                </span>
+                                                <span style={{ whiteSpace: 'nowrap' }}>{profile.rankScore.toLocaleString()} RP</span>
+                                                <span style={{ whiteSpace: 'nowrap' }}>Lv.{totalLevel}</span>
+                                            </div>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            title={t('search.clearRecent')}
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                onRemoveRecent(profile.uid);
+                                            }}
+                                            style={{
+                                                background: 'transparent',
+                                                border: 'none',
+                                                color: 'var(--color-text-subtle)',
+                                                cursor: 'pointer',
+                                                padding: 4,
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                flexShrink: 0,
+                                            }}
+                                        >
+                                            <FaTimes size={11} />
+                                        </button>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
+                </div>
+            )}
+        </div>
+    );
+});
 
 export default function SimpleWebApp() {
-    const [showLanding, setShowLanding] = useState(true);
-    const [query, setQuery] = useState('');
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState('');
-    const [candidates, setCandidates] = useState<SearchCandidate[]>([]);
-    const [user, setUser] = useState<RemoteUserStats | null>(null);
+    const { t, i18n } = useTranslation();
+    const mainScrollRef = useRef<HTMLDivElement>(null);
+
+    const [seasons, setSeasons] = useState<SeasonConfig[]>(FALLBACK_SEASONS);
+    const [user, setUser] = useState<WebUser>(() => emptyUser('Player'));
     const [history, setHistory] = useState<any[]>([]);
-    const [seasons, setSeasons] = useState<SeasonConfig[]>([]);
-    const [selectedSeasonId, setSelectedSeasonId] = useState<number>(0);
-    const [selectedMode, setSelectedMode] = useState<'ALL' | 'RANKED' | 'TRIO' | 'DUO'>('ALL');
-    const [sortBy, setSortBy] = useState<'LATEST' | 'KILLS' | 'DAMAGE'>('LATEST');
-    const [mainTab, setMainTab] = useState<'DASHBOARD' | 'STATISTICS'>('DASHBOARD');
-    const [page, setPage] = useState(1);
-    const [selectedMatchId, setSelectedMatchId] = useState<string | null>(null);
+    const [selectedSeasonId, setSelectedSeasonId] = useState<number>(
+        () => resolveCurrentSeasonId(FALLBACK_SEASONS) ?? FALLBACK_SEASONS[0].id,
+    );
+    const [mainTab, setMainTab] = useState('DASHBOARD');
+    const [activeTab, setActiveTab] = useState('BR');
+    const [currentPage, setCurrentPage] = useState(1);
+    const [expandedMatchIds, setExpandedMatchIds] = useState<string[]>([]);
+    const [isSearching, setIsSearching] = useState(false);
+    const [isProfileLoading, setIsProfileLoading] = useState(false);
+    const [statusMessage, setStatusMessage] = useState('');
+    const [candidates, setCandidates] = useState<SearchCandidate[]>([]);
+    const [searchResetKey, setSearchResetKey] = useState(0);
     const [copied, setCopied] = useState(false);
-    const [toast, setToast] = useState('');
-    const [isMobile, setIsMobile] = useState<boolean>(window.innerWidth < 900);
-    const MATCHES_PER_PAGE = 15;
+    const [recentSearches, setRecentSearches] = useState<RecentSearchProfile[]>(() => loadRecentSearches());
+    const [windowWidth, setWindowWidth] = useState(() =>
+        typeof window !== 'undefined' ? window.innerWidth : 1680,
+    );
+    const isNarrowLayout = windowWidth < NARROW_LAYOUT_WIDTH;
+    const showSideAds = windowWidth >= WEB_ADS_MIN_VIEWPORT;
 
-    const filteredHistory = useMemo(() => {
-        let list = history.filter((m) => isSupportedMode(m?.mode));
+    const selectableSeasons = useMemo(() => getSelectableSeasons(seasons), [seasons]);
 
-        if (selectedMode !== 'ALL') {
-            list = list.filter((m) => matchesHistoryTab(m?.mode, selectedMode));
-        }
+    useEffect(() => {
+        const onResize = () => setWindowWidth(window.innerWidth);
+        window.addEventListener('resize', onResize);
+        return () => window.removeEventListener('resize', onResize);
+    }, []);
 
-        const currentSeason = seasons.find((season) => season.id === selectedSeasonId);
-        if (!currentSeason) return list;
+    useEffect(() => {
+        void (async () => {
+            const seasonList = await fetchSeasons();
+            if (!seasonList.length) return;
+            setSeasons(seasonList);
+            const currentId = resolveCurrentSeasonId(seasonList);
+            if (currentId != null) setSelectedSeasonId(currentId);
+        })();
+    }, []);
 
-        const seasonEnd = resolveSeasonEndMs(seasons, selectedSeasonId);
-
-        return list.filter((m) => {
-            const matchTime = getNumeric(m?.startTime || m?.endTime);
-            if (matchTime <= 0) return true;
-            const afterStart = matchTime >= currentSeason.startTime;
-            const beforeEnd = seasonEnd != null ? matchTime < seasonEnd : true;
-            return afterStart && beforeEnd;
-        });
-    }, [history, selectedMode, selectedSeasonId, seasons]);
-
-    const sortedHistory = useMemo(() => {
-        const copied = [...filteredHistory];
-        if (sortBy === 'KILLS') {
-            copied.sort((a, b) => getNumeric(b?.kills) - getNumeric(a?.kills));
-            return copied;
-        }
-        if (sortBy === 'DAMAGE') {
-            copied.sort((a, b) => getNumeric(b?.damage) - getNumeric(a?.damage));
-            return copied;
-        }
-        copied.sort((a, b) => getNumeric(b?.endTime || b?.startTime) - getNumeric(a?.endTime || a?.startTime));
-        return copied;
-    }, [filteredHistory, sortBy]);
-
-    const totalPages = Math.max(1, Math.ceil(sortedHistory.length / MATCHES_PER_PAGE));
-    const pagedHistory = useMemo(() => {
-        const start = (page - 1) * MATCHES_PER_PAGE;
-        return sortedHistory.slice(start, start + MATCHES_PER_PAGE);
-    }, [page, sortedHistory]);
-
-    const summary = useMemo(() => calcSummary(filteredHistory), [filteredHistory]);
-    const winRate = summary.matches > 0 ? ((summary.wins / summary.matches) * 100).toFixed(1) : '0.0';
+    useEffect(() => {
+        setUser((prev) => (prev.uid ? prev : emptyUser(t('search.defaultName'))));
+    }, [t]);
 
     const loadPlayer = async (candidate: SearchCandidate, updateHash = true) => {
-        setLoading(true);
-        setError('');
+        setIsProfileLoading(true);
+        setStatusMessage('');
+        setExpandedMatchIds([]);
+        setCurrentPage(1);
+        setMainTab('DASHBOARD');
         try {
             const [stats, playerHistory] = await Promise.all([
                 fetchUserStatsByUid(candidate.uid),
@@ -182,85 +433,63 @@ export default function SimpleWebApp() {
             });
             setHistory(playerHistory);
             setCandidates([]);
-            setPage(1);
+            setRecentSearches(pushRecentSearch({
+                uid: candidate.uid,
+                name: stats?.name || candidate.name,
+                rankName: stats?.rankName || candidate.rank_name || 'Unranked',
+                rankScore: stats?.rankScore ?? candidate.rank_score ?? 0,
+                level: stats?.level ?? candidate.level ?? 0,
+                prestige: stats?.prestige ?? 0,
+                legend: stats?.legend || candidate.legend || 'unknown',
+            }));
             if (updateHash) {
                 window.history.replaceState(null, '', `#/player/${encodeURIComponent(candidate.uid)}`);
             }
         } catch {
-            setError('플레이어 데이터를 가져오지 못했습니다.');
+            setStatusMessage(t('search.failedLoad', { defaultValue: 'Failed to load player data.' }));
         } finally {
-            setLoading(false);
+            setIsProfileLoading(false);
+            setIsSearching(false);
         }
     };
 
-    const onSearch = async (e: React.FormEvent) => {
-        e.preventDefault();
+    const handleSearch = async (query: string) => {
         const trimmed = query.trim();
         if (!trimmed) return;
 
-        setLoading(true);
-        setError('');
+        setIsSearching(true);
+        setStatusMessage('');
         setCandidates([]);
         try {
             const found = await searchCandidates(trimmed);
             if (found.length === 0) {
-                setError('검색 결과가 없습니다.');
+                setStatusMessage(t('search.noResults', { defaultValue: 'No players found.' }));
                 return;
             }
-            setShowLanding(false);
             if (found.length === 1) {
                 await loadPlayer(found[0]);
                 return;
             }
             setCandidates(found.slice(0, 10));
         } catch {
-            setError('검색 중 오류가 발생했습니다.');
+            setStatusMessage(t('search.error', { defaultValue: 'Search failed.' }));
         } finally {
-            setLoading(false);
+            setIsSearching(false);
         }
     };
-
-    useEffect(() => {
-        const init = async () => {
-            const seasonList = await fetchSeasons();
-            setSeasons(seasonList);
-            const currentId = resolveCurrentSeasonId(seasonList);
-            if (currentId != null) {
-                setSelectedSeasonId(currentId);
-            }
-        };
-        void init();
-    }, []);
-
-    const selectableSeasons = useMemo(
-        () => getSelectableSeasons(seasons),
-        [seasons],
-    );
-
-    useEffect(() => {
-        setPage(1);
-    }, [selectedMode, selectedSeasonId, sortBy, user?.uid]);
-
-    useEffect(() => {
-        const onResize = () => setIsMobile(window.innerWidth < 900);
-        window.addEventListener('resize', onResize);
-        return () => window.removeEventListener('resize', onResize);
-    }, []);
 
     useEffect(() => {
         const loadFromHash = async () => {
             const uid = parseUidFromHash();
             if (!uid) return;
-            setLoading(true);
-            setError('');
+            setIsSearching(true);
             try {
-                setShowLanding(false);
                 const stats = await fetchUserStatsByUid(uid);
                 await loadPlayer(toCandidate(uid, stats), false);
             } catch {
-                setError('URL에서 유저를 불러오지 못했습니다.');
+                setStatusMessage(t('search.failedLoad', { defaultValue: 'Failed to load player from URL.' }));
             } finally {
-                setLoading(false);
+                setIsSearching(false);
             }
         };
 
@@ -270,23 +499,51 @@ export default function SimpleWebApp() {
         };
         window.addEventListener('hashchange', onHashChange);
         return () => window.removeEventListener('hashchange', onHashChange);
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- hash bootstrap once; loadPlayer is stable enough for web
     }, []);
 
-    const handleCopyProfileLink = async () => {
-        if (!user?.uid) return;
-        const link = `${window.location.origin}${window.location.pathname}#/player/${user.uid}`;
-        try {
-            await navigator.clipboard.writeText(link);
-            setCopied(true);
-            setToast('프로필 링크가 복사되었습니다.');
-            window.setTimeout(() => setCopied(false), 1500);
-            window.setTimeout(() => setToast(''), 1800);
-        } catch {
-            setError('링크 복사에 실패했습니다.');
-        }
+    const filteredHistory = useMemo(() => {
+        return history.filter((match) => {
+            if (!matchesHistoryTab(match.mode, activeTab as 'BR' | 'RANKED' | 'TRIO' | 'DUO')) {
+                return false;
+            }
+
+            const matchTime = match.startTime || match.endTime || 0;
+            const currentSeason = seasons.find((s) => s.id === selectedSeasonId);
+            if (!currentSeason) return true;
+
+            const seasonEnd = resolveSeasonEndMs(seasons, selectedSeasonId);
+            const isAfterStart = matchTime >= currentSeason.startTime;
+            const isBeforeEnd = seasonEnd != null ? matchTime < seasonEnd : true;
+            return isAfterStart && isBeforeEnd;
+        });
+    }, [history, activeTab, selectedSeasonId, seasons]);
+
+    const totalPages = Math.max(1, Math.ceil(filteredHistory.length / MATCHES_PER_PAGE));
+    const effectiveCurrentPage = Math.min(currentPage, totalPages);
+    const currentMatches = useMemo(() => {
+        const startIndex = (effectiveCurrentPage - 1) * MATCHES_PER_PAGE;
+        return filteredHistory.slice(startIndex, startIndex + MATCHES_PER_PAGE);
+    }, [filteredHistory, effectiveCurrentPage]);
+
+    useEffect(() => {
+        if (currentPage > totalPages) setCurrentPage(totalPages);
+    }, [currentPage, totalPages]);
+
+    useEffect(() => {
+        setCurrentPage(1);
+        setExpandedMatchIds([]);
+    }, [activeTab, selectedSeasonId, user.uid]);
+
+    const handleMatchToggle = (matchId: string) => {
+        setExpandedMatchIds((prev) =>
+            prev.includes(matchId) ? prev.filter((id) => id !== matchId) : [...prev, matchId],
+        );
     };
 
-    const handleSelectFromMatchStats = (selected: { uid: string; name: string }) => {
+    const collapseAll = () => setExpandedMatchIds([]);
+
+    const handleSelectFromMatch = (selected: { uid: string; name: string }) => {
         if (!selected?.uid) return;
         void loadPlayer({
             uid: selected.uid,
@@ -296,483 +553,842 @@ export default function SimpleWebApp() {
             level: 0,
             legend: 'unknown',
         });
+        setSearchResetKey((k) => k + 1);
     };
 
-    const renderMainContent = (mobileLayout: boolean) => (
-        <>
-            <div style={{ height: mobileLayout ? 42 : 36, borderBottom: '1px solid var(--color-border)', background: 'var(--color-bg-top-bar)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: mobileLayout ? '0 10px' : '0 12px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <img src="/icons/IconMouseOver.png" alt="ApexTrace" style={{ width: mobileLayout ? 16 : 14, height: mobileLayout ? 16 : 14, objectFit: 'contain' }} />
-                    <div style={{ fontSize: mobileLayout ? 13 : 12, fontWeight: 700, color: 'var(--color-text-muted)', letterSpacing: 0.9, fontFamily: "'Segoe UI', Arial, sans-serif", textTransform: 'uppercase' }}>
-                        ApexTrace
-                    </div>
+    const handleCopyProfileLink = async () => {
+        if (!user.uid) return;
+        const link = `${window.location.origin}${window.location.pathname}#/player/${user.uid}`;
+        try {
+            await navigator.clipboard.writeText(link);
+            setCopied(true);
+            window.setTimeout(() => setCopied(false), 1500);
+        } catch {
+            setStatusMessage(t('search.copyFailed', { defaultValue: 'Failed to copy link.' }));
+        }
+    };
+
+    const handleManualRefresh = async () => {
+        if (!user.uid || isProfileLoading) return;
+        await loadPlayer({
+            uid: user.uid,
+            name: user.name,
+            rank_name: user.rankName,
+            rank_score: user.rankScore,
+            level: user.level,
+            legend: user.legend,
+        }, false);
+    };
+
+    return (
+        <div
+            style={{
+                display: 'flex',
+                flexDirection: 'column',
+                width: '100vw',
+                height: '100dvh',
+                background: 'var(--color-bg-main)',
+                fontFamily: "'Segoe UI', sans-serif",
+                overflow: 'hidden',
+                color: 'var(--color-text-primary)',
+                boxSizing: 'border-box',
+            }}
+        >
+            <style>{`
+                @keyframes spin {
+                    from { transform: rotate(0deg); }
+                    to { transform: rotate(360deg); }
+                }
+                .spin-animation {
+                    animation: spin 1s linear infinite;
+                }
+            `}</style>
+
+            <div
+                style={{
+                    height: '35px',
+                    background: 'var(--color-bg-top-bar)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    flexShrink: 0,
+                    userSelect: 'none',
+                }}
+            >
+                <div
+                    style={{
+                        paddingLeft: '15px',
+                        fontSize: '12px',
+                        fontWeight: 'bold',
+                        color: 'var(--color-text-muted)',
+                        letterSpacing: '1px',
+                        display: 'flex',
+                        alignItems: 'center',
+                    }}
+                >
+                    <img
+                        src="/icons/IconMouseOver.png"
+                        alt=""
+                        style={{ width: '18px', height: '18px', marginRight: '8px', objectFit: 'contain' }}
+                    />
+                    {t('app.title')}
                 </div>
-                {!mobileLayout && <div style={{ fontSize: 11, color: 'var(--color-text-faint)' }}>Search / History / Statistics</div>}
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', paddingRight: '12px' }}>
+                    {user.uid && (
+                        <button
+                            type="button"
+                            onClick={() => void handleCopyProfileLink()}
+                            title={t('controls.copyLink', { defaultValue: 'Copy profile link' })}
+                            style={{
+                                background: 'transparent',
+                                border: '1px solid var(--color-border-light)',
+                                color: 'var(--color-text-muted)',
+                                borderRadius: 6,
+                                padding: '4px 8px',
+                                fontSize: 11,
+                                cursor: 'pointer',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: 5,
+                            }}
+                        >
+                            <FaLink size={10} />
+                            {copied ? t('controls.copied', { defaultValue: 'Copied' }) : t('controls.copyLink', { defaultValue: 'Link' })}
+                        </button>
+                    )}
+                    <AppSelect
+                        sizeVariant="sm"
+                        value={i18n.language}
+                        onChange={(e) => {
+                            const newLang = e.target.value;
+                            void i18n.changeLanguage(newLang);
+                            localStorage.setItem('app_language', newLang);
+                        }}
+                        title="Select Language"
+                    >
+                        {APP_LANGUAGES.map(({ code, label }) => (
+                            <option key={code} value={code}>{label}</option>
+                        ))}
+                    </AppSelect>
+                </div>
             </div>
 
-            {mobileLayout ? (
-                <div style={{ height: 'calc(100dvh - 42px)', overflowY: 'auto', overflowX: 'hidden', padding: 10, display: 'grid', gap: 10 }}>
-                    <div style={{ ...panelCardStyle, padding: 8, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                        <button
-                            onClick={() => setMainTab('DASHBOARD')}
+            <div style={{ flex: 1, display: 'flex', overflow: 'hidden', position: 'relative' }}>
+                {showSideAds && <WebAdRail side="left" />}
+
+                <div style={{ flex: 1, display: 'flex', overflow: 'hidden', minWidth: 0 }}>
+                <div
+                    style={{
+                        flex: '0 0 70px',
+                        background: 'var(--color-bg-nav)',
+                        borderRight: '1px solid var(--color-border)',
+                        zIndex: 20,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        paddingTop: '20px',
+                    }}
+                >
+                    <Navigation
+                        activeTab={mainTab}
+                        onTabChange={setMainTab}
+                        visibleTabs={WEB_NAV_TABS}
+                    />
+                </div>
+
+                <div
+                    style={{
+                        flex: 8,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        background: 'var(--color-bg-panel)',
+                        minWidth: 0,
+                        position: 'relative',
+                        overflow: 'hidden',
+                    }}
+                >
+                    <div
+                        style={{
+                            height: '60px',
+                            borderBottom: '1px solid var(--color-border)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            padding: isNarrowLayout ? '0 12px' : '0 30px',
+                            background: 'var(--color-bg-sub-header)',
+                            gap: '8px',
+                            flexShrink: 0,
+                            minWidth: 0,
+                        }}
+                    >
+                        <div
                             style={{
-                                padding: '9px 6px',
-                                fontSize: 11,
-                                background: mainTab === 'DASHBOARD' ? 'linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-dark) 100%)' : 'var(--color-bg-sub-header)',
-                                color: mainTab === 'DASHBOARD' ? 'var(--color-text-primary)' : 'var(--color-text-faint)',
-                                border: '1px solid var(--color-border-light)',
-                                borderRadius: 10,
-                                display: 'inline-flex',
+                                fontWeight: 'bold',
+                                fontSize: isNarrowLayout ? '15px' : '20px',
+                                color: 'var(--color-text-secondary)',
+                                display: 'flex',
                                 alignItems: 'center',
-                                justifyContent: 'center',
-                                gap: 6,
+                                gap: '8px',
+                                minWidth: 0,
+                                overflow: 'hidden',
                             }}
                         >
-                            <FaList size={12} />
-                            <span>MATCH</span>
-                        </button>
-                        <button
-                            onClick={() => setMainTab('STATISTICS')}
+                            <span
+                                style={{
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '8px',
+                                    minWidth: 0,
+                                    overflow: 'hidden',
+                                    whiteSpace: 'nowrap',
+                                    textOverflow: 'ellipsis',
+                                }}
+                            >
+                                {mainTab === 'DASHBOARD' ? (
+                                    <><FaList color="var(--color-text-muted)" /> {t('nav.matchHistory')}</>
+                                ) : mainTab === 'STATISTICS' ? (
+                                    <><FaChartBar color="#e17055" /> {t('nav.statistics')}</>
+                                ) : (
+                                    <><FaThList color="#a29bfe" /> {t('nav.tierTable')}</>
+                                )}
+                            </span>
+                        </div>
+
+                        <div
                             style={{
-                                padding: '9px 6px',
-                                fontSize: 11,
-                                background: mainTab === 'STATISTICS' ? 'linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-dark) 100%)' : 'var(--color-bg-sub-header)',
-                                color: mainTab === 'STATISTICS' ? 'var(--color-text-primary)' : 'var(--color-text-faint)',
-                                border: '1px solid var(--color-border-light)',
-                                borderRadius: 10,
-                                display: 'inline-flex',
+                                display: 'flex',
                                 alignItems: 'center',
-                                justifyContent: 'center',
-                                gap: 6,
+                                gap: isNarrowLayout ? '8px' : '15px',
+                                flexShrink: 0,
                             }}
                         >
-                            <FaChartBar size={12} />
-                            <span>STAT</span>
-                        </button>
-                    </div>
-
-                    <form onSubmit={onSearch} style={{ ...panelCardStyle, padding: 10, display: 'flex', gap: 8 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 30, color: 'var(--color-text-faint)', border: '1px solid var(--color-border-light)', borderRadius: 8, background: 'var(--color-bg-input)' }}>
-                            <FaSearch size={12} />
-                        </div>
-                        <input
-                            value={query}
-                            onChange={(e) => setQuery(e.target.value)}
-                            placeholder="닉네임 또는 UID 검색"
-                            style={{ flex: 1, minWidth: 0, background: 'var(--color-bg-input)', color: 'var(--color-text-primary)', border: '1px solid var(--color-border-light)', borderRadius: 8, padding: '9px 10px', fontSize: 13 }}
-                        />
-                        <button type="submit" disabled={loading} style={{ padding: '8px 10px', fontSize: 12 }}>
-                            {loading ? '검색중...' : '검색'}
-                        </button>
-                    </form>
-
-                    {error && <div style={{ ...sectionStyle, borderColor: 'var(--color-danger)', color: 'var(--color-danger)', fontSize: 12 }}>{error}</div>}
-
-                    {user && (
-                        <div style={{ display: 'grid', gap: 10 }}>
-                            <div style={{ ...panelCardStyle, padding: 10 }}>
-                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
-                                        <FaUserCircle size={16} color="var(--color-text-muted)" />
-                                        <div style={{ fontSize: 16, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{user.name || '-'}</div>
-                                    </div>
-                                    <button onClick={handleCopyProfileLink} style={{ padding: '6px 10px', fontSize: 11 }}>
-                                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
-                                            <FaLink size={10} />
-                                            {copied ? '복사됨' : '링크복사'}
-                                        </span>
-                                    </button>
-                                </div>
-                                <div style={{ marginTop: 6, color: 'var(--color-text-muted)', fontSize: 12 }}>
-                                    Lv.{getNumeric(user.level) + getNumeric(user.prestige) * 500} / {user.rankName || 'Unranked'} ({getNumeric(user.rankScore)} RP)
-                                </div>
-                            </div>
-                            <div style={{ ...panelCardStyle, padding: 10, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                                <div style={statTileStyle}><span style={{ color: 'var(--color-text-faint)', fontSize: 11 }}>Matches</span><b style={{ fontSize: 15 }}>{summary.matches}</b></div>
-                                <div style={statTileStyle}><span style={{ color: 'var(--color-text-faint)', fontSize: 11 }}>Wins</span><b style={{ fontSize: 15 }}>{summary.wins}</b></div>
-                                <div style={statTileStyle}><span style={{ color: 'var(--color-text-faint)', fontSize: 11 }}>Kills</span><b style={{ fontSize: 15 }}>{summary.kills}</b></div>
-                                <div style={statTileStyle}><span style={{ color: 'var(--color-text-faint)', fontSize: 11 }}>Win Rate</span><b style={{ fontSize: 15 }}>{winRate}%</b></div>
-                            </div>
-                        </div>
-                    )}
-
-                    <div style={{ ...panelCardStyle, padding: 10, display: 'grid', gap: 8 }}>
-                        {user && (
-                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                                <select value={selectedSeasonId} onChange={(e) => setSelectedSeasonId(Number(e.target.value))} style={{ background: 'var(--color-bg-card)', color: 'var(--color-text-primary)', border: '1px solid var(--color-border-light)', borderRadius: 6, padding: '7px 8px', fontSize: 12, fontWeight: 700 }}>
+                            {(mainTab === 'DASHBOARD' || mainTab === 'STATISTICS') && (
+                                <AppSelect
+                                    sizeVariant="md"
+                                    value={selectedSeasonId}
+                                    onChange={(e) => {
+                                        setSelectedSeasonId(Number(e.target.value));
+                                        mainScrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+                                    }}
+                                >
                                     {selectableSeasons.map((season) => (
                                         <option key={season.id} value={season.id}>{season.name}</option>
                                     ))}
-                                </select>
-                                <select value={selectedMode} onChange={(e) => setSelectedMode(e.target.value as 'ALL' | 'RANKED' | 'TRIO' | 'DUO')} style={{ background: 'var(--color-bg-card)', color: 'var(--color-text-primary)', border: '1px solid var(--color-border-light)', borderRadius: 6, padding: '7px 8px', fontSize: 12, fontWeight: 700 }}>
-                                    <option value="ALL">ALL</option>
-                                    <option value="RANKED">RANKED</option>
-                                    <option value="TRIO">TRIO</option>
-                                    <option value="DUO">DUO</option>
-                                </select>
-                                <select value={sortBy} onChange={(e) => setSortBy(e.target.value as 'LATEST' | 'KILLS' | 'DAMAGE')} style={{ gridColumn: '1 / span 2', background: 'var(--color-bg-card)', color: 'var(--color-text-primary)', border: '1px solid var(--color-border-light)', borderRadius: 6, padding: '7px 8px', fontSize: 12, fontWeight: 700 }}>
-                                    <option value="LATEST">최신순</option>
-                                    <option value="KILLS">킬순</option>
-                                    <option value="DAMAGE">대미지순</option>
-                                </select>
-                            </div>
+                                </AppSelect>
+                            )}
+
+                            {(mainTab === 'DASHBOARD' || mainTab === 'STATISTICS') && (
+                                <button
+                                    type="button"
+                                    onClick={() => void handleManualRefresh()}
+                                    disabled={!user.uid || isProfileLoading}
+                                    style={{
+                                        background: 'transparent',
+                                        border: 'none',
+                                        cursor: !user.uid || isProfileLoading ? 'not-allowed' : 'pointer',
+                                        color: !user.uid || isProfileLoading ? 'var(--color-border-light)' : 'var(--color-text-dim)',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        padding: '5px',
+                                        transition: 'color 0.2s, transform 0.2s',
+                                        fontSize: '16px',
+                                    }}
+                                    title={t('controls.refresh')}
+                                >
+                                    <FaSync size={18} className={isProfileLoading ? 'spin-animation' : undefined} />
+                                </button>
+                            )}
+                        </div>
+                    </div>
+
+                    <div
+                        style={{
+                            flex: 1,
+                            minHeight: 0,
+                            minWidth: 0,
+                            position: 'relative',
+                            overflow: 'hidden',
+                            display: 'flex',
+                            flexDirection: 'column',
+                        }}
+                    >
+                        {isProfileLoading && (mainTab === 'DASHBOARD' || mainTab === 'STATISTICS') && (
+                            <ProfileLoadingOverlay label={t('search.loadingProfile')} />
                         )}
 
-                        {mainTab === 'STATISTICS' ? (
-                            <div style={{ ...panelCardStyle, padding: 12, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-                                <div style={statTileStyle}><span style={{ color: 'var(--color-text-faint)', fontSize: 11 }}>Matches</span><b style={{ fontSize: 16 }}>{summary.matches}</b></div>
-                                <div style={statTileStyle}><span style={{ color: 'var(--color-text-faint)', fontSize: 11 }}>Wins</span><b style={{ fontSize: 16 }}>{summary.wins}</b></div>
-                                <div style={statTileStyle}><span style={{ color: 'var(--color-text-faint)', fontSize: 11 }}>Kills</span><b style={{ fontSize: 16 }}>{summary.kills}</b></div>
-                                <div style={statTileStyle}><span style={{ color: 'var(--color-text-faint)', fontSize: 11 }}>Avg Damage</span><b style={{ fontSize: 16 }}>{summary.avgDamage}</b></div>
-                                <div style={{ ...statTileStyle, gridColumn: '1 / span 2' }}><span style={{ color: 'var(--color-text-faint)', fontSize: 11 }}>Avg Place</span><b style={{ fontSize: 16 }}>#{summary.avgPlacement || 0}</b></div>
-                            </div>
-                        ) : (
-                            <>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                                    <div style={{ fontWeight: 700 }}>최근 전적 ({filteredHistory.length})</div>
-                                    <div style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>페이지 {page} / {totalPages}</div>
+                        <div
+                            ref={mainScrollRef}
+                            style={{
+                                padding: mainTab === 'TIER_TABLE' ? 0 : (isNarrowLayout ? '16px' : '30px'),
+                                overflowY: (
+                                    mainTab === 'TIER_TABLE'
+                                    || (isProfileLoading && (mainTab === 'DASHBOARD' || mainTab === 'STATISTICS'))
+                                ) ? 'hidden' : 'auto',
+                                overflowX: 'hidden',
+                                flex: 1,
+                                height: '100%',
+                                minHeight: 0,
+                                position: 'relative',
+                                minWidth: 0,
+                            }}
+                        >
+                            {(mainTab === 'DASHBOARD' || mainTab === 'STATISTICS') && (
+                                <InlineProfileSection
+                                    showFavoritePin={false}
+                                    modeTabsSlot={mainTab === 'DASHBOARD' ? (
+                                        <div
+                                            style={{
+                                                display: 'flex',
+                                                justifyContent: 'space-between',
+                                                alignItems: 'flex-end',
+                                                borderBottom: '1px solid var(--color-border)',
+                                                paddingBottom: 0,
+                                            }}
+                                        >
+                                            <div style={{ display: 'flex', gap: 5 }}>
+                                                {(['BR', 'RANKED', 'TRIO', 'DUO'] as const).map((tab) => (
+                                                    <button
+                                                        key={tab}
+                                                        type="button"
+                                                        className="btn-tab"
+                                                        onMouseDown={(e) => e.preventDefault()}
+                                                        onClick={() => setActiveTab(tab)}
+                                                        style={getTabStyle(activeTab === tab)}
+                                                    >
+                                                        {t(`statistics.modes.${tab.toLowerCase()}`)}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    ) : undefined}
+                                    searchSlot={
+                                        <SearchBar
+                                            onSearch={(q) => void handleSearch(q)}
+                                            isSearching={isSearching}
+                                            resetKey={searchResetKey}
+                                            recent={recentSearches}
+                                            onSelectRecent={(profile) => {
+                                                setSearchResetKey((k) => k + 1);
+                                                void loadPlayer({
+                                                    uid: profile.uid,
+                                                    name: profile.name,
+                                                    rank_name: profile.rankName,
+                                                    rank_score: profile.rankScore,
+                                                    level: profile.level,
+                                                    legend: profile.legend,
+                                                });
+                                            }}
+                                            onRemoveRecent={(uid) => setRecentSearches(removeRecentSearch(uid))}
+                                            onClearRecent={() => setRecentSearches(clearRecentSearches())}
+                                        />
+                                    }
+                                    statusMessage={statusMessage}
+                                    user={user}
+                                    history={history}
+                                    trendHistory={mainTab === 'DASHBOARD' ? filteredHistory.slice(0, 20) : undefined}
+                                    isFavorite={false}
+                                    isPinned={false}
+                                    hasPinnedUser={false}
+                                    onReturnToPinned={noop}
+                                    onToggleFavorite={noop}
+                                    onTogglePin={noop}
+                                    compact={isNarrowLayout}
+                                />
+                            )}
+
+                            {mainTab === 'STATISTICS' ? (
+                                <StatisticsTab
+                                    isPremium={false}
+                                    overviewOnly
+                                    selectedSeasonId={selectedSeasonId}
+                                    seasons={seasons}
+                                    profileUid={user.uid}
+                                    profileName={user.name}
+                                />
+                            ) : mainTab === 'TIER_TABLE' ? (
+                                <div style={{ width: '100%', height: '100%', minHeight: 0, overflow: 'hidden' }}>
+                                    <TierTableTab />
                                 </div>
-                                <div style={{ display: 'grid', gap: 8 }}>
-                                    {pagedHistory.map((match) => (
-                                        <div key={getMatchKey(match)} style={{ background: 'var(--color-bg-sub-header)', border: '1px solid var(--color-border)', borderRadius: 8, padding: 10, fontSize: 13, borderLeft: `4px solid ${getPlacement(match) === 1 ? 'var(--color-rank-first)' : getPlacement(match) <= 5 ? 'var(--color-rank-top5)' : 'var(--color-rank-other)'}` }}>
+                            ) : (
+                                <>
+                                    {expandedMatchIds.length > 0 && (
+                                        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
                                             <button
-                                                onClick={() => {
-                                                    const matchKey = getMatchKey(match);
-                                                    setSelectedMatchId((prev) => (prev === matchKey ? null : matchKey));
+                                                type="button"
+                                                onClick={collapseAll}
+                                                style={{
+                                                    background: 'transparent',
+                                                    border: '1px solid var(--color-border-light)',
+                                                    color: 'var(--color-text-muted)',
+                                                    padding: '4px 10px',
+                                                    cursor: 'pointer',
+                                                    borderRadius: 4,
+                                                    fontSize: 11,
                                                 }}
-                                                style={{ width: '100%', textAlign: 'left', background: 'transparent', border: 'none', padding: 0, color: 'inherit', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}
                                             >
-                                                <div><div style={{ fontWeight: 700 }}>{match.mode || 'BR'}</div><div style={{ fontSize: 12, color: 'var(--color-text-muted)', marginTop: 2 }}>{match.map || '-'}</div></div>
-                                                <div style={{ textAlign: 'right' }}><div style={{ fontWeight: 700 }}>#{getPlacement(match)}</div><div style={{ fontSize: 12, color: 'var(--color-text-muted)', marginTop: 2 }}>K {getNumeric(match.kills)} / D {Math.round(getNumeric(match.damage))}</div></div>
-                                                <div style={{ gridColumn: '1 / span 2', fontSize: 12, color: 'var(--color-text-faint)' }}>{match.endTime ? new Date(match.endTime).toLocaleString() : '-'}</div>
+                                                {t('controls.collapseAll')}
                                             </button>
-                                            {selectedMatchId === getMatchKey(match) && (
-                                                <div style={{ marginTop: 10, borderTop: '1px solid var(--color-border-light)', paddingTop: 10 }}>
-                                                    <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 10, minHeight: 620 }}>
-                                                        <div style={{ border: '1px solid var(--color-border)', borderRadius: 8, overflow: 'hidden', minHeight: 280 }}>
-                                                            <MapVisualizer match={match as any} />
-                                                        </div>
-                                                        <div style={{ border: '1px solid var(--color-border)', borderRadius: 8, overflow: 'hidden', background: 'var(--color-bg-main)', minHeight: 280 }}>
-                                                            <MatchStats
-                                                                match={match as any}
-                                                                onUserSelect={({ uid, name }) => handleSelectFromMatchStats({ uid: String(uid), name })}
-                                                            />
+                                        </div>
+                                    )}
+
+                                    {filteredHistory.length === 0 ? (
+                                        <div
+                                            style={{
+                                                display: 'flex',
+                                                flexDirection: 'column',
+                                                textAlign: 'center',
+                                                padding: '40px',
+                                                color: 'var(--color-text-subtle)',
+                                                border: '2px dashed var(--color-border)',
+                                                borderRadius: '10px',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                            }}
+                                        >
+                                            <div
+                                                style={{
+                                                    marginBottom: '15px',
+                                                    fontSize: '14px',
+                                                    lineHeight: '1.5',
+                                                    color: 'var(--color-text-muted)',
+                                                }}
+                                            >
+                                                {user.uid
+                                                    ? <>{t('match.emptyTitle')}<br />{t('match.emptyDesc')}</>
+                                                    : t('search.placeholder')}
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', paddingTop: '8px' }}>
+                                            {currentMatches.map((match: any) => {
+                                                const matchId = String(
+                                                    match.matchId
+                                                    || `${match.startTime || match.endTime || 0}-${match.mode || 'mode'}-${match.map || 'map'}`,
+                                                );
+                                                const isIncomplete = isIncompleteMatchStats(match);
+                                                const displayRank = (match.placement === 1 || match.placement === '1') ? 1 : match.placement;
+                                                const isExpanded = expandedMatchIds.includes(matchId);
+                                                const legendFile = (match.legend || 'unknown').toLowerCase();
+                                                const timePart = getRelativeTime(match.endTime || match.startTime);
+                                                const timeLabel = formatRelativeTime(timePart, t);
+                                                const gameMode = getModeDisplayLabel(match.mode);
+                                                const modeColor = getModeColor(match.mode);
+                                                const formatStat = (value: number | null | undefined) =>
+                                                    isIncomplete || value == null ? '-' : value;
+                                                const incompleteSignals = Array.isArray(match.missingSignals)
+                                                    ? match.missingSignals
+                                                        .map((signal: string) => t(`match.missingSignals.${signal}`, { defaultValue: signal }))
+                                                        .filter(Boolean)
+                                                        .join(', ')
+                                                    : '';
+                                                const incompleteTooltip = incompleteSignals
+                                                    ? t('match.dataQualityTooltip', { signals: incompleteSignals })
+                                                    : t('match.dataQualityIncomplete');
+
+                                                return (
+                                                    <div key={matchId} style={{ position: 'relative', borderRadius: '8px' }}>
+                                                        {isIncomplete && (
+                                                            <span
+                                                                title={incompleteTooltip}
+                                                                onClick={(e) => e.stopPropagation()}
+                                                                aria-label={incompleteTooltip}
+                                                                style={{
+                                                                    position: 'absolute',
+                                                                    left: '3px',
+                                                                    top: 0,
+                                                                    zIndex: 5,
+                                                                    width: '18px',
+                                                                    height: '18px',
+                                                                    display: 'flex',
+                                                                    alignItems: 'center',
+                                                                    justifyContent: 'center',
+                                                                    transform: 'translate(-50%, -45%)',
+                                                                    cursor: 'help',
+                                                                    pointerEvents: 'auto',
+                                                                }}
+                                                            >
+                                                                <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden style={{ display: 'block', flexShrink: 0, filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.75))' }}>
+                                                                    <path fill="#e74c3c" stroke="rgba(0,0,0,0.35)" strokeWidth="0.8" d="M12 2.2L22.8 21.2H1.2L12 2.2z" />
+                                                                    <rect x="11" y="8.2" width="2" height="7.2" rx="0.6" fill="#fff" />
+                                                                    <rect x="11" y="17.2" width="2" height="2.2" rx="0.6" fill="#fff" />
+                                                                </svg>
+                                                            </span>
+                                                        )}
+                                                        <div
+                                                            style={{
+                                                                background: 'var(--color-bg-card)',
+                                                                borderRadius: '8px',
+                                                                overflow: 'hidden',
+                                                                boxShadow: '0 2px 5px rgba(0,0,0,0.2)',
+                                                                border: '1px solid var(--color-border)',
+                                                            }}
+                                                        >
+                                                            <div
+                                                                onClick={() => handleMatchToggle(matchId)}
+                                                                style={{
+                                                                    display: 'flex',
+                                                                    alignItems: 'center',
+                                                                    padding: isNarrowLayout ? '12px 12px' : '15px 20px',
+                                                                    cursor: 'pointer',
+                                                                    borderLeft: `6px solid ${isIncomplete ? 'var(--color-warning)' : getRankColor(displayRank)}`,
+                                                                    background: isExpanded ? 'var(--color-bg-card-hover)' : 'var(--color-bg-card)',
+                                                                    transition: 'background 0.2s',
+                                                                    minWidth: 0,
+                                                                    gap: isNarrowLayout ? '10px' : undefined,
+                                                                }}
+                                                            >
+                                                                <div
+                                                                    style={{
+                                                                        position: 'relative',
+                                                                        width: isNarrowLayout ? '42px' : '50px',
+                                                                        height: isNarrowLayout ? '42px' : '50px',
+                                                                        marginRight: isNarrowLayout ? 0 : '20px',
+                                                                        flexShrink: 0,
+                                                                    }}
+                                                                >
+                                                                    <div
+                                                                        style={{
+                                                                            width: '100%',
+                                                                            height: '100%',
+                                                                            borderRadius: '10px',
+                                                                            background: 'var(--color-bg-sub-header)',
+                                                                            overflow: 'hidden',
+                                                                            border: '2px solid var(--color-border-light)',
+                                                                        }}
+                                                                    >
+                                                                        <img
+                                                                            src={`https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/${legendFile}.png`}
+                                                                            alt={match.legend || '?'}
+                                                                            style={{ width: '100%', height: '100%', objectFit: 'cover', transform: 'scale(1.1)' }}
+                                                                            onError={(e) => {
+                                                                                (e.target as HTMLImageElement).src = 'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/unknown.png';
+                                                                            }}
+                                                                        />
+                                                                    </div>
+                                                                    <div
+                                                                        style={{
+                                                                            position: 'absolute',
+                                                                            top: 0,
+                                                                            left: 0,
+                                                                            background: 'color-mix(in srgb, var(--color-bg-deep) 80%, transparent)',
+                                                                            color: 'var(--color-text-secondary)',
+                                                                            fontSize: '9px',
+                                                                            padding: '2px 4px',
+                                                                            borderBottomRightRadius: '5px',
+                                                                            fontWeight: 'bold',
+                                                                            lineHeight: '1',
+                                                                            whiteSpace: 'nowrap',
+                                                                            backdropFilter: 'blur(2px)',
+                                                                            pointerEvents: 'none',
+                                                                        }}
+                                                                    >
+                                                                        {timeLabel}
+                                                                    </div>
+                                                                </div>
+
+                                                                <div
+                                                                    style={{
+                                                                        flex: 1,
+                                                                        display: 'grid',
+                                                                        gridTemplateColumns: isNarrowLayout
+                                                                            ? 'minmax(0, 0.55fr) minmax(0, 1.15fr) minmax(0, 1.35fr) minmax(0, 0.95fr) minmax(0, 0.85fr)'
+                                                                            : 'minmax(0, 0.7fr) minmax(0, 1.1fr) minmax(0, 1.35fr) repeat(4, minmax(0, 1fr))',
+                                                                        gap: isNarrowLayout ? '6px' : '10px',
+                                                                        alignItems: 'center',
+                                                                        minWidth: 0,
+                                                                    }}
+                                                                >
+                                                                    <div style={{ minWidth: 0 }}>
+                                                                        <div style={{ fontSize: '10px', color: 'var(--color-text-muted)' }}>{t('match.rank')}</div>
+                                                                        <div
+                                                                            style={{
+                                                                                fontWeight: 'bold',
+                                                                                fontSize: isNarrowLayout ? '14px' : '16px',
+                                                                                color: isIncomplete ? 'var(--color-text-faint)' : 'var(--color-text-primary)',
+                                                                            }}
+                                                                        >
+                                                                            {isIncomplete || displayRank == null || displayRank === '' ? '-' : `#${displayRank}`}
+                                                                        </div>
+                                                                    </div>
+                                                                    <div style={{ minWidth: 0 }}>
+                                                                        <div style={{ fontSize: '10px', color: 'var(--color-text-muted)' }}>{t('match.gamemode')}</div>
+                                                                        <div
+                                                                            style={{
+                                                                                fontWeight: 'bold',
+                                                                                fontSize: isNarrowLayout ? '12px' : '14px',
+                                                                                color: modeColor,
+                                                                                textTransform: 'uppercase',
+                                                                                whiteSpace: 'nowrap',
+                                                                                overflow: 'hidden',
+                                                                                textOverflow: 'ellipsis',
+                                                                            }}
+                                                                            title={gameMode}
+                                                                        >
+                                                                            {gameMode}
+                                                                        </div>
+                                                                    </div>
+                                                                    <div style={{ overflow: 'hidden', minWidth: 0 }}>
+                                                                        <div style={{ fontSize: '10px', color: 'var(--color-text-muted)' }}>{t('match.map')}</div>
+                                                                        <div
+                                                                            style={{
+                                                                                fontWeight: 'bold',
+                                                                                color: 'var(--color-text-dim)',
+                                                                                fontSize: isNarrowLayout ? '12px' : '14px',
+                                                                                whiteSpace: 'nowrap',
+                                                                                overflow: 'hidden',
+                                                                                textOverflow: 'ellipsis',
+                                                                                maxWidth: '100%',
+                                                                            }}
+                                                                            title={normalizeMapDisplayName(match.map)}
+                                                                        >
+                                                                            {normalizeMapDisplayName(match.map)}
+                                                                        </div>
+                                                                    </div>
+                                                                    <div style={{ minWidth: 0 }}>
+                                                                        <div style={{ fontSize: '10px', color: 'var(--color-text-muted)' }}>{t('match.damage')}</div>
+                                                                        <div
+                                                                            style={{
+                                                                                fontWeight: 'bold',
+                                                                                color: isIncomplete ? 'var(--color-text-faint)' : 'var(--color-danger)',
+                                                                                fontSize: isNarrowLayout ? '14px' : '16px',
+                                                                            }}
+                                                                        >
+                                                                            {isIncomplete || match.damage == null ? '-' : Math.round(match.damage)}
+                                                                        </div>
+                                                                    </div>
+                                                                    <div style={{ minWidth: 0 }}>
+                                                                        <div style={{ fontSize: '10px', color: 'var(--color-text-muted)' }}>{t('match.kills')}</div>
+                                                                        <div
+                                                                            style={{
+                                                                                fontWeight: 'bold',
+                                                                                color: isIncomplete ? 'var(--color-text-faint)' : 'var(--color-text-primary)',
+                                                                                fontSize: isNarrowLayout ? '14px' : '16px',
+                                                                            }}
+                                                                        >
+                                                                            {formatStat(match.kills)}
+                                                                        </div>
+                                                                    </div>
+                                                                    {!isNarrowLayout && (
+                                                                        <>
+                                                                            <div style={{ minWidth: 0 }}>
+                                                                                <div style={{ fontSize: '10px', color: 'var(--color-text-muted)' }}>{t('match.assists')}</div>
+                                                                                <div style={{ fontWeight: 'bold', color: isIncomplete ? 'var(--color-text-faint)' : 'var(--color-text-primary)', fontSize: '16px' }}>
+                                                                                    {formatStat(match.assists)}
+                                                                                </div>
+                                                                            </div>
+                                                                            <div style={{ minWidth: 0 }}>
+                                                                                <div style={{ fontSize: '10px', color: 'var(--color-text-muted)' }}>{t('match.knocks')}</div>
+                                                                                <div style={{ fontWeight: 'bold', color: isIncomplete ? 'var(--color-text-faint)' : 'var(--color-text-primary)', fontSize: '16px' }}>
+                                                                                    {formatStat(match.knocks)}
+                                                                                </div>
+                                                                            </div>
+                                                                        </>
+                                                                    )}
+                                                                </div>
+                                                                <div
+                                                                    style={{
+                                                                        fontSize: '12px',
+                                                                        color: 'var(--color-text-faint)',
+                                                                        marginLeft: '10px',
+                                                                        flexShrink: 0,
+                                                                        transition: 'transform 0.3s',
+                                                                        transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
+                                                                    }}
+                                                                >
+                                                                    ▼
+                                                                </div>
+                                                            </div>
+
+                                                            <div className={`match-accordion ${isExpanded ? 'open' : ''}`}>
+                                                                <div className="match-accordion-inner">
+                                                                    <div
+                                                                        style={{
+                                                                            height: isNarrowLayout ? 'auto' : '420px',
+                                                                            display: 'flex',
+                                                                            flexDirection: isNarrowLayout ? 'column' : 'row',
+                                                                            borderTop: '1px solid var(--color-border)',
+                                                                            background: 'var(--color-bg-sub-header)',
+                                                                            minWidth: 0,
+                                                                        }}
+                                                                    >
+                                                                        {isNarrowLayout ? (
+                                                                            <>
+                                                                                <div
+                                                                                    style={{
+                                                                                        display: 'flex',
+                                                                                        flexDirection: 'row',
+                                                                                        height: '300px',
+                                                                                        minHeight: '260px',
+                                                                                        minWidth: 0,
+                                                                                        borderBottom: '1px solid var(--color-border)',
+                                                                                    }}
+                                                                                >
+                                                                                    <div
+                                                                                        style={{
+                                                                                            flex: '1.25 1 0',
+                                                                                            minWidth: 0,
+                                                                                            position: 'relative',
+                                                                                            borderRight: '1px solid var(--color-border)',
+                                                                                            overflow: 'hidden',
+                                                                                        }}
+                                                                                    >
+                                                                                        {isExpanded && <MapVisualizer match={match} />}
+                                                                                    </div>
+                                                                                    <div
+                                                                                        style={{
+                                                                                            flex: '1 1 0',
+                                                                                            minWidth: 0,
+                                                                                            display: 'flex',
+                                                                                            flexDirection: 'column',
+                                                                                            zIndex: 10,
+                                                                                            overflow: 'hidden',
+                                                                                        }}
+                                                                                    >
+                                                                                        <CombatLog match={match} />
+                                                                                    </div>
+                                                                                </div>
+                                                                                <div
+                                                                                    style={{
+                                                                                        height: '300px',
+                                                                                        minHeight: '260px',
+                                                                                        minWidth: 0,
+                                                                                        display: 'flex',
+                                                                                        flexDirection: 'column',
+                                                                                        background: 'var(--color-bg-sub-header)',
+                                                                                        overflow: 'hidden',
+                                                                                    }}
+                                                                                >
+                                                                                    <MatchDetailTabs match={match} onUserSelect={handleSelectFromMatch} />
+                                                                                </div>
+                                                                            </>
+                                                                        ) : (
+                                                                            <>
+                                                                                <div
+                                                                                    style={{
+                                                                                        flex: 5,
+                                                                                        minWidth: 0,
+                                                                                        position: 'relative',
+                                                                                        borderRight: '1px solid var(--color-border)',
+                                                                                        overflow: 'hidden',
+                                                                                    }}
+                                                                                >
+                                                                                    {isExpanded && <MapVisualizer match={match} />}
+                                                                                </div>
+                                                                                <div
+                                                                                    style={{
+                                                                                        flex: 3,
+                                                                                        minWidth: 0,
+                                                                                        borderRight: '1px solid var(--color-border)',
+                                                                                        display: 'flex',
+                                                                                        flexDirection: 'column',
+                                                                                        zIndex: 10,
+                                                                                        overflow: 'hidden',
+                                                                                    }}
+                                                                                >
+                                                                                    <CombatLog match={match} />
+                                                                                </div>
+                                                                                <div
+                                                                                    style={{
+                                                                                        flex: 4,
+                                                                                        minWidth: 0,
+                                                                                        display: 'flex',
+                                                                                        flexDirection: 'column',
+                                                                                        background: 'var(--color-bg-sub-header)',
+                                                                                        overflow: 'hidden',
+                                                                                    }}
+                                                                                >
+                                                                                    <MatchDetailTabs match={match} onUserSelect={handleSelectFromMatch} />
+                                                                                </div>
+                                                                            </>
+                                                                        )}
+                                                                    </div>
+                                                                </div>
+                                                            </div>
                                                         </div>
                                                     </div>
+                                                );
+                                            })}
+
+                                            {totalPages > 1 && (
+                                                <div
+                                                    style={{
+                                                        display: 'flex',
+                                                        justifyContent: 'center',
+                                                        alignItems: 'center',
+                                                        gap: '15px',
+                                                        marginTop: '10px',
+                                                        padding: '15px 0',
+                                                        borderTop: '1px solid var(--color-border)',
+                                                    }}
+                                                >
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            setCurrentPage((p) => Math.max(1, p - 1));
+                                                            mainScrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+                                                        }}
+                                                        disabled={effectiveCurrentPage === 1}
+                                                        style={{
+                                                            padding: '8px 20px',
+                                                            background: effectiveCurrentPage === 1 ? 'var(--color-bg-card-hover)' : 'var(--color-border-light)',
+                                                            color: effectiveCurrentPage === 1 ? 'var(--color-text-faint)' : 'var(--color-text-primary)',
+                                                            border: 'none',
+                                                            borderRadius: '6px',
+                                                            cursor: effectiveCurrentPage === 1 ? 'not-allowed' : 'pointer',
+                                                            fontWeight: 'bold',
+                                                        }}
+                                                    >
+                                                        {t('controls.prev', { defaultValue: 'Prev' })}
+                                                    </button>
+                                                    <span style={{ color: 'var(--color-text-muted)', fontSize: 13 }}>
+                                                        {effectiveCurrentPage} / {totalPages}
+                                                    </span>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            setCurrentPage((p) => Math.min(totalPages, p + 1));
+                                                            mainScrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+                                                        }}
+                                                        disabled={effectiveCurrentPage === totalPages}
+                                                        style={{
+                                                            padding: '8px 20px',
+                                                            background: effectiveCurrentPage === totalPages ? 'var(--color-bg-card-hover)' : 'var(--color-border-light)',
+                                                            color: effectiveCurrentPage === totalPages ? 'var(--color-text-faint)' : 'var(--color-text-primary)',
+                                                            border: 'none',
+                                                            borderRadius: '6px',
+                                                            cursor: effectiveCurrentPage === totalPages ? 'not-allowed' : 'pointer',
+                                                            fontWeight: 'bold',
+                                                        }}
+                                                    >
+                                                        {t('controls.next', { defaultValue: 'Next' })}
+                                                    </button>
                                                 </div>
                                             )}
                                         </div>
-                                    ))}
-                                    {filteredHistory.length === 0 && <div style={{ color: 'var(--color-text-muted)' }}>필터 조건에 맞는 매치 기록이 없습니다.</div>}
-                                </div>
-                                {filteredHistory.length > 0 && (
-                                    <div style={{ marginTop: 12, display: 'flex', justifyContent: 'center', gap: 8 }}>
-                                        <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1} style={{ padding: '8px 16px', borderRadius: 6, background: page === 1 ? 'var(--color-bg-card-hover)' : 'var(--color-border-light)', color: page === 1 ? 'var(--color-text-faint)' : 'var(--color-text-primary)', border: 'none' }}>이전</button>
-                                        <button onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages} style={{ padding: '8px 16px', borderRadius: 6, background: page === totalPages ? 'var(--color-bg-card-hover)' : 'var(--color-border-light)', color: page === totalPages ? 'var(--color-text-faint)' : 'var(--color-text-primary)', border: 'none' }}>다음</button>
-                                    </div>
-                                )}
-                            </>
-                        )}
-                    </div>
-                </div>
-            ) : (
-                <div style={{ display: 'flex', height: 'calc(100dvh - 36px)', background: 'var(--color-bg-main)', minWidth: 0 }}>
-                    <div style={{ width: 72, flex: '0 0 72px', borderRight: '1px solid var(--color-border)', background: 'var(--color-bg-nav)', display: 'flex', flexDirection: 'column', alignItems: 'center', paddingTop: 16, gap: 8 }}>
-                        <button
-                            onClick={() => setMainTab('DASHBOARD')}
-                            style={{
-                                width: 56,
-                                padding: '8px 4px',
-                                fontSize: 10,
-                                background: mainTab === 'DASHBOARD'
-                                    ? 'linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-dark) 100%)'
-                                    : 'transparent',
-                                color: mainTab === 'DASHBOARD' ? 'var(--color-text-primary)' : 'var(--color-text-faint)',
-                                border: '1px solid var(--color-border-light)',
-                                borderRadius: 10,
-                                display: 'grid',
-                                justifyItems: 'center',
-                                gap: 4,
-                                boxShadow: mainTab === 'DASHBOARD' ? '0 4px 10px rgba(0,0,0,0.35)' : 'none',
-                            }}
-                        >
-                            <FaList size={12} />
-                            <span>MATCH</span>
-                        </button>
-                        <button
-                            onClick={() => setMainTab('STATISTICS')}
-                            style={{
-                                width: 56,
-                                padding: '8px 4px',
-                                fontSize: 10,
-                                background: mainTab === 'STATISTICS'
-                                    ? 'linear-gradient(135deg, var(--color-accent) 0%, var(--color-accent-dark) 100%)'
-                                    : 'transparent',
-                                color: mainTab === 'STATISTICS' ? 'var(--color-text-primary)' : 'var(--color-text-faint)',
-                                border: '1px solid var(--color-border-light)',
-                                borderRadius: 10,
-                                display: 'grid',
-                                justifyItems: 'center',
-                                gap: 4,
-                                boxShadow: mainTab === 'STATISTICS' ? '0 4px 10px rgba(0,0,0,0.35)' : 'none',
-                            }}
-                        >
-                            <FaChartBar size={12} />
-                            <span>STAT</span>
-                        </button>
-                    </div>
-
-                    <div style={{ width: 'clamp(280px, 24vw, 360px)', flex: '0 0 clamp(280px, 24vw, 360px)', borderRight: '1px solid var(--color-border)', background: 'var(--color-bg-panel)', display: 'flex', flexDirection: 'column', minHeight: 0, minWidth: 0 }}>
-                        <div style={{ padding: 14, borderBottom: '1px solid var(--color-border)' }}>
-                            <form onSubmit={onSearch} style={{ ...panelCardStyle, padding: 10, display: 'flex', gap: 8 }}>
-                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 30, color: 'var(--color-text-faint)', border: '1px solid var(--color-border-light)', borderRadius: 8, background: 'var(--color-bg-input)' }}>
-                                    <FaSearch size={12} />
-                                </div>
-                                <input
-                                    value={query}
-                                    onChange={(e) => setQuery(e.target.value)}
-                                    placeholder="닉네임 또는 UID 검색"
-                                    style={{ flex: 1, minWidth: 0, background: 'var(--color-bg-input)', color: 'var(--color-text-primary)', border: '1px solid var(--color-border-light)', borderRadius: 8, padding: '9px 10px', fontSize: 13 }}
-                                />
-                                <button type="submit" disabled={loading} style={{ padding: '8px 10px', fontSize: 12 }}>
-                                    {loading ? '검색중...' : '검색'}
-                                </button>
-                            </form>
-                        </div>
-
-                        {error && <div style={{ margin: 14, ...sectionStyle, borderColor: 'var(--color-danger)', color: 'var(--color-danger)', fontSize: 12 }}>{error}</div>}
-
-                        {user && (
-                            <div style={{ padding: 14, display: 'grid', gap: 10, overflowY: 'auto' }}>
-                                <div style={panelCardStyle}>
-                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
-                                            <FaUserCircle size={16} color="var(--color-text-muted)" />
-                                            <div style={{ fontSize: 18, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{user.name || '-'}</div>
-                                        </div>
-                                        <button onClick={handleCopyProfileLink} style={{ padding: '6px 10px', fontSize: 11 }}>
-                                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}>
-                                                <FaLink size={10} />
-                                                {copied ? '복사됨' : '링크복사'}
-                                            </span>
-                                        </button>
-                                    </div>
-                                    <div style={{ marginTop: 6, color: 'var(--color-text-muted)', fontSize: 12 }}>
-                                        Lv.{getNumeric(user.level) + getNumeric(user.prestige) * 500} / {user.rankName || 'Unranked'} ({getNumeric(user.rankScore)} RP)
-                                    </div>
-                                </div>
-                                <div style={{ ...panelCardStyle, padding: 10, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, fontSize: 12 }}>
-                                    <div style={statTileStyle}><span style={{ color: 'var(--color-text-faint)', fontSize: 11 }}>Matches</span><b style={{ fontSize: 15 }}>{summary.matches}</b></div>
-                                    <div style={statTileStyle}><span style={{ color: 'var(--color-text-faint)', fontSize: 11 }}>Wins</span><b style={{ fontSize: 15 }}>{summary.wins}</b></div>
-                                    <div style={statTileStyle}><span style={{ color: 'var(--color-text-faint)', fontSize: 11 }}>Kills</span><b style={{ fontSize: 15 }}>{summary.kills}</b></div>
-                                    <div style={statTileStyle}><span style={{ color: 'var(--color-text-faint)', fontSize: 11 }}>Win Rate</span><b style={{ fontSize: 15 }}>{winRate}%</b></div>
-                                </div>
-                            </div>
-                        )}
-                    </div>
-
-                    <div style={{ flex: 1, minWidth: 0, background: 'var(--color-bg-panel)', display: 'flex', flexDirection: 'column', overflowX: 'hidden' }}>
-                        <div style={{ minHeight: 58, borderBottom: '1px solid var(--color-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 16px', background: 'var(--color-bg-sub-header)', gap: 12, flexWrap: 'wrap' }}>
-                            <div style={{ fontSize: 18, fontWeight: 700 }}>{mainTab === 'DASHBOARD' ? 'Match History' : 'Simple Statistics'}</div>
-                            {user && (
-                                <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                                    <select value={selectedSeasonId} onChange={(e) => setSelectedSeasonId(Number(e.target.value))} style={{ background: 'var(--color-bg-card)', color: 'var(--color-text-primary)', border: '1px solid var(--color-border-light)', borderRadius: 6, padding: '6px 8px', fontSize: 12, fontWeight: 700 }}>
-                                        {selectableSeasons.map((season) => (
-                                            <option key={season.id} value={season.id}>{season.name}</option>
-                                        ))}
-                                    </select>
-                                    <select value={selectedMode} onChange={(e) => setSelectedMode(e.target.value as 'ALL' | 'RANKED' | 'TRIO' | 'DUO')} style={{ background: 'var(--color-bg-card)', color: 'var(--color-text-primary)', border: '1px solid var(--color-border-light)', borderRadius: 6, padding: '6px 8px', fontSize: 12, fontWeight: 700 }}>
-                                        <option value="ALL">ALL</option>
-                                        <option value="RANKED">RANKED</option>
-                                        <option value="TRIO">TRIO</option>
-                                        <option value="DUO">DUO</option>
-                                    </select>
-                                    <select value={sortBy} onChange={(e) => setSortBy(e.target.value as 'LATEST' | 'KILLS' | 'DAMAGE')} style={{ background: 'var(--color-bg-card)', color: 'var(--color-text-primary)', border: '1px solid var(--color-border-light)', borderRadius: 6, padding: '6px 8px', fontSize: 12, fontWeight: 700 }}>
-                                        <option value="LATEST">최신순</option>
-                                        <option value="KILLS">킬순</option>
-                                        <option value="DAMAGE">대미지순</option>
-                                    </select>
-                                </div>
-                            )}
-                        </div>
-
-                        <div style={{ flex: 1, overflowY: 'auto', padding: 16, minWidth: 0 }}>
-                            {mainTab === 'STATISTICS' ? (
-                                <div style={{ display: 'grid', gap: 12 }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '2px solid var(--color-border)', paddingBottom: 10 }}>
-                                        <div style={{ display: 'flex', gap: 6 }}>
-                                            {(['OVERVIEW', 'MAPS', 'LEGENDS', 'WEAPONS'] as const).map((tab) => (
-                                                <button
-                                                    key={tab}
-                                                    style={{
-                                                        padding: '8px 14px',
-                                                        borderRadius: 4,
-                                                        border: 'none',
-                                                        fontWeight: 700,
-                                                        fontSize: 12,
-                                                        background: tab === 'OVERVIEW' ? 'var(--color-accent)' : 'transparent',
-                                                        color: tab === 'OVERVIEW' ? 'var(--color-text-primary)' : 'var(--color-text-muted)',
-                                                        cursor: 'default',
-                                                    }}
-                                                >
-                                                    {tab}
-                                                </button>
-                                            ))}
-                                        </div>
-                                    </div>
-                                    <div style={{ ...panelCardStyle, padding: 14, display: 'grid', gridTemplateColumns: 'repeat(5, minmax(0, 1fr))', gap: 10 }}>
-                                        <div style={statTileStyle}><span style={{ color: 'var(--color-text-faint)', fontSize: 11 }}>Matches</span><b style={{ fontSize: 16 }}>{summary.matches}</b></div>
-                                        <div style={statTileStyle}><span style={{ color: 'var(--color-text-faint)', fontSize: 11 }}>Wins</span><b style={{ fontSize: 16 }}>{summary.wins}</b></div>
-                                        <div style={statTileStyle}><span style={{ color: 'var(--color-text-faint)', fontSize: 11 }}>Kills</span><b style={{ fontSize: 16 }}>{summary.kills}</b></div>
-                                        <div style={statTileStyle}><span style={{ color: 'var(--color-text-faint)', fontSize: 11 }}>Avg Damage</span><b style={{ fontSize: 16 }}>{summary.avgDamage}</b></div>
-                                        <div style={statTileStyle}><span style={{ color: 'var(--color-text-faint)', fontSize: 11 }}>Avg Place</span><b style={{ fontSize: 16 }}>#{summary.avgPlacement || 0}</b></div>
-                                    </div>
-                                </div>
-                            ) : (
-                                <div style={panelCardStyle}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                                        <div style={{ fontWeight: 700 }}>최근 전적 ({filteredHistory.length})</div>
-                                        <div style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>페이지 {page} / {totalPages}</div>
-                                    </div>
-                                    <div style={{ display: 'grid', gap: 8 }}>
-                                        {pagedHistory.map((match) => (
-                                            <div key={getMatchKey(match)} style={{ background: 'var(--color-bg-sub-header)', border: '1px solid var(--color-border)', borderRadius: 8, padding: 10, fontSize: 13, borderLeft: `4px solid ${getPlacement(match) === 1 ? 'var(--color-rank-first)' : getPlacement(match) <= 5 ? 'var(--color-rank-top5)' : 'var(--color-rank-other)'}` }}>
-                                                <button
-                                                    onClick={() => {
-                                                        const matchKey = getMatchKey(match);
-                                                        setSelectedMatchId((prev) => (prev === matchKey ? null : matchKey));
-                                                    }}
-                                                    style={{ width: '100%', textAlign: 'left', background: 'transparent', border: 'none', padding: 0, color: 'inherit', display: 'grid', gridTemplateColumns: '1.2fr 1fr 0.8fr 0.8fr 0.8fr 1fr', gap: 8 }}
-                                                >
-                                                    <div>{match.mode || 'BR'}</div>
-                                                    <div>{match.map || '-'}</div>
-                                                    <div>#{getPlacement(match)}</div>
-                                                    <div>K {getNumeric(match.kills)}</div>
-                                                    <div>D {Math.round(getNumeric(match.damage))}</div>
-                                                    <div>{match.endTime ? new Date(match.endTime).toLocaleString() : '-'}</div>
-                                                </button>
-                                                {selectedMatchId === getMatchKey(match) && (
-                                                    <div style={{ marginTop: 10, borderTop: '1px solid var(--color-border-light)', paddingTop: 10 }}>
-                                                        <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 10, height: 430 }}>
-                                                            <div style={{ border: '1px solid var(--color-border)', borderRadius: 8, overflow: 'hidden', minHeight: 250 }}>
-                                                                <MapVisualizer match={match as any} />
-                                                            </div>
-                                                            <div style={{ border: '1px solid var(--color-border)', borderRadius: 8, overflow: 'hidden', background: 'var(--color-bg-main)', minHeight: 250 }}>
-                                                                <MatchStats
-                                                                    match={match as any}
-                                                                    onUserSelect={({ uid, name }) => handleSelectFromMatchStats({ uid: String(uid), name })}
-                                                                />
-                                                            </div>
-                                                        </div>
-                                                        {summarizeEvents(match).length > 0 && (
-                                                            <div style={{ marginTop: 8, color: 'var(--color-text-muted)' }}>
-                                                                <div style={{ marginBottom: 4, fontSize: 12 }}>Kill Log 요약</div>
-                                                                <div style={{ display: 'grid', gap: 4 }}>
-                                                                    {summarizeEvents(match).map((line, idx) => (
-                                                                        <div key={`${getMatchKey(match)}-${idx}`} style={{ fontSize: 12, color: 'var(--color-text-faint)' }}>- {line}</div>
-                                                                    ))}
-                                                                </div>
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                )}
-                                            </div>
-                                        ))}
-                                        {filteredHistory.length === 0 && <div style={{ color: 'var(--color-text-muted)' }}>필터 조건에 맞는 매치 기록이 없습니다.</div>}
-                                    </div>
-                                    {filteredHistory.length > 0 && (
-                                        <div style={{ marginTop: 12, display: 'flex', justifyContent: 'center', gap: 8 }}>
-                                            <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1} style={{ padding: '8px 16px', borderRadius: 6, background: page === 1 ? 'var(--color-bg-card-hover)' : 'var(--color-border-light)', color: page === 1 ? 'var(--color-text-faint)' : 'var(--color-text-primary)', border: 'none' }}>이전</button>
-                                            <button onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page === totalPages} style={{ padding: '8px 16px', borderRadius: 6, background: page === totalPages ? 'var(--color-bg-card-hover)' : 'var(--color-border-light)', color: page === totalPages ? 'var(--color-text-faint)' : 'var(--color-text-primary)', border: 'none' }}>다음</button>
-                                        </div>
                                     )}
-                                </div>
+                                </>
                             )}
                         </div>
                     </div>
                 </div>
-            )}
-        </>
-    );
-
-    return (
-        <div style={{ width: '100%', maxWidth: '100%', minHeight: '100dvh', background: 'var(--color-bg-main)', color: 'var(--color-text-primary)', overflowX: 'hidden' }}>
-            {showLanding ? (
-                <div style={{ width: '100%', minHeight: '100dvh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: isMobile ? 14 : 24, boxSizing: 'border-box' }}>
-                    <div style={{ width: 'min(860px, 100%)', display: 'grid', gap: isMobile ? 14 : 20, justifyItems: 'center' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-                            <img
-                                src="/icons/IconMouseOver.png"
-                                alt="ApexTrace"
-                                style={{ width: isMobile ? 48 : 64, height: isMobile ? 48 : 64, objectFit: 'contain', borderRadius: 12, boxShadow: '0 8px 24px rgba(0,0,0,0.35)' }}
-                            />
-                            <div style={{ fontSize: isMobile ? 30 : 42, fontWeight: 800, letterSpacing: 1.2, fontFamily: "'Segoe UI', Arial, sans-serif", textTransform: 'uppercase' }}>
-                                ApexTrace
-                            </div>
-                        </div>
-                        <form onSubmit={onSearch} style={{ width: '100%', display: 'flex', gap: 8, background: 'var(--color-bg-card)', border: '1px solid var(--color-border)', borderRadius: 14, padding: isMobile ? 8 : 12 }}>
-                            <div style={{ width: isMobile ? 36 : 42, borderRadius: 10, border: '1px solid var(--color-border-light)', background: 'var(--color-bg-input)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--color-text-faint)' }}>
-                                <FaSearch size={isMobile ? 13 : 15} />
-                            </div>
-                            <input
-                                value={query}
-                                onChange={(e) => setQuery(e.target.value)}
-                                placeholder="플레이어 닉네임 또는 UID를 입력하세요"
-                                style={{ flex: 1, minWidth: 0, background: 'var(--color-bg-input)', color: 'var(--color-text-primary)', border: '1px solid var(--color-border-light)', borderRadius: 10, padding: isMobile ? '10px 12px' : '12px 14px', fontSize: isMobile ? 15 : 18 }}
-                            />
-                            <button type="submit" disabled={loading} style={{ padding: isMobile ? '0 14px' : '0 20px', fontSize: isMobile ? 12 : 14, fontWeight: 700 }}>
-                                {loading ? '검색중...' : '검색'}
-                            </button>
-                        </form>
-                        {error && (
-                            <div style={{ width: '100%', background: 'var(--color-bg-card)', border: '1px solid var(--color-danger)', color: 'var(--color-danger)', borderRadius: 10, padding: '10px 12px', fontSize: 13, textAlign: 'center' }}>
-                                {error}
-                            </div>
-                        )}
-                    </div>
                 </div>
-            ) : (
-                renderMainContent(isMobile)
-            )}
 
-            {toast && (
-                <div style={{ position: 'fixed', top: 16, right: 16, zIndex: 1200, background: 'var(--color-success-dark)', color: 'white', padding: '10px 14px', borderRadius: 8, boxShadow: '0 8px 20px rgba(0,0,0,0.3)', fontSize: 13 }}>
-                    {toast}
-                </div>
-            )}
+                {showSideAds && <WebAdRail side="right" />}
+            </div>
 
             {candidates.length > 0 && (
-                    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.65)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 20 }}>
-                        <div style={{ ...sectionStyle, width: 'min(640px, 100%)', maxHeight: '80vh', overflowY: 'auto', boxShadow: '0 10px 30px rgba(0,0,0,0.45)' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                                <div style={{ fontWeight: 800, fontSize: 18 }}>검색 결과</div>
-                                <button onClick={() => setCandidates([])} style={{ padding: '6px 10px' }}>닫기</button>
-                            </div>
-                            <div style={{ display: 'grid', gap: 8 }}>
-                                {candidates.map((c) => (
-                                    <button
-                                        key={c.uid}
-                                        onClick={() => loadPlayer(c)}
-                                        style={{
-                                            textAlign: 'left',
-                                            padding: 12,
-                                            background: 'var(--color-bg-sub-header)',
-                                            border: '1px solid var(--color-border-light)',
-                                            borderRadius: 8,
-                                            color: 'var(--color-text-primary)',
-                                        }}
-                                    >
-                                        <div style={{ fontWeight: 700 }}>{c.name}</div>
-                                        <div style={{ marginTop: 2, fontSize: 12, color: 'var(--color-text-muted)' }}>
-                                            UID: {c.uid} | {c.rank_name || 'Unranked'} ({getNumeric(c.rank_score)} RP)
-                                        </div>
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-                    </div>
-                )}
-
+                <PlayerSelectionModal
+                    candidates={candidates}
+                    onSelect={(selected) => {
+                        void loadPlayer(selected);
+                        setSearchResetKey((k) => k + 1);
+                    }}
+                    onClose={() => setCandidates([])}
+                    onSearchApi={async () => {}}
+                />
+            )}
         </div>
     );
 }
