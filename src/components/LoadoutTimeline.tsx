@@ -3,10 +3,8 @@ import { useTranslation } from 'react-i18next';
 import type { Match } from '../types';
 import { formatMatchElapsedTime } from '../utils/helpers';
 import { SHORT_WEAPON_NAMES } from '../utils/gameData';
-import { getLoadoutRowTheme, getWeaponSilhouetteScale, PROFILE_IMAGE_BASE, WHITE_SILHOUETTE_FILTER } from '../utils/weaponTheme';
+import { getLoadoutRowTheme, getWeaponImageUrl, getWeaponSilhouetteScale, WHITE_SILHOUETTE_FILTER } from '../utils/weaponTheme';
 import { MATCH_PANEL_BODY_PADDING, MATCH_TIMELINE_CONTENT_HEIGHT, matchTimelineContentStyle, matchTimelineRowGap, matchTimelineRowStyle, matchTimelineTimeStyle } from './matchPanelStyles';
-
-const WEAPON_IMAGE_BASE = PROFILE_IMAGE_BASE;
 
 const isEmptyWeapon = (weapon?: string | null) =>
     !weapon || weapon.trim() === '' || weapon.toLowerCase() === 'unknown';
@@ -41,7 +39,7 @@ const WeaponImage = ({ weapon }: { weapon?: string | null }) => {
     return (
         <div style={weaponImageWrapStyle}>
             <img
-                src={`${WEAPON_IMAGE_BASE}/${weapon}.png`}
+                src={getWeaponImageUrl(weapon!)}
                 alt={displayName}
                 title={displayName}
                 style={{

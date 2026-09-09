@@ -385,6 +385,7 @@ const MatchStats = ({ match, onUserSelect }: MatchStatsProps) => {
                             display: 'flex',
                             flexDirection: 'column',
                             top: '28px',
+                            right: '8px',
                             background: 'var(--color-bg-card)',
                             border: `1px solid var(--color-border-light)`,
                             borderRadius: '4px',

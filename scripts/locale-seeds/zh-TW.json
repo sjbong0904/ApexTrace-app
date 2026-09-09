@@ -586,7 +586,7 @@
     },
     "modes": {
       "all": "全部",
-      "br": "BR",
+      "br": "ALL",
       "ranked": "排位",
       "trio": "三人",
       "duo": "雙人"

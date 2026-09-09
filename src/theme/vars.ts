@@ -49,9 +49,10 @@ export const c = {
   modeDuo:    'var(--color-mode-duo)',
   modeOther:  'var(--color-mode-other)',
 
-  // Rank positions
+  // Rank / performance tiers (1 · 2–5 · 6–10 · 11+)
   rankFirst: 'var(--color-rank-first)',
   rankTop5:  'var(--color-rank-top5)',
+  rankMid:   'var(--color-rank-mid)',
   rankOther: 'var(--color-rank-other)',
 
   playstyleText:       'var(--color-playstyle-text)',

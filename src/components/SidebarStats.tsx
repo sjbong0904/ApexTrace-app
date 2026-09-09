@@ -2,8 +2,15 @@ import React, { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { MatchHistory } from '../utils/match';
 import { hasUsableMatchStats } from '../utils/match';
-import { isKnownLegend, normalizeLegendKey, getAvgPlacementColor, getWinRateColor } from '../utils/helpers';
-import { formatLegendDisplayName } from '../utils/statsAggregation';
+import {
+    getAvgAssistsColor,
+    getAvgDamageColor,
+    getAvgKillsColor,
+    getAvgKnocksColor,
+    getAvgPlacementColor,
+    getWinRateColor,
+    isKnownLegend,
+} from '../utils/helpers';
 
 interface SidebarStatsProps {
     history: MatchHistory[];
@@ -65,69 +72,6 @@ const StatCard = ({
     </div>
 );
 
-/** Same footprint as StatCard: label + compact value row (avatar + name). */
-const LegendCard = ({ label, legendName, dense = false }: { label: string; legendName: string; dense?: boolean }) => {
-    const avatarPx = dense ? 18 : 22;
-    const displayName = legendName === '-' ? legendName : formatLegendDisplayName(legendName);
-    const imageKey = legendName === '-' ? 'unknown' : legendName.toLowerCase();
-    return (
-        <div style={{
-            ...STAT_CARD_STYLE,
-            padding: dense ? '6px 4px' : '8px 6px',
-        }}>
-            <div style={{
-                fontSize: dense ? 8 : 9,
-                color: 'var(--color-text-muted)',
-                marginBottom: dense ? 2 : 4,
-                fontWeight: 600,
-                lineHeight: 1.25,
-                flexShrink: 0,
-            }}>
-                {label}
-            </div>
-            <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: dense ? 4 : 6,
-                minWidth: 0,
-                maxWidth: '100%',
-                flexShrink: 0,
-            }}>
-                <img
-                    src={`https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/${imageKey}.png`}
-                    alt={displayName}
-                    style={{
-                        width: avatarPx,
-                        height: avatarPx,
-                        borderRadius: '50%',
-                        objectFit: 'cover',
-                        flexShrink: 0,
-                        border: '1px solid var(--color-border-light)',
-                        background: 'var(--color-bg-deep)',
-                    }}
-                    onError={(e) => {
-                        (e.target as HTMLImageElement).src =
-                            'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/unknown.png';
-                    }}
-                />
-                <span style={{
-                    fontSize: dense ? 11 : 13,
-                    fontWeight: 'bold',
-                    color: 'var(--color-text-primary)',
-                    lineHeight: 1.2,
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap',
-                    minWidth: 0,
-                }}>
-                    {displayName}
-                </span>
-            </div>
-        </div>
-    );
-};
-
 const SidebarStats: React.FC<SidebarStatsProps> = ({ history, layout = 'panel', dense = false }) => {
     const { t } = useTranslation();
     const isInline = layout === 'inline';
@@ -139,30 +83,28 @@ const SidebarStats: React.FC<SidebarStatsProps> = ({ history, layout = 'panel', 
         const count = recentMatches.length;
         if (count === 0) return null;
 
-        let wins = 0, totalKills = 0, totalAssists = 0, totalDamage = 0, totalPlacement = 0;
-        const legendCounts: Record<string, number> = {};
+        let wins = 0, totalKills = 0, totalAssists = 0, totalDamage = 0, totalPlacement = 0, totalKnocks = 0;
 
         recentMatches.forEach(m => {
             if (m.placement === 1) wins++;
             totalKills += m.kills ?? 0;
             totalAssists += m.assists ?? 0;
             totalDamage += m.damage ?? 0;
+            totalKnocks += m.knocks ?? 0;
             totalPlacement += typeof m.placement === 'number' ? m.placement : Number(m.placement) || 20;
-            const legend = normalizeLegendKey(m.legend);
-            legendCounts[legend] = (legendCounts[legend] || 0) + 1;
         });
 
-        const sortedLegends = Object.entries(legendCounts).sort((a, b) => b[1] - a[1]);
-        const mostUsedLegend = sortedLegends[0]?.[0] ?? '-';
+        const avgDamage = Math.round(totalDamage / count);
 
         return {
             count,
             winRate: ((wins / count) * 100).toFixed(0),
             avgPlacement: (totalPlacement / count).toFixed(1),
             avgKills: (totalKills / count).toFixed(1),
+            avgKnocks: (totalKnocks / count).toFixed(1),
             avgAssists: (totalAssists / count).toFixed(1),
-            avgDamage: Math.round(totalDamage / count).toLocaleString(),
-            mostLegend: mostUsedLegend,
+            avgDamage,
+            avgDamageLabel: avgDamage.toLocaleString(),
         };
     }, [history]);
 
@@ -242,21 +184,26 @@ const SidebarStats: React.FC<SidebarStatsProps> = ({ history, layout = 'panel', 
                     dense={dense}
                     label={t('sidebarStats.avgKills')}
                     value={stats.avgKills}
-                    color="var(--color-warning)"
+                    color={getAvgKillsColor(stats.avgKills)}
                 />
                 <StatCard
                     dense={dense}
-                    label={t('sidebarStats.avgDamage')}
-                    value={stats.avgDamage}
-                    color="#ffa502"
+                    label={t('sidebarStats.avgKnocks')}
+                    value={stats.avgKnocks}
+                    color={getAvgKnocksColor(stats.avgKnocks)}
                 />
                 <StatCard
                     dense={dense}
                     label={t('sidebarStats.avgAssists')}
                     value={stats.avgAssists}
-                    color="#54a0ff"
+                    color={getAvgAssistsColor(stats.avgAssists)}
                 />
-                <LegendCard dense={dense} label={t('sidebarStats.mostPlayed')} legendName={stats.mostLegend} />
+                <StatCard
+                    dense={dense}
+                    label={t('sidebarStats.avgDamage')}
+                    value={stats.avgDamageLabel}
+                    color={getAvgDamageColor(stats.avgDamage)}
+                />
             </div>
         </div>
     );

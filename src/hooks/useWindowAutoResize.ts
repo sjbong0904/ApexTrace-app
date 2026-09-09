@@ -17,6 +17,9 @@ type BackgroundWindow = Window & {
  */
 export const NARROW_LAYOUT_WIDTH = 1280;
 
+/** Cap main content width when maximized so panels don't stretch endlessly. */
+export const CONTENT_MAX_WIDTH = 1440;
+
 export const useWindowAutoResize = (
     targetWidth: number = 1680,
     targetHeight: number = 920,

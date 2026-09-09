@@ -7,6 +7,7 @@ import type {
     WeaponTimelineEntry,
 } from '../types';
 import { isSamePlayer } from './helpers';
+import { getCanonicalWeaponId, weaponsMatchId } from './weaponTheme';
 
 export type MatchWeaponStatsInput = {
     startTime?: number;
@@ -16,6 +17,7 @@ export type MatchWeaponStatsInput = {
     loadout?: { primary?: string | null; secondary?: string | null } | null;
     weaponTimeline?: WeaponTimelineEntry[] | null;
     events?: MatchEvent[] | null;
+    weaponCombat?: unknown;
 };
 
 const isUsableWeapon = (weapon: string | null | undefined): weapon is string =>
@@ -31,6 +33,201 @@ const ensureEntry = (map: WeaponCombatMap, weapon: string): WeaponCombatEntry =>
 const addHold = (map: WeaponCombatMap, weapon: string | null | undefined, ms: number) => {
     if (!isUsableWeapon(weapon) || ms <= 0) return;
     ensureEntry(map, weapon).holdMs += ms;
+};
+
+/**
+ * Hold time per partner weapon while `weaponId` occupied the other loadout slot
+ * (true simultaneous pairing — not merely other weapons in the same match).
+ */
+export const pairedHoldMsByPartner = (
+    match: MatchWeaponStatsInput,
+    weaponId: string,
+): Record<string, number> => {
+    const map: Record<string, number> = {};
+
+    const credit = (partner: string | null | undefined, ms: number) => {
+        if (!isUsableWeapon(partner) || ms <= 0) return;
+        if (weaponsMatchId(partner, weaponId)) return;
+        const id = getCanonicalWeaponId(partner);
+        map[id] = (map[id] || 0) + ms;
+    };
+
+    const creditSegment = (primary: string | null, secondary: string | null, ms: number) => {
+        if (ms <= 0) return;
+        const selPrimary = isUsableWeapon(primary) && weaponsMatchId(primary, weaponId);
+        const selSecondary = isUsableWeapon(secondary) && weaponsMatchId(secondary, weaponId);
+        if (selPrimary) credit(secondary, ms);
+        if (selSecondary) credit(primary, ms);
+    };
+
+    const start = Number(match.startTime) || 0;
+    const end = Number(match.endTime) || start;
+    if (!start || end <= start) return map;
+
+    const timeline = Array.isArray(match.weaponTimeline)
+        ? [...match.weaponTimeline].sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0))
+        : [];
+
+    if (timeline.length === 0) {
+        creditSegment(
+            isUsableWeapon(match.loadout?.primary) ? match.loadout!.primary! : null,
+            isUsableWeapon(match.loadout?.secondary) ? match.loadout!.secondary! : null,
+            end - start,
+        );
+        return map;
+    }
+
+    let primary: string | null = null;
+    let secondary: string | null = null;
+    let cursor = start;
+
+    for (const entry of timeline) {
+        const t = Math.min(end, Math.max(start, entry.timestamp || start));
+        if (t > cursor) creditSegment(primary, secondary, t - cursor);
+        if (entry.primary !== undefined) {
+            primary = isUsableWeapon(entry.primary) ? entry.primary : null;
+        }
+        if (entry.secondary !== undefined) {
+            secondary = isUsableWeapon(entry.secondary) ? entry.secondary : null;
+        }
+        cursor = Math.max(cursor, t);
+    }
+
+    if (end > cursor) {
+        const finalPrimary = isUsableWeapon(match.loadout?.primary) ? match.loadout!.primary! : primary;
+        const finalSecondary = isUsableWeapon(match.loadout?.secondary) ? match.loadout!.secondary! : secondary;
+        creditSegment(finalPrimary, finalSecondary, end - cursor);
+    }
+
+    return map;
+};
+
+export type PairedPartnerCombatStat = {
+    overlapMs: number;
+    kills: number;
+    assists: number;
+    deaths: number;
+    /** True if partner had combat credit while both weapons were equipped. */
+    qualify: boolean;
+};
+
+/**
+ * Partner-weapon combat only while `selectedWeaponId` shared the other loadout slot.
+ * Kills/assists/deaths outside simultaneous windows are excluded.
+ */
+export const computePairedPartnerCombatWhileSelected = (
+    match: MatchWeaponStatsInput,
+    selectedWeaponId: string,
+): Record<string, PairedPartnerCombatStat> => {
+    const overlap = pairedHoldMsByPartner(match, selectedWeaponId);
+    const out: Record<string, PairedPartnerCombatStat> = {};
+
+    for (const [id, ms] of Object.entries(overlap)) {
+        if (ms <= 0) continue;
+        out[id] = { overlapMs: ms, kills: 0, assists: 0, deaths: 0, qualify: false };
+    }
+
+    const ensure = (id: string): PairedPartnerCombatStat => {
+        if (!out[id]) out[id] = { overlapMs: 0, kills: 0, assists: 0, deaths: 0, qualify: false };
+        return out[id];
+    };
+
+    /** Other-slot partner when selected is equipped at `ts`; null if not paired then. */
+    const partnerAt = (ts: number): string | null => {
+        const slots = loadoutAtTimestamp(match, ts);
+        const primary = slots.primary;
+        const secondary = slots.secondary;
+        const selPrimary = isUsableWeapon(primary) && weaponsMatchId(primary, selectedWeaponId);
+        const selSecondary = isUsableWeapon(secondary) && weaponsMatchId(secondary, selectedWeaponId);
+        if (selPrimary && isUsableWeapon(secondary) && !weaponsMatchId(secondary, selectedWeaponId)) {
+            return getCanonicalWeaponId(secondary);
+        }
+        if (selSecondary && isUsableWeapon(primary) && !weaponsMatchId(primary, selectedWeaponId)) {
+            return getCanonicalWeaponId(primary);
+        }
+        return null;
+    };
+
+    const playerName = match.playerName || '';
+    const events = Array.isArray(match.events) ? match.events : [];
+
+    for (const event of events) {
+        if (!event) continue;
+        const type = String(event.type || '').toLowerCase();
+        const ts = Number(event.timestamp) || 0;
+        if (!ts) continue;
+
+        if (type === 'kill') {
+            if (!playerName || isSamePlayer(event.attacker, playerName)) {
+                const partnerId = partnerAt(ts);
+                if (partnerId) {
+                    const row = ensure(partnerId);
+                    row.qualify = true;
+                    const creditWeapon = resolveKillCreditWeapon(events, event, playerName);
+                    if (creditWeapon && weaponsMatchId(creditWeapon, partnerId)) {
+                        row.kills += 1;
+                    }
+                }
+            }
+            continue;
+        }
+
+        if (type === 'assist' && isUsableWeapon(event.weapon)) {
+            if (!playerName || isSamePlayer(event.attacker, playerName)) {
+                const partnerId = partnerAt(ts);
+                if (partnerId && weaponsMatchId(event.weapon, partnerId)) {
+                    const row = ensure(partnerId);
+                    row.assists += 1;
+                    row.qualify = true;
+                }
+            }
+            continue;
+        }
+
+        if (type === 'death') {
+            // Stats payloads sometimes omit playerName; death rows are still local.
+            const isLocalDeath = playerName ? isSamePlayer(event.victim, playerName) : true;
+            if (isLocalDeath) {
+                const partnerId = partnerAt(ts);
+                if (partnerId) {
+                    ensure(partnerId).deaths += 1;
+                }
+            }
+            continue;
+        }
+
+        const isMyCombat =
+            (type === 'kill' || type === 'knockdown') &&
+            (!playerName || isSamePlayer(event.attacker, playerName));
+        const isDamageTick = type === 'damage';
+        if (isMyCombat || isDamageTick) {
+            const partnerId = partnerAt(ts);
+            if (partnerId) ensure(partnerId).qualify = true;
+        }
+    }
+
+    // Stats matches are often summary-safe (weaponCombat + timeline, no events).
+    // Scale partner match combat by simultaneous-hold share so K/D is not stuck at N/A.
+    const combat = resolveWeaponCombatForMatch(match);
+    for (const [partnerId, row] of Object.entries(out)) {
+        if (row.kills > 0 || row.assists > 0 || row.deaths > 0) continue;
+        if (!(row.overlapMs > 0)) continue;
+
+        const direct = combat[partnerId];
+        const hit = direct
+            ? ([partnerId, direct] as const)
+            : Object.entries(combat).find(([raw]) => weaponsMatchId(raw, partnerId));
+        if (!hit) continue;
+        const entry = hit[1];
+        const hold = entry.holdMs || 0;
+        const ratio = hold > 0 ? Math.min(1, row.overlapMs / hold) : 1;
+        row.kills = (entry.kills || 0) * ratio;
+        row.assists = (entry.assists || 0) * ratio;
+        row.deaths = (entry.deaths || 0) * ratio;
+        if (entry.qualify) row.qualify = true;
+    }
+
+    return out;
 };
 
 /** Loadout slots at timestamp from timeline (state after last change at or before t). */

@@ -41,9 +41,10 @@ export interface ThemeColors {
   modeDuo:    string;
   modeOther:  string;
 
-  // Rank positions
+  // Rank / performance tiers (1 · 2–5 · 6–10 · 11+)
   rankFirst: string;
   rankTop5:  string;
+  rankMid:   string;
   rankOther: string;
 
   // Playstyle badge (gradient cards — always light text on colorful bg)
@@ -100,9 +101,10 @@ export const darkTheme: Theme = {
     modeDuo:    '#ffaf6d',
     modeOther:  '#fd9daa',
 
-    rankFirst: '#ff4757',
-    rankTop5:  '#00d2be',
-    rankOther: '#dfe6e9',
+    rankFirst: '#ffb454',
+    rankTop5:  '#2dd4bf',
+    rankMid:   '#c8d0d4',
+    rankOther: '#8b949e',
 
     playstyleText:       '#ffffff',
     playstyleLabel:      'rgba(255, 255, 255, 0.75)',
@@ -152,9 +154,10 @@ export const lightTheme: Theme = {
     modeDuo:    '#d4610a',
     modeOther:  '#c0266a',
 
-    rankFirst: '#d64537',
-    rankTop5:  '#0d8a8a',
-    rankOther: '#5c5752',
+    rankFirst: '#d97706',
+    rankTop5:  '#0f766e',
+    rankMid:   '#736e68',
+    rankOther: '#a8a29e',
 
     playstyleText:       '#ffffff',
     playstyleLabel:      'rgba(255, 255, 255, 0.85)',

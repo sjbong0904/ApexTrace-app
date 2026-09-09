@@ -441,8 +441,8 @@ const WeaponsTab = () => {
 
         const renderHopUp = (hopupName: string, isMythic: boolean = false) => {
             const iconSrc     = HOPUP_ICONS[hopupName] || MODE_ICONS['HopUp'];
-            const borderColor = isMythic ? '#ff5252' : '#ffb74d';
-            const labelColor  = isMythic ? '#ff5252' : '#ffb74d';
+            const borderColor = isMythic ? AMMO_COLORS.Mythic : '#ffb74d';
+            const labelColor  = isMythic ? AMMO_COLORS.Mythic : '#ffb74d';
             const displayName = getTranslatedHopup(hopupName, t);
             return (
                 <div key={hopupName} className="attachment-box" title={displayName} style={{ borderColor }}>
@@ -639,7 +639,7 @@ const WeaponsTab = () => {
                                     alt={getWeaponDisplayName(weapon.id)}
                                     style={{ maxHeight: '60px', maxWidth: '80%', objectFit: 'contain', marginBottom: '10px', transition: 'transform 0.3s' }}
                                 />
-                                <span style={{ fontSize: '16px', fontWeight: 'bold', color: isMythic ? 'var(--color-accent-hover)' : 'var(--color-text-secondary)' }}>
+                                <span style={{ fontSize: '16px', fontWeight: 'bold', color: isMythic ? AMMO_COLORS.Mythic : 'var(--color-text-secondary)' }}>
                                     {getWeaponDisplayName(weapon.id)}
                                 </span>
                                 <div style={{ display: 'flex', marginTop: '5px', gap: '4px' }}>

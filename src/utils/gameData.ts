@@ -8,7 +8,7 @@ export const COLORS = {
 
 export const AMMO_COLORS: Record<string, string> = {
     'Light': '#ffb157', 'Heavy': '#48e0a6', 'Energy': '#bbdf39',
-    'Sniper': '#5b9af7', 'Shotgun': '#da292a', 'Mythic': '#e62952', 'Arrows': '#ddb739'
+    'Sniper': '#5b9af7', 'Shotgun': '#da292a', 'Mythic': '#D73055', 'Arrows': '#ddb739'
 };
 
 export const TARGET_MAPS = ["World's Edge", "Kings Canyon", "Olympus", "Storm Point", "Broken Moon", "E-District"];

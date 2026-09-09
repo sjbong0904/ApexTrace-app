@@ -370,7 +370,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         return (
             <div style={{
                 width: '100%',
-                height: isInline ? 'auto' : '100%',
+                height: isInline ? '100%' : '100%',
                 minHeight: isInline ? 200 : undefined,
                 background: isInline ? 'transparent' : 'var(--color-bg-main)',
                 color: 'var(--color-text-secondary)',
@@ -423,7 +423,7 @@ const Sidebar: React.FC<SidebarProps> = ({
             ref={rootRef}
             style={{
                 width: '100%',
-                height: isInline ? 'auto' : '100%',
+                height: '100%',
                 background: isInline ? 'transparent' : 'var(--color-bg-main)',
                 color: 'var(--color-text-secondary)',
                 display: 'flex',

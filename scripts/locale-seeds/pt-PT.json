@@ -586,7 +586,7 @@
     },
     "modes": {
       "all": "Tudo",
-      "br": "BR",
+      "br": "ALL",
       "ranked": "Ranqueada",
       "trio": "Trio",
       "duo": "Duo"

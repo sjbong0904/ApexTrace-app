@@ -1,20 +1,21 @@
-import { useState, useEffect, useCallback, useMemo, useRef, memo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import ResizeHandles from './components/ResizeHandle';
-import { NARROW_LAYOUT_WIDTH, useWindowAutoResize } from './hooks/useWindowAutoResize';
+import { CONTENT_MAX_WIDTH, NARROW_LAYOUT_WIDTH, useWindowAutoResize } from './hooks/useWindowAutoResize';
 import Navigation from './components/Navigation';
 import InlineProfileSection from './components/InlineProfileSection';
 import type { Match, User } from './types';
 import MapVisualizer from './components/MapVisualizer';
 import CombatLog from './components/CombatLog';
-import MatchDetailTabs from './components/MatchDetailTabs';
+import MatchDetailTabs, { MatchLoadoutPanel, MatchStatsPanel } from './components/MatchDetailTabs';
 import StatisticsTab from './components/StatisticsTab';
 import TierTableTab from './components/TierTableTab';
 import { formatRelativeTime, getRankColor, getRelativeTime, normalizeMapDisplayName } from './utils/helpers';
-import { FaSearch, FaSync, FaQuestionCircle, FaList, FaStar, FaChartBar, FaCog, FaThList } from 'react-icons/fa';
+import { FaSync, FaQuestionCircle, FaList, FaStar, FaChartBar, FaCog, FaThList } from 'react-icons/fa';
 import { isIncompleteMatchStats } from './utils/match';
 import PlayerSelectionModal from './components/PlayerSelectionModal';
 import AdsRail, { ADS_RAIL_WIDTH } from './components/AdsRail';
 import SettingsTab from './components/SettingsTab';
+import SearchBar from './components/SearchBar';
 import { startTutorial } from './utils/tutorial';
 import WindowControls from './components/WindowControls';
 import { LocalDB } from './utils/LocalDB';
@@ -40,6 +41,13 @@ import AppSelect from './components/AppSelect';
 import { useTranslation } from 'react-i18next';
 import { APP_LANGUAGES } from './constants/languages';
 import { getSelectableSeasons, resolveCurrentSeasonId, resolveSeasonEndMs } from './utils/seasons';
+import {
+    clearRecentSearches,
+    loadRecentSearches,
+    pushRecentSearch,
+    removeRecentSearch,
+    type RecentSearchProfile,
+} from './utils/recentSearches';
 
 interface Season {
   id: number;
@@ -75,46 +83,6 @@ const ProfileLoadingOverlay = ({ label }: { label: string }) => (
         <span style={{ fontSize: '12px', color: 'var(--color-text-muted)', fontWeight: 'bold' }}>{label}</span>
     </div>
 );
-
-const SearchBar = memo(({ onSearch, isSearching, resetKey }: { onSearch: (query: string) => void, isSearching: boolean, resetKey: number }) => {
-    const [localQuery, setLocalQuery] = useState("");
-    const { t } = useTranslation(); // 🌟 훅 사용
-
-    useEffect(() => {
-        if (resetKey > 0) setLocalQuery("");
-    }, [resetKey]);
-
-    const handleSubmit = (e: React.FormEvent) => {
-        e.preventDefault();
-        if (localQuery.trim().length > 0) {
-            onSearch(localQuery); 
-        }
-    };
-
-    return (
-        <form id="search-bar" onSubmit={handleSubmit} style={{ display: 'flex', alignItems: 'center', background: 'var(--color-bg-card)', borderRadius: '6px', border: '1px solid var(--color-border-light)', padding: '0 10px', height: '40px', boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.2)' }}>
-            <FaSearch color="var(--color-text-faint)" style={{ marginRight: '8px' }} />
-            <input
-                type="text"
-                value={localQuery}
-                onChange={(e) => setLocalQuery(e.target.value)}
-                onFocus={() => {
-                    if (typeof overwolf !== 'undefined') {
-                        overwolf.windows.getCurrentWindow((result) => {
-                            if (result.success) {
-                                overwolf.windows.bringToFront(result.window.id, true, () => {});
-                            }
-                        });
-                    }
-                }}
-                placeholder={t('search.placeholder')}
-                disabled={isSearching}
-                style={{ background: 'transparent', border: 'none', color: 'var(--color-text-secondary)', fontSize: '14px', width: '100%', outline: 'none', fontWeight: '500' }}
-            />
-            {isSearching && <FaSync className="spin-animation" color="var(--color-warning)" />}
-        </form>
-    );
-});
 
 const getTabStyle = (isActive: boolean): React.CSSProperties => ({
     padding: '8px 16px',
@@ -162,6 +130,7 @@ const App = () => {
     const MATCHES_PER_PAGE = 20;
     const [searchResetKey, setSearchResetKey] = useState(0);
     const [lastSearchQuery, setLastSearchQuery] = useState("");
+    const [recentSearches, setRecentSearches] = useState<RecentSearchProfile[]>(() => loadRecentSearches('app'));
     const [isMaximized, setIsMaximized] = useState(false);
     const [isWindowMinimized, setIsWindowMinimized] = useState(false);
     const [adsCoveredByDialog, setAdsCoveredByDialog] = useState(false);
@@ -348,6 +317,18 @@ const App = () => {
         });
 
         setHistory(prev => mergeHistoryForUser(prev, freshUser, rawHistory, previousUserUid));
+
+        if (freshUser?.uid && freshUser?.name) {
+            setRecentSearches(pushRecentSearch('app', {
+                uid: String(freshUser.uid),
+                name: String(freshUser.name),
+                rankName: freshUser.rankName || freshUser.rank_name || 'Unranked',
+                rankScore: freshUser.rankScore ?? freshUser.rank_score ?? 0,
+                level: freshUser.level || 0,
+                prestige: freshUser.prestige || 0,
+                legend: freshUser.legend || 'unknown',
+            }));
+        }
 
         const normalized = normalizeHistoryForFrontend(rawHistory).filter((m) => isSupportedMode(m.mode));
         if (freshUser?.uid && normalized.length > 0) {
@@ -1304,54 +1285,39 @@ const App = () => {
                                 </div>
                             )}
 
-                            {(mainTab === "DASHBOARD" || mainTab === "STATISTICS") && (
-                                <AppSelect
-                                    sizeVariant="md"
-                                    value={selectedSeasonId}
-                                    onChange={(e) => {
-                                        setSelectedSeasonId(Number(e.target.value));
-                                        if (mainScrollRef.current) {
-                                            mainScrollRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+                            {!(mainTab === "DASHBOARD" || mainTab === "STATISTICS") && (
+                                <button 
+                                    onClick={handleManualRefresh} 
+                                    disabled={refreshCooldown > 0} 
+                                    style={{ 
+                                        background: 'transparent',
+                                        border: 'none',
+                                        cursor: refreshCooldown > 0 ? 'not-allowed' : 'pointer', 
+                                        color: refreshCooldown > 0 ? 'var(--color-border-light)' : 'var(--color-text-dim)', 
+                                        display: 'flex', 
+                                        alignItems: 'center', 
+                                        justifyContent: 'center', 
+                                        padding: '5px',
+                                        transition: 'color 0.2s, transform 0.2s',
+                                        fontSize: '16px'
+                                    }} 
+                                    onMouseEnter={(e) => { 
+                                        if(refreshCooldown === 0) {
+                                            e.currentTarget.style.color = 'var(--color-text-primary)'; 
+                                            e.currentTarget.style.transform = 'scale(1.1) rotate(180deg)'; 
                                         }
                                     }}
+                                    onMouseLeave={(e) => { 
+                                        if(refreshCooldown === 0) {
+                                            e.currentTarget.style.color = 'var(--color-text-dim)';
+                                            e.currentTarget.style.transform = 'scale(1) rotate(0deg)';
+                                        }
+                                    }}
+                                    title={refreshCooldown > 0 ? t('controls.waitSec', { sec: refreshCooldown }) : t('controls.refresh')}
                                 >
-                                    {selectableSeasons.map(season => (
-                                        <option key={season.id} value={season.id}>{season.name}</option>
-                                    ))}
-                                </AppSelect>
+                                    <FaSync size={18} />
+                                </button>
                             )}
-
-                            <button 
-                                onClick={handleManualRefresh} 
-                                disabled={refreshCooldown > 0} 
-                                style={{ 
-                                    background: 'transparent',
-                                    border: 'none',
-                                    cursor: refreshCooldown > 0 ? 'not-allowed' : 'pointer', 
-                                    color: refreshCooldown > 0 ? 'var(--color-border-light)' : 'var(--color-text-dim)', 
-                                    display: 'flex', 
-                                    alignItems: 'center', 
-                                    justifyContent: 'center', 
-                                    padding: '5px',
-                                    transition: 'color 0.2s, transform 0.2s',
-                                    fontSize: '16px'
-                                }} 
-                                onMouseEnter={(e) => { 
-                                    if(refreshCooldown === 0) {
-                                        e.currentTarget.style.color = 'var(--color-text-primary)'; 
-                                        e.currentTarget.style.transform = 'scale(1.1) rotate(180deg)'; 
-                                    }
-                                }}
-                                onMouseLeave={(e) => { 
-                                    if(refreshCooldown === 0) {
-                                        e.currentTarget.style.color = 'var(--color-text-dim)';
-                                        e.currentTarget.style.transform = 'scale(1) rotate(0deg)';
-                                    }
-                                }}
-                                title={refreshCooldown > 0 ? t('controls.waitSec', { sec: refreshCooldown }) : t('controls.refresh')}
-                            >
-                                <FaSync size={18} />
-                            </button>
 
                             <div style={{ marginLeft: '5px' }}>
                                 <GameStatusIndicator />
@@ -1384,42 +1350,117 @@ const App = () => {
                         position: 'relative',
                         minWidth: 0,
                     }}>
+                    <div style={{
+                        width: '100%',
+                        maxWidth: mainTab === 'TIER_TABLE' ? undefined : CONTENT_MAX_WIDTH,
+                        marginLeft: 'auto',
+                        marginRight: 'auto',
+                        boxSizing: 'border-box',
+                        minWidth: 0,
+                    }}>
                         {(mainTab === "DASHBOARD" || mainTab === "STATISTICS") && (
                             <InlineProfileSection
-                                modeTabsSlot={mainTab === "DASHBOARD" ? (
+                                modeTabsSlot={(
                                     <div style={{
                                         display: 'flex',
                                         justifyContent: 'space-between',
                                         alignItems: 'flex-end',
+                                        gap: 12,
                                         borderBottom: '1px solid var(--color-border)',
                                         paddingBottom: 0,
+                                        minWidth: 0,
                                     }}>
-                                        <div style={{ display: 'flex', gap: 5 }}>
-                                            {(["BR", "RANKED", "TRIO", "DUO"] as const).map(tab => (
-                                                <button
-                                                    key={tab}
-                                                    className="btn-tab"
-                                                    onMouseDown={(e) => e.preventDefault()}
-                                                    onClick={() => setActiveTab(tab)}
-                                                    style={getTabStyle(activeTab === tab)}
-                                                >
-                                                    {t(`statistics.modes.${tab.toLowerCase()}`)}
-                                                </button>
-                                            ))}
+                                        {mainTab === 'DASHBOARD' ? (
+                                            <div style={{ display: 'flex', gap: 5, minWidth: 0, flexWrap: 'wrap' }}>
+                                                {(["BR", "RANKED", "TRIO", "DUO"] as const).map(tab => (
+                                                    <button
+                                                        key={tab}
+                                                        className="btn-tab"
+                                                        onMouseDown={(e) => e.preventDefault()}
+                                                        onClick={() => setActiveTab(tab)}
+                                                        style={getTabStyle(activeTab === tab)}
+                                                    >
+                                                        {t(`statistics.modes.${tab.toLowerCase()}`)}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <div style={{ minWidth: 0, flex: 1 }} />
+                                        )}
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: isNarrowLayout ? 8 : 12, flexShrink: 0, paddingBottom: 4 }}>
+                                            <AppSelect
+                                                sizeVariant="md"
+                                                value={selectedSeasonId}
+                                                onChange={(e) => {
+                                                    setSelectedSeasonId(Number(e.target.value));
+                                                    if (mainScrollRef.current) {
+                                                        mainScrollRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+                                                    }
+                                                }}
+                                            >
+                                                {selectableSeasons.map(season => (
+                                                    <option key={season.id} value={season.id}>{season.name}</option>
+                                                ))}
+                                            </AppSelect>
+                                            <button
+                                                onClick={handleManualRefresh}
+                                                disabled={refreshCooldown > 0}
+                                                style={{
+                                                    background: 'transparent',
+                                                    border: 'none',
+                                                    cursor: refreshCooldown > 0 ? 'not-allowed' : 'pointer',
+                                                    color: refreshCooldown > 0 ? 'var(--color-border-light)' : 'var(--color-text-dim)',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'center',
+                                                    padding: '5px',
+                                                    transition: 'color 0.2s, transform 0.2s',
+                                                    fontSize: '16px',
+                                                }}
+                                                onMouseEnter={(e) => {
+                                                    if (refreshCooldown === 0) {
+                                                        e.currentTarget.style.color = 'var(--color-text-primary)';
+                                                        e.currentTarget.style.transform = 'scale(1.1) rotate(180deg)';
+                                                    }
+                                                }}
+                                                onMouseLeave={(e) => {
+                                                    if (refreshCooldown === 0) {
+                                                        e.currentTarget.style.color = 'var(--color-text-dim)';
+                                                        e.currentTarget.style.transform = 'scale(1) rotate(0deg)';
+                                                    }
+                                                }}
+                                                title={refreshCooldown > 0 ? t('controls.waitSec', { sec: refreshCooldown }) : t('controls.refresh')}
+                                            >
+                                                <FaSync size={18} />
+                                            </button>
                                         </div>
                                     </div>
-                                ) : undefined}
+                                )}
                                 searchSlot={
                                     <SearchBar
                                         onSearch={handleSearch}
                                         isSearching={isSearching}
                                         resetKey={searchResetKey}
+                                        recent={recentSearches}
+                                        onSelectRecent={(profile) => {
+                                            void handleSelectUser({
+                                                uid: profile.uid,
+                                                name: profile.name,
+                                                rankName: profile.rankName,
+                                                rankScore: profile.rankScore,
+                                                level: profile.level,
+                                                prestige: profile.prestige,
+                                                legend: profile.legend,
+                                            });
+                                        }}
+                                        onRemoveRecent={(uid) => setRecentSearches(removeRecentSearch('app', uid))}
+                                        onClearRecent={() => setRecentSearches(clearRecentSearches('app'))}
                                     />
                                 }
                                 statusMessage={statusMessage}
                                 user={user}
                                 history={history}
-                                trendHistory={mainTab === "DASHBOARD" ? filteredHistory.slice(0, 20) : undefined}
+                                trendHistory={filteredHistory.slice(0, 20)}
                                 isFavorite={isCurrentFavorite}
                                 isPinned={user.uid !== null && user.uid === pinnedUid}
                                 hasPinnedUser={!!pinnedUid}
@@ -1616,52 +1657,48 @@ const App = () => {
                                                                 minWidth: 0,
                                                             }}>
                                                                 {isNarrowLayout ? (
-                                                                    <>
-                                                                        {/* Narrow: map + combat on top, stats/loadout full-width below */}
+                                                                    /* Narrow: 2×2 (+) — Map | Combat / Loadout | Stats */
+                                                                    <div style={{
+                                                                        display: 'grid',
+                                                                        gridTemplateColumns: '1fr 1fr',
+                                                                        gridTemplateRows: 'minmax(260px, 300px) minmax(260px, 300px)',
+                                                                        minWidth: 0,
+                                                                        width: '100%',
+                                                                    }}>
                                                                         <div style={{
-                                                                            display: 'flex',
-                                                                            flexDirection: 'row',
-                                                                            height: '300px',
-                                                                            minHeight: '260px',
                                                                             minWidth: 0,
+                                                                            position: 'relative',
+                                                                            borderRight: '1px solid var(--color-border)',
                                                                             borderBottom: '1px solid var(--color-border)',
+                                                                            overflow: 'hidden',
                                                                         }}>
-                                                                            <div style={{
-                                                                                flex: '1.25 1 0',
-                                                                                minWidth: 0,
-                                                                                position: 'relative',
-                                                                                borderRight: '1px solid var(--color-border)',
-                                                                                overflow: 'hidden',
-                                                                            }}>
-                                                                                {isExpanded && <MapVisualizer match={match} />}
-                                                                            </div>
-                                                                            <div style={{
-                                                                                flex: '1 1 0',
-                                                                                minWidth: 0,
-                                                                                display: 'flex',
-                                                                                flexDirection: 'column',
-                                                                                zIndex: 10,
-                                                                                overflow: 'hidden',
-                                                                            }}>
-                                                                                <CombatLog match={match} />
-                                                                            </div>
+                                                                            {isExpanded && <MapVisualizer match={match} />}
                                                                         </div>
                                                                         <div style={{
-                                                                            height: '300px',
-                                                                            minHeight: '260px',
                                                                             minWidth: 0,
                                                                             display: 'flex',
                                                                             flexDirection: 'column',
-                                                                            background: 'var(--color-bg-sub-header)',
+                                                                            borderBottom: '1px solid var(--color-border)',
+                                                                            zIndex: 10,
                                                                             overflow: 'hidden',
                                                                         }}>
-                                                                            <MatchDetailTabs match={match} onUserSelect={handleSelectUser} />
+                                                                            <CombatLog match={match} />
                                                                         </div>
-                                                                    </>
+                                                                        <div style={{
+                                                                            minWidth: 0,
+                                                                            borderRight: '1px solid var(--color-border)',
+                                                                            overflow: 'hidden',
+                                                                        }}>
+                                                                            <MatchLoadoutPanel match={match} />
+                                                                        </div>
+                                                                        <div style={{ minWidth: 0, overflow: 'hidden' }}>
+                                                                            <MatchStatsPanel match={match} onUserSelect={handleSelectUser} />
+                                                                        </div>
+                                                                    </div>
                                                                 ) : (
                                                                     <>
                                                                         <div style={{
-                                                                            flex: 5,
+                                                                            flex: 4,
                                                                             minWidth: 0,
                                                                             position: 'relative',
                                                                             borderRight: '1px solid var(--color-border)',
@@ -1681,7 +1718,7 @@ const App = () => {
                                                                             <CombatLog match={match} />
                                                                         </div>
                                                                         <div style={{
-                                                                            flex: 4,
+                                                                            flex: 5,
                                                                             minWidth: 0,
                                                                             display: 'flex',
                                                                             flexDirection: 'column',
@@ -1747,6 +1784,7 @@ const App = () => {
                                 )}
                             </>
                         )}
+                    </div>
                     </div>
                     </div>
                 </div>

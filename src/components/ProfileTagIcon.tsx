@@ -1,5 +1,5 @@
 import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
-import { getWeaponSilhouetteScale, PROFILE_IMAGE_BASE } from '../utils/weaponTheme';
+import { getWeaponImageUrl, getWeaponSilhouetteScale } from '../utils/weaponTheme';
 
 interface ProfileTagIconProps {
     imageId: string;
@@ -60,7 +60,9 @@ const LegendTagIcon = ({ src }: { src: string }) => {
 const ProfileTagIcon = ({ imageId, imageType, color, fallback }: ProfileTagIconProps) => {
     const [failed, setFailed] = useState(false);
     const [ready, setReady] = useState(false);
-    const src = `${PROFILE_IMAGE_BASE}/${imageId}.png`;
+    const src = imageType === 'weapon'
+        ? getWeaponImageUrl(imageId)
+        : `https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/${imageId}.png`;
     const scale = imageType === 'weapon' ? getWeaponSilhouetteScale(imageId) : 1;
     const placeholderWidth = imageType === 'weapon' ? 20 : 18;
     const placeholderHeight = imageType === 'weapon' ? 14 : 16;

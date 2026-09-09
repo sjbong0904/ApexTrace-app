@@ -52,9 +52,10 @@
   --color-mode-duo:    #ffaf6d;
   --color-mode-other:  #fd9daa;
 
-  --color-rank-first: #ff4757;
-  --color-rank-top5:  #00d2be;
-  --color-rank-other: #dfe6e9;
+  --color-rank-first: #ffb454;
+  --color-rank-top5:  #2dd4bf;
+  --color-rank-mid:   #c8d0d4;
+  --color-rank-other: #8b949e;
 
   --color-playstyle-text:       #ffffff;
   --color-playstyle-label:      rgba(255, 255, 255, 0.75);

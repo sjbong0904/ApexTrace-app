@@ -52,21 +52,27 @@ export const resolveWorldsEdgeMapImage = (
 const isWorldsEdgeMap = (mapName: string): boolean =>
     normalizeMapDisplayName(mapName) === "World's Edge";
 
-export const getRankColor = (rank: number | string) => {
-    if (rank === 1 || rank === '1' || rank === '#1') return 'var(--color-rank-first)';
-    const r = parseInt(String(rank).replace('#', ''));
-    if (!isNaN(r) && r <= 5) return 'var(--color-rank-top5)';
-    return 'var(--color-rank-other)';
-};
-
-/** Shared performance-stat color tiers: low → normal → high → elite. */
+/** Shared performance-stat color tiers: low → normal → high → elite (coral / teal). */
 export const STAT_TIER_COLOR = {
     missing: 'var(--color-text-faint)',
-    low: 'var(--color-text-muted)',
-    normal: 'var(--color-text-primary)',
-    high: '#4ade80',
-    elite: '#fdcb6e',
+    low: 'var(--color-rank-other)',
+    normal: 'var(--color-rank-mid)',
+    high: 'var(--color-rank-top5)',
+    elite: 'var(--color-rank-first)',
 } as const;
+
+/**
+ * Match placement accent (shared with STAT_TIER_COLOR):
+ * 1 → elite · 2–5 → high · 6–10 → normal · 11+ → low.
+ */
+export const getRankColor = (rank: number | string) => {
+    if (rank === 1 || rank === '1' || rank === '#1') return STAT_TIER_COLOR.elite;
+    const r = parseInt(String(rank).replace('#', ''));
+    if (isNaN(r)) return STAT_TIER_COLOR.low;
+    if (r <= 5) return STAT_TIER_COLOR.high;
+    if (r <= 10) return STAT_TIER_COLOR.normal;
+    return STAT_TIER_COLOR.low;
+};
 
 const parseStatNumber = (value: string | number | null | undefined): number | null => {
     if (value === null || value === undefined || value === '' || value === '-') return null;
@@ -89,38 +95,50 @@ const colorForHigherIsBetter = (
     return STAT_TIER_COLOR.elite;
 };
 
-/** Win rate %: <5 gray · 5–10 white · 10–15 green · ≥15 gold. */
+/** Win rate %: <5 low · 5–12 normal · 12–20 high · ≥20 elite. */
 export const getWinRateColor = (
     winRate: string | number,
     opts?: { hasValue?: boolean },
 ): string => {
     if (opts?.hasValue === false) return STAT_TIER_COLOR.missing;
-    return colorForHigherIsBetter(winRate, 5, 10, 15);
+    return colorForHigherIsBetter(winRate, 5, 12, 20);
 };
 
-/** K/D: <0.8 gray · 0.8–1.2 white · 1.2–2 green · ≥2 gold. */
+/** K/D: <0.8 low · 0.8–1.2 normal · 1.2–2 high · ≥2 elite. */
 export const getKdColor = (kd: string | number | null | undefined): string => {
     if (kd == null || kd === '' || kd === '-' || kd === 'N/A') return STAT_TIER_COLOR.missing;
     return colorForHigherIsBetter(kd, 0.8, 1.2, 2);
 };
 
-/** KA/D: <1 gray · 1–1.5 white · 1.5–2.5 green · ≥2.5 gold. */
+/** KA/D: <1 low · 1–1.5 normal · 1.5–2.5 high · ≥2.5 elite. */
 export const getKadColor = (kad: string | number | null | undefined): string => {
     if (kad == null || kad === '' || kad === '-' || kad === 'N/A') return STAT_TIER_COLOR.missing;
     return colorForHigherIsBetter(kad, 1, 1.5, 2.5);
 };
 
-/** Avg damage: <300 gray · 300–500 white · 500–800 green · ≥800 gold. */
+/** Avg damage: <300 low · 300–600 normal · 600–1000 high · ≥1000 elite. */
 export const getAvgDamageColor = (avgDamage: string | number): string =>
-    colorForHigherIsBetter(avgDamage, 300, 500, 800);
+    colorForHigherIsBetter(avgDamage, 300, 600, 1000);
 
-/** Avg placement (lower is better): ≤3 gold · ≤5 green · ≤8 white · >8 gray. */
+/** Avg kills / game: <0.5 low · 0.5–1.5 normal · 1.5–3 high · ≥3 elite. */
+export const getAvgKillsColor = (avgKills: string | number): string =>
+    colorForHigherIsBetter(avgKills, 0.5, 1.5, 3);
+
+/** Avg assists / game: <0.5 low · 0.5–1.5 normal · 1.5–3 high · ≥3 elite. */
+export const getAvgAssistsColor = (avgAssists: string | number): string =>
+    colorForHigherIsBetter(avgAssists, 0.5, 1.5, 3);
+
+/** Avg knocks / game: <0.5 low · 0.5–2.5 normal · 2.5–5 high · ≥5 elite. */
+export const getAvgKnocksColor = (avgKnocks: string | number): string =>
+    colorForHigherIsBetter(avgKnocks, 0.5, 2.5, 5);
+
+/** Avg placement (lower is better): ≤5 elite · ≤9 high · ≤14 normal · ≥15 low. */
 export const getAvgPlacementColor = (avgPlacement: string | number): string => {
     const val = parseStatNumber(avgPlacement);
     if (val === null) return STAT_TIER_COLOR.missing;
-    if (val <= 3) return STAT_TIER_COLOR.elite;
-    if (val <= 5) return STAT_TIER_COLOR.high;
-    if (val <= 8) return STAT_TIER_COLOR.normal;
+    if (val <= 5) return STAT_TIER_COLOR.elite;
+    if (val <= 9) return STAT_TIER_COLOR.high;
+    if (val <= 14) return STAT_TIER_COLOR.normal;
     return STAT_TIER_COLOR.low;
 };
 
@@ -134,15 +152,15 @@ export const getWinRateChipStyle = (winRate: string | number): {
     if (color === STAT_TIER_COLOR.elite) {
         return {
             color,
-            background: 'rgba(253, 203, 110, 0.15)',
-            border: '1px solid rgba(253, 203, 110, 0.35)',
+            background: 'rgba(255, 180, 84, 0.15)',
+            border: '1px solid rgba(255, 180, 84, 0.35)',
         };
     }
     if (color === STAT_TIER_COLOR.high) {
         return {
             color,
-            background: 'rgba(74, 222, 128, 0.15)',
-            border: '1px solid rgba(74, 222, 128, 0.35)',
+            background: 'rgba(45, 212, 191, 0.15)',
+            border: '1px solid rgba(45, 212, 191, 0.35)',
         };
     }
     return {

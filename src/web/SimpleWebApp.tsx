@@ -1,19 +1,20 @@
-import { memo, useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { FaChartBar, FaLink, FaList, FaSearch, FaSync, FaThList, FaTimes } from 'react-icons/fa';
+import { FaChartBar, FaLink, FaList, FaSync, FaThList } from 'react-icons/fa';
 import Navigation, { type NavTabId } from '../components/Navigation';
 import InlineProfileSection from '../components/InlineProfileSection';
 import MapVisualizer from '../components/MapVisualizer';
 import CombatLog from '../components/CombatLog';
-import MatchDetailTabs from '../components/MatchDetailTabs';
+import MatchDetailTabs, { MatchLoadoutPanel, MatchStatsPanel } from '../components/MatchDetailTabs';
 import StatisticsTab from '../components/StatisticsTab';
 import TierTableTab from '../components/TierTableTab';
 import PlayerSelectionModal from '../components/PlayerSelectionModal';
 import AppSelect from '../components/AppSelect';
+import SearchBar from '../components/SearchBar';
 import { APP_LANGUAGES } from '../constants/languages';
-import { NARROW_LAYOUT_WIDTH } from '../hooks/useWindowAutoResize';
+import { CONTENT_MAX_WIDTH, NARROW_LAYOUT_WIDTH } from '../hooks/useWindowAutoResize';
 import { isIncompleteMatchStats } from '../utils/match';
-import { formatFullRankName, formatRelativeTime, getRankColor, getRankTierColor, getRelativeTime, normalizeMapDisplayName } from '../utils/helpers';
+import { formatRelativeTime, getRankColor, getRelativeTime, normalizeMapDisplayName } from '../utils/helpers';
 import { getModeColor, getModeDisplayLabel, matchesHistoryTab } from '../utils/matchMode';
 import { getSelectableSeasons, resolveCurrentSeasonId, resolveSeasonEndMs } from '../utils/seasons';
 import {
@@ -31,15 +32,12 @@ import {
     pushRecentSearch,
     removeRecentSearch,
     type RecentSearchProfile,
-} from './recentSearches';
+} from '../utils/recentSearches';
 import WebAdRail, { WEB_ADS_MIN_VIEWPORT } from './WebAdRail';
 
 const WEB_NAV_TABS: NavTabId[] = ['DASHBOARD', 'STATISTICS', 'TIER_TABLE'];
 const MATCHES_PER_PAGE = 20;
 const noop = () => {};
-const LEGEND_IMG = (legend: string) =>
-    `https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/${(legend || 'unknown').toLowerCase()}.png`;
-const UNKNOWN_LEGEND_IMG = 'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/unknown.png';
 
 const FALLBACK_SEASONS: SeasonConfig[] = [
     { id: 3, name: 'Season 28 : Split 2', startTime: new Date('2026-03-24T18:00:00Z').getTime(), endTime: new Date('2026-08-04T18:00:00Z').getTime() },
@@ -122,244 +120,6 @@ const ProfileLoadingOverlay = ({ label }: { label: string }) => (
     </div>
 );
 
-const SearchBar = memo(({
-    onSearch,
-    isSearching,
-    resetKey,
-    recent,
-    onSelectRecent,
-    onRemoveRecent,
-    onClearRecent,
-}: {
-    onSearch: (query: string) => void;
-    isSearching: boolean;
-    resetKey: number;
-    recent: RecentSearchProfile[];
-    onSelectRecent: (profile: RecentSearchProfile) => void;
-    onRemoveRecent: (uid: string) => void;
-    onClearRecent: () => void;
-}) => {
-    const [localQuery, setLocalQuery] = useState('');
-    const [open, setOpen] = useState(false);
-    const [hoveredUid, setHoveredUid] = useState<string | null>(null);
-    const rootRef = useRef<HTMLDivElement>(null);
-    const { t } = useTranslation();
-
-    useEffect(() => {
-        if (resetKey > 0) setLocalQuery('');
-    }, [resetKey]);
-
-    useEffect(() => {
-        const onPointerDown = (event: MouseEvent) => {
-            if (!rootRef.current?.contains(event.target as Node)) {
-                setOpen(false);
-            }
-        };
-        document.addEventListener('mousedown', onPointerDown);
-        return () => document.removeEventListener('mousedown', onPointerDown);
-    }, []);
-
-    const handleSubmit = (e: React.FormEvent) => {
-        e.preventDefault();
-        if (localQuery.trim().length > 0) {
-            setOpen(false);
-            onSearch(localQuery);
-        }
-    };
-
-    const showDropdown = open && !isSearching && localQuery.trim().length === 0;
-
-    return (
-        <div ref={rootRef} style={{ position: 'relative', width: '100%' }}>
-            <form
-                id="search-bar"
-                onSubmit={handleSubmit}
-                style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    background: 'var(--color-bg-card)',
-                    borderRadius: '6px',
-                    border: '1px solid var(--color-border-light)',
-                    padding: '0 10px',
-                    height: '40px',
-                    boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.2)',
-                }}
-            >
-                <FaSearch color="var(--color-text-faint)" style={{ marginRight: '8px' }} />
-                <input
-                    type="text"
-                    value={localQuery}
-                    onChange={(e) => {
-                        setLocalQuery(e.target.value);
-                        if (e.target.value.trim().length === 0) setOpen(true);
-                        else setOpen(false);
-                    }}
-                    onFocus={() => setOpen(true)}
-                    placeholder={t('search.placeholder')}
-                    disabled={isSearching}
-                    autoComplete="off"
-                    style={{
-                        background: 'transparent',
-                        border: 'none',
-                        color: 'var(--color-text-secondary)',
-                        fontSize: '14px',
-                        width: '100%',
-                        outline: 'none',
-                        fontWeight: '500',
-                    }}
-                />
-                {isSearching && <FaSync className="spin-animation" color="var(--color-warning)" />}
-            </form>
-
-            {showDropdown && (
-                <div
-                    style={{
-                        position: 'absolute',
-                        top: 'calc(100% + 6px)',
-                        left: 0,
-                        right: 0,
-                        zIndex: 40,
-                        background: 'var(--color-bg-sub-header)',
-                        border: '1px solid var(--color-border-light)',
-                        borderRadius: 10,
-                        boxShadow: '0 12px 28px rgba(0,0,0,0.45)',
-                        overflow: 'hidden',
-                    }}
-                >
-                    <div
-                        style={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'space-between',
-                            padding: '10px 12px 8px',
-                            borderBottom: '1px solid var(--color-border)',
-                        }}
-                    >
-                        <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--color-text-muted)', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
-                            {t('search.recent')}
-                        </span>
-                        {recent.length > 0 && (
-                            <button
-                                type="button"
-                                onClick={onClearRecent}
-                                style={{
-                                    background: 'transparent',
-                                    border: 'none',
-                                    color: 'var(--color-text-faint)',
-                                    fontSize: 11,
-                                    cursor: 'pointer',
-                                    padding: 0,
-                                }}
-                            >
-                                {t('search.clearRecent')}
-                            </button>
-                        )}
-                    </div>
-
-                    {recent.length === 0 ? (
-                        <div style={{ padding: '16px 12px', fontSize: 12, color: 'var(--color-text-faint)', textAlign: 'center' }}>
-                            {t('search.noRecent')}
-                        </div>
-                    ) : (
-                        <div style={{ padding: 6 }}>
-                            {recent.map((profile) => {
-                                const rankLabel = profile.rankName === 'Apex Predator'
-                                    ? t('favorites.predator')
-                                    : formatFullRankName(profile.rankName) || t('favorites.unranked');
-                                const totalLevel = (profile.prestige || 0) * 500 + (profile.level || 0);
-                                const hovered = hoveredUid === profile.uid;
-                                return (
-                                    <div
-                                        key={profile.uid}
-                                        onMouseEnter={() => setHoveredUid(profile.uid)}
-                                        onMouseLeave={() => setHoveredUid(null)}
-                                        style={{
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            gap: 10,
-                                            padding: '8px 8px',
-                                            borderRadius: 8,
-                                            cursor: 'pointer',
-                                            background: hovered ? 'var(--color-bg-card-hover)' : 'transparent',
-                                            transition: 'background 0.15s',
-                                        }}
-                                        onClick={() => {
-                                            setOpen(false);
-                                            onSelectRecent(profile);
-                                        }}
-                                    >
-                                        <div
-                                            style={{
-                                                width: 36,
-                                                height: 36,
-                                                borderRadius: '50%',
-                                                overflow: 'hidden',
-                                                border: `2px solid ${getRankTierColor(profile.rankName)}`,
-                                                flexShrink: 0,
-                                                background: 'var(--color-bg-deep)',
-                                            }}
-                                        >
-                                            <img
-                                                src={LEGEND_IMG(profile.legend)}
-                                                alt=""
-                                                style={{ width: '100%', height: '100%', objectFit: 'cover', transform: 'scale(1.08)' }}
-                                                onError={(e) => {
-                                                    (e.target as HTMLImageElement).src = UNKNOWN_LEGEND_IMG;
-                                                }}
-                                            />
-                                        </div>
-                                        <div style={{ flex: 1, minWidth: 0 }}>
-                                            <div
-                                                style={{
-                                                    fontSize: 13,
-                                                    fontWeight: 700,
-                                                    color: 'var(--color-text-primary)',
-                                                    whiteSpace: 'nowrap',
-                                                    overflow: 'hidden',
-                                                    textOverflow: 'ellipsis',
-                                                }}
-                                            >
-                                                {profile.name}
-                                            </div>
-                                            <div style={{ fontSize: 11, color: 'var(--color-text-muted)', marginTop: 2, display: 'flex', gap: 6, minWidth: 0 }}>
-                                                <span style={{ color: getRankTierColor(profile.rankName), fontWeight: 700, whiteSpace: 'nowrap' }}>
-                                                    {rankLabel}
-                                                </span>
-                                                <span style={{ whiteSpace: 'nowrap' }}>{profile.rankScore.toLocaleString()} RP</span>
-                                                <span style={{ whiteSpace: 'nowrap' }}>Lv.{totalLevel}</span>
-                                            </div>
-                                        </div>
-                                        <button
-                                            type="button"
-                                            title={t('search.clearRecent')}
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                onRemoveRecent(profile.uid);
-                                            }}
-                                            style={{
-                                                background: 'transparent',
-                                                border: 'none',
-                                                color: 'var(--color-text-subtle)',
-                                                cursor: 'pointer',
-                                                padding: 4,
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                flexShrink: 0,
-                                            }}
-                                        >
-                                            <FaTimes size={11} />
-                                        </button>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    )}
-                </div>
-            )}
-        </div>
-    );
-});
-
 export default function SimpleWebApp() {
     const { t, i18n } = useTranslation();
     const mainScrollRef = useRef<HTMLDivElement>(null);
@@ -380,7 +140,7 @@ export default function SimpleWebApp() {
     const [candidates, setCandidates] = useState<SearchCandidate[]>([]);
     const [searchResetKey, setSearchResetKey] = useState(0);
     const [copied, setCopied] = useState(false);
-    const [recentSearches, setRecentSearches] = useState<RecentSearchProfile[]>(() => loadRecentSearches());
+    const [recentSearches, setRecentSearches] = useState<RecentSearchProfile[]>(() => loadRecentSearches('web'));
     const [windowWidth, setWindowWidth] = useState(() =>
         typeof window !== 'undefined' ? window.innerWidth : 1680,
     );
@@ -433,7 +193,7 @@ export default function SimpleWebApp() {
             });
             setHistory(playerHistory);
             setCandidates([]);
-            setRecentSearches(pushRecentSearch({
+            setRecentSearches(pushRecentSearch('web', {
                 uid: candidate.uid,
                 name: stats?.name || candidate.name,
                 rankName: stats?.rankName || candidate.rank_name || 'Unranked',
@@ -714,7 +474,6 @@ export default function SimpleWebApp() {
                             borderBottom: '1px solid var(--color-border)',
                             display: 'flex',
                             alignItems: 'center',
-                            justifyContent: 'space-between',
                             padding: isNarrowLayout ? '0 12px' : '0 30px',
                             background: 'var(--color-bg-sub-header)',
                             gap: '8px',
@@ -754,53 +513,6 @@ export default function SimpleWebApp() {
                                 )}
                             </span>
                         </div>
-
-                        <div
-                            style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: isNarrowLayout ? '8px' : '15px',
-                                flexShrink: 0,
-                            }}
-                        >
-                            {(mainTab === 'DASHBOARD' || mainTab === 'STATISTICS') && (
-                                <AppSelect
-                                    sizeVariant="md"
-                                    value={selectedSeasonId}
-                                    onChange={(e) => {
-                                        setSelectedSeasonId(Number(e.target.value));
-                                        mainScrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
-                                    }}
-                                >
-                                    {selectableSeasons.map((season) => (
-                                        <option key={season.id} value={season.id}>{season.name}</option>
-                                    ))}
-                                </AppSelect>
-                            )}
-
-                            {(mainTab === 'DASHBOARD' || mainTab === 'STATISTICS') && (
-                                <button
-                                    type="button"
-                                    onClick={() => void handleManualRefresh()}
-                                    disabled={!user.uid || isProfileLoading}
-                                    style={{
-                                        background: 'transparent',
-                                        border: 'none',
-                                        cursor: !user.uid || isProfileLoading ? 'not-allowed' : 'pointer',
-                                        color: !user.uid || isProfileLoading ? 'var(--color-border-light)' : 'var(--color-text-dim)',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        padding: '5px',
-                                        transition: 'color 0.2s, transform 0.2s',
-                                        fontSize: '16px',
-                                    }}
-                                    title={t('controls.refresh')}
-                                >
-                                    <FaSync size={18} className={isProfileLoading ? 'spin-animation' : undefined} />
-                                </button>
-                            )}
-                        </div>
                     </div>
 
                     <div
@@ -834,35 +546,83 @@ export default function SimpleWebApp() {
                                 minWidth: 0,
                             }}
                         >
+                        <div style={{
+                            width: '100%',
+                            maxWidth: mainTab === 'TIER_TABLE' ? undefined : CONTENT_MAX_WIDTH,
+                            marginLeft: 'auto',
+                            marginRight: 'auto',
+                            boxSizing: 'border-box',
+                            minWidth: 0,
+                        }}>
                             {(mainTab === 'DASHBOARD' || mainTab === 'STATISTICS') && (
                                 <InlineProfileSection
                                     showFavoritePin={false}
-                                    modeTabsSlot={mainTab === 'DASHBOARD' ? (
+                                    modeTabsSlot={(
                                         <div
                                             style={{
                                                 display: 'flex',
                                                 justifyContent: 'space-between',
                                                 alignItems: 'flex-end',
+                                                gap: 12,
                                                 borderBottom: '1px solid var(--color-border)',
                                                 paddingBottom: 0,
+                                                minWidth: 0,
                                             }}
                                         >
-                                            <div style={{ display: 'flex', gap: 5 }}>
-                                                {(['BR', 'RANKED', 'TRIO', 'DUO'] as const).map((tab) => (
-                                                    <button
-                                                        key={tab}
-                                                        type="button"
-                                                        className="btn-tab"
-                                                        onMouseDown={(e) => e.preventDefault()}
-                                                        onClick={() => setActiveTab(tab)}
-                                                        style={getTabStyle(activeTab === tab)}
-                                                    >
-                                                        {t(`statistics.modes.${tab.toLowerCase()}`)}
-                                                    </button>
-                                                ))}
+                                            {mainTab === 'DASHBOARD' ? (
+                                                <div style={{ display: 'flex', gap: 5, minWidth: 0, flexWrap: 'wrap' }}>
+                                                    {(['BR', 'RANKED', 'TRIO', 'DUO'] as const).map((tab) => (
+                                                        <button
+                                                            key={tab}
+                                                            type="button"
+                                                            className="btn-tab"
+                                                            onMouseDown={(e) => e.preventDefault()}
+                                                            onClick={() => setActiveTab(tab)}
+                                                            style={getTabStyle(activeTab === tab)}
+                                                        >
+                                                            {t(`statistics.modes.${tab.toLowerCase()}`)}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            ) : (
+                                                <div style={{ minWidth: 0, flex: 1 }} />
+                                            )}
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: isNarrowLayout ? 8 : 12, flexShrink: 0, paddingBottom: 4 }}>
+                                                <AppSelect
+                                                    sizeVariant="md"
+                                                    value={selectedSeasonId}
+                                                    onChange={(e) => {
+                                                        setSelectedSeasonId(Number(e.target.value));
+                                                        mainScrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+                                                    }}
+                                                >
+                                                    {selectableSeasons.map((season) => (
+                                                        <option key={season.id} value={season.id}>{season.name}</option>
+                                                    ))}
+                                                </AppSelect>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => void handleManualRefresh()}
+                                                    disabled={!user.uid || isProfileLoading}
+                                                    style={{
+                                                        background: 'transparent',
+                                                        border: 'none',
+                                                        cursor: !user.uid || isProfileLoading ? 'not-allowed' : 'pointer',
+                                                        color: !user.uid || isProfileLoading ? 'var(--color-border-light)' : 'var(--color-text-dim)',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center',
+                                                        padding: '5px',
+                                                        transition: 'color 0.2s, transform 0.2s',
+                                                        fontSize: '16px',
+                                                    }}
+                                                    title={t('controls.refresh')}
+                                                >
+                                                    <FaSync size={18} className={isProfileLoading ? 'spin-animation' : undefined} />
+                                                </button>
                                             </div>
                                         </div>
-                                    ) : undefined}
+                                    )}
                                     searchSlot={
                                         <SearchBar
                                             onSearch={(q) => void handleSearch(q)}
@@ -880,14 +640,14 @@ export default function SimpleWebApp() {
                                                     legend: profile.legend,
                                                 });
                                             }}
-                                            onRemoveRecent={(uid) => setRecentSearches(removeRecentSearch(uid))}
-                                            onClearRecent={() => setRecentSearches(clearRecentSearches())}
+                                            onRemoveRecent={(uid) => setRecentSearches(removeRecentSearch('web', uid))}
+                                            onClearRecent={() => setRecentSearches(clearRecentSearches('web'))}
                                         />
                                     }
                                     statusMessage={statusMessage}
                                     user={user}
                                     history={history}
-                                    trendHistory={mainTab === 'DASHBOARD' ? filteredHistory.slice(0, 20) : undefined}
+                                    trendHistory={filteredHistory.slice(0, 20)}
                                     isFavorite={false}
                                     isPinned={false}
                                     hasPinnedUser={false}
@@ -1214,60 +974,57 @@ export default function SimpleWebApp() {
                                                                         }}
                                                                     >
                                                                         {isNarrowLayout ? (
-                                                                            <>
+                                                                            /* Narrow: 2×2 (+) — Map | Combat / Loadout | Stats */
+                                                                            <div
+                                                                                style={{
+                                                                                    display: 'grid',
+                                                                                    gridTemplateColumns: '1fr 1fr',
+                                                                                    gridTemplateRows: 'minmax(260px, 300px) minmax(260px, 300px)',
+                                                                                    minWidth: 0,
+                                                                                    width: '100%',
+                                                                                }}
+                                                                            >
                                                                                 <div
                                                                                     style={{
-                                                                                        display: 'flex',
-                                                                                        flexDirection: 'row',
-                                                                                        height: '300px',
-                                                                                        minHeight: '260px',
                                                                                         minWidth: 0,
+                                                                                        position: 'relative',
+                                                                                        borderRight: '1px solid var(--color-border)',
                                                                                         borderBottom: '1px solid var(--color-border)',
-                                                                                    }}
-                                                                                >
-                                                                                    <div
-                                                                                        style={{
-                                                                                            flex: '1.25 1 0',
-                                                                                            minWidth: 0,
-                                                                                            position: 'relative',
-                                                                                            borderRight: '1px solid var(--color-border)',
-                                                                                            overflow: 'hidden',
-                                                                                        }}
-                                                                                    >
-                                                                                        {isExpanded && <MapVisualizer match={match} />}
-                                                                                    </div>
-                                                                                    <div
-                                                                                        style={{
-                                                                                            flex: '1 1 0',
-                                                                                            minWidth: 0,
-                                                                                            display: 'flex',
-                                                                                            flexDirection: 'column',
-                                                                                            zIndex: 10,
-                                                                                            overflow: 'hidden',
-                                                                                        }}
-                                                                                    >
-                                                                                        <CombatLog match={match} />
-                                                                                    </div>
-                                                                                </div>
-                                                                                <div
-                                                                                    style={{
-                                                                                        height: '300px',
-                                                                                        minHeight: '260px',
-                                                                                        minWidth: 0,
-                                                                                        display: 'flex',
-                                                                                        flexDirection: 'column',
-                                                                                        background: 'var(--color-bg-sub-header)',
                                                                                         overflow: 'hidden',
                                                                                     }}
                                                                                 >
-                                                                                    <MatchDetailTabs match={match} onUserSelect={handleSelectFromMatch} />
+                                                                                    {isExpanded && <MapVisualizer match={match} />}
                                                                                 </div>
-                                                                            </>
+                                                                                <div
+                                                                                    style={{
+                                                                                        minWidth: 0,
+                                                                                        display: 'flex',
+                                                                                        flexDirection: 'column',
+                                                                                        borderBottom: '1px solid var(--color-border)',
+                                                                                        zIndex: 10,
+                                                                                        overflow: 'hidden',
+                                                                                    }}
+                                                                                >
+                                                                                    <CombatLog match={match} />
+                                                                                </div>
+                                                                                <div
+                                                                                    style={{
+                                                                                        minWidth: 0,
+                                                                                        borderRight: '1px solid var(--color-border)',
+                                                                                        overflow: 'hidden',
+                                                                                    }}
+                                                                                >
+                                                                                    <MatchLoadoutPanel match={match} />
+                                                                                </div>
+                                                                                <div style={{ minWidth: 0, overflow: 'hidden' }}>
+                                                                                    <MatchStatsPanel match={match} onUserSelect={handleSelectFromMatch} />
+                                                                                </div>
+                                                                            </div>
                                                                         ) : (
                                                                             <>
                                                                                 <div
                                                                                     style={{
-                                                                                        flex: 5,
+                                                                                        flex: 4,
                                                                                         minWidth: 0,
                                                                                         position: 'relative',
                                                                                         borderRight: '1px solid var(--color-border)',
@@ -1291,7 +1048,7 @@ export default function SimpleWebApp() {
                                                                                 </div>
                                                                                 <div
                                                                                     style={{
-                                                                                        flex: 4,
+                                                                                        flex: 5,
                                                                                         minWidth: 0,
                                                                                         display: 'flex',
                                                                                         flexDirection: 'column',
@@ -1370,6 +1127,7 @@ export default function SimpleWebApp() {
                                     )}
                                 </>
                             )}
+                        </div>
                         </div>
                     </div>
                 </div>

@@ -1,17 +1,18 @@
-import React, { useState, useMemo, useRef, useEffect } from 'react';
+import React, { useState, useMemo, useRef, useEffect, useLayoutEffect } from 'react';
+import { createPortal } from 'react-dom';
 import {
     CartesianGrid, Tooltip, Cell,
     Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis,
     Line, Bar, BarChart, LineChart, XAxis, YAxis, ReferenceLine
 } from 'recharts';
 import ChartContainer from './ChartContainer';
-import { FaLock, FaHistory, FaInfoCircle, FaSync } from 'react-icons/fa';
+import { FaLock, FaHistory, FaInfoCircle, FaSync, FaChevronDown } from 'react-icons/fa';
 import { COLORS, TARGET_MAPS, MAP_THUMBNAILS, LEGENDS_LIST } from '../utils/gameData';
 import { useTranslation } from 'react-i18next';
 import { hasUsableMatchStats, type MatchHistory, type Season } from '../utils/match';
 import { normalizeHistoryForFrontend } from '../utils/matchNormalizer';
 import { fetchPlayerStats, type StatisticsMode } from '../utils/playerStatsApi';
-import { isSamePlayer, isKnownLegend, normalizeLegendKey, getTeammateSortKey, getAvgPlacementColor, getWinRateColor, getKdColor, getKadColor, getAvgDamageColor, getWinRateChipStyle, getMatchDeaths } from '../utils/helpers';
+import { isSamePlayer, isKnownLegend, normalizeLegendKey, getTeammateSortKey, getAvgPlacementColor, getWinRateColor, getKdColor, getKadColor, getAvgDamageColor, getWinRateChipStyle, getMatchDeaths, normalizeMapDisplayName } from '../utils/helpers';
 import {
     formatDuration,
     formatLegendDisplayName,
@@ -27,7 +28,7 @@ import {
     calculateStats,
 } from '../utils/statsAggregation';
 import { buildWeaponItems } from '../utils/tierTableData';
-import { getWeaponDisplayName, findWeaponByLoadoutId, getWeaponImageUrl } from '../utils/weaponTheme';
+import { getWeaponDisplayName, findWeaponByLoadoutId, getWeaponAmmoSilhouetteStyle, getWeaponImageUrl, getWeaponSilhouetteScale, getWeaponTagTheme, WHITE_SILHOUETTE_FILTER } from '../utils/weaponTheme';
 import {
     type TeammateMatchStat,
     MIN_GAMES_FOR_TEAMMATE_DELTA,
@@ -255,6 +256,56 @@ const mapBreakdownLegendInnerStyle: React.CSSProperties = {
     fontWeight: 'bold',
 };
 
+/** Shared column widths for paired-weapon / weapon-legend detail tables (same x positions). */
+const catalogPairTableStyle: React.CSSProperties = {
+    ...mapBreakdownTableStyle,
+    tableLayout: 'fixed',
+};
+
+const CatalogPairColgroup = () => (
+    <colgroup>
+        <col style={{ width: '36px' }} />
+        <col />
+        <col style={{ width: '68px' }} />
+        <col style={{ width: '72px' }} />
+        <col style={{ width: '64px' }} />
+        <col style={{ width: '56px' }} />
+        <col style={{ width: '56px' }} />
+    </colgroup>
+);
+
+const catalogPairMediaSlotStyle: React.CSSProperties = {
+    width: '44px',
+    height: '28px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    background: 'rgba(255,255,255,0.05)',
+    borderRadius: '6px',
+    flexShrink: 0,
+    overflow: 'hidden',
+};
+
+/** Ammo-tinted weapon silhouette for breakdown / pair tables. */
+const WeaponTableIcon = ({
+    weaponId,
+    name,
+    width = 40,
+    height = 20,
+}: {
+    weaponId: string;
+    name: string;
+    width?: number;
+    height?: number;
+}) => (
+    <span
+        role="img"
+        aria-label={name}
+        title={name}
+        style={getWeaponAmmoSilhouetteStyle(weaponId, { width, height })}
+    />
+);
+
 const MARQUEE_OVERFLOW_KEYFRAMES = `
 @keyframes marqueeOverflowPan {
     from { transform: translateX(0); }
@@ -374,7 +425,13 @@ const LegendWeaponMapBreakdown = ({ matches, legendName }: { matches: MatchHisto
         }),
         [weaponStats, weaponSort],
     );
-    const mapStats = useMemo(() => aggregateMapStatsForMatches(matches), [matches]);
+    const mapStats = useMemo(
+        () => [...aggregateMapStatsForMatches(matches)].sort((a, b) => {
+            if (b.games !== a.games) return b.games - a.games;
+            return a.name.localeCompare(b.name);
+        }),
+        [matches],
+    );
 
     const panelHeader = (title: string) => (
         <div style={{
@@ -431,12 +488,7 @@ const LegendWeaponMapBreakdown = ({ matches, legendName }: { matches: MatchHisto
                                         <td style={mapBreakdownLegendBodyCellStyle}>
                                             <div style={mapBreakdownLegendInnerStyle}>
                                                 <div style={{ width: '40px', height: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,255,255,0.05)', borderRadius: '4px', flexShrink: 0 }}>
-                                                    <img
-                                                        src={`https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/${w.id}.png`}
-                                                        alt={w.name}
-                                                        style={{ maxWidth: '34px', maxHeight: '16px', objectFit: 'contain' }}
-                                                        onError={(e) => { e.currentTarget.style.display = 'none'; }}
-                                                    />
+                                                    <WeaponTableIcon weaponId={w.id} name={w.name} width={34} height={16} />
                                                 </div>
                                                 <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }} title={w.name}>{w.name}</span>
                                             </div>
@@ -577,7 +629,7 @@ const MapLegendBreakdown = ({
         <img
             src={`${MAP_IMAGE_BASE}${legendId}.png`}
             alt={legendId}
-            style={{ width: size, height: size, objectFit: 'contain', borderRadius: '50%' }}
+            style={{ width: size, height: size, objectFit: 'contain', borderRadius: '50%', flexShrink: 0 }}
             onError={(e) => {
                 e.currentTarget.src = `${MAP_IMAGE_BASE}unknown.png`;
             }}
@@ -594,9 +646,7 @@ const MapLegendBreakdown = ({
     const renderMapBreakdownLegendCell = (legendId: string, name: string) => (
         <td style={mapBreakdownLegendBodyCellStyle}>
             <div style={mapBreakdownLegendInnerStyle}>
-                <div style={{ width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,255,255,0.05)', borderRadius: '50%', flexShrink: 0, overflow: 'hidden' }}>
-                    {renderLegendAvatar(legendId, 24)}
-                </div>
+                {renderLegendAvatar(legendId, 24)}
                 <MarqueeLegendName name={name} />
             </div>
         </td>
@@ -756,16 +806,349 @@ const EmptyState = ({ msg }: EmptyStateProps) => {
     );
 };
 
+type CatalogPickerItem = { id: string; label: string; imageUrl: string };
+
+/** Click trigger → icon grid dropdown for legend/weapon catalog selection. */
+const CatalogPickerDropdown = ({
+    items,
+    selectedId,
+    onSelect,
+    media,
+    children,
+}: {
+    items: CatalogPickerItem[];
+    selectedId: string | null;
+    onSelect: (id: string) => void;
+    media: 'legend' | 'weapon';
+    children: React.ReactNode;
+}) => {
+    const [open, setOpen] = useState(false);
+    const rootRef = useRef<HTMLDivElement>(null);
+    const panelRef = useRef<HTMLDivElement>(null);
+    const [panelPos, setPanelPos] = useState<{
+        left: number;
+        width: number;
+        maxHeight: number;
+        top?: number;
+        bottom?: number;
+    } | null>(null);
+
+    useLayoutEffect(() => {
+        if (!open) {
+            setPanelPos(null);
+            return;
+        }
+        const update = () => {
+            const el = rootRef.current;
+            if (!el) return;
+            const rect = el.getBoundingClientRect();
+            const margin = 12;
+            const navSafe = 70;
+            const leftSafe = navSafe + margin;
+            const rightSafe = margin;
+            const availableW = Math.max(0, window.innerWidth - leftSafe - rightSafe);
+            const width = Math.min(760, availableW);
+            if (width <= 0) return;
+
+            const centerX = rect.left + rect.width / 2;
+            const left = Math.min(
+                Math.max(leftSafe, centerX - width / 2),
+                Math.max(leftSafe, window.innerWidth - width - rightSafe),
+            );
+
+            const gap = 8;
+            const spaceBelow = Math.max(0, window.innerHeight - rect.bottom - gap - margin);
+            const spaceAbove = Math.max(0, rect.top - gap - margin);
+            const preferBelow = spaceBelow >= 220 || spaceBelow >= spaceAbove;
+            const rawMax = Math.min(440, preferBelow ? spaceBelow : spaceAbove);
+            const maxHeight = Math.max(0, rawMax);
+
+            if (preferBelow) {
+                const top = Math.min(rect.bottom + gap, window.innerHeight - margin);
+                const capped = Math.min(maxHeight, Math.max(0, window.innerHeight - margin - top));
+                setPanelPos({ top, left, width, maxHeight: capped });
+            } else {
+                const bottom = Math.max(margin, window.innerHeight - rect.top + gap);
+                const capped = Math.min(maxHeight, Math.max(0, window.innerHeight - margin - bottom));
+                setPanelPos({ bottom, left, width, maxHeight: capped });
+            }
+        };
+        update();
+        window.addEventListener('resize', update);
+        window.addEventListener('scroll', update, true);
+        return () => {
+            window.removeEventListener('resize', update);
+            window.removeEventListener('scroll', update, true);
+        };
+    }, [open]);
+
+    // Second pass: clamp after paint if the panel still overflows the viewport.
+    useLayoutEffect(() => {
+        if (!open || !panelPos) return;
+        const panel = panelRef.current;
+        if (!panel) return;
+        const box = panel.getBoundingClientRect();
+        const margin = 12;
+        const leftSafe = 70 + margin;
+        let left = panelPos.left;
+        let maxHeight = panelPos.maxHeight;
+        let changed = false;
+
+        if (box.right > window.innerWidth - margin) {
+            left = Math.max(leftSafe, window.innerWidth - margin - box.width);
+            changed = true;
+        }
+        if (box.left < leftSafe) {
+            left = leftSafe;
+            changed = true;
+        }
+        if (box.bottom > window.innerHeight - margin) {
+            maxHeight = Math.max(80, maxHeight - (box.bottom - (window.innerHeight - margin)));
+            changed = true;
+        }
+        if (box.top < margin) {
+            maxHeight = Math.max(80, maxHeight - (margin - box.top));
+            changed = true;
+        }
+
+        if (
+            changed
+            && (left !== panelPos.left || maxHeight !== panelPos.maxHeight)
+        ) {
+            setPanelPos({ ...panelPos, left, maxHeight });
+        }
+    }, [open, panelPos]);
+
+    useEffect(() => {
+        if (!open) return;
+        const onDoc = (e: MouseEvent) => {
+            const target = e.target as Node;
+            if (rootRef.current?.contains(target) || panelRef.current?.contains(target)) return;
+            setOpen(false);
+        };
+        const onKey = (e: KeyboardEvent) => {
+            if (e.key === 'Escape') setOpen(false);
+        };
+        document.addEventListener('mousedown', onDoc);
+        document.addEventListener('keydown', onKey);
+        return () => {
+            document.removeEventListener('mousedown', onDoc);
+            document.removeEventListener('keydown', onKey);
+        };
+    }, [open]);
+
+    const cellW = media === 'legend' ? 56 : 72;
+    const cellH = media === 'legend' ? 56 : 48;
+
+    return (
+        <div ref={rootRef} style={{ position: 'relative', display: 'inline-flex', maxWidth: '100%', zIndex: open ? 30 : undefined }}>
+            <button
+                type="button"
+                onClick={() => setOpen((v) => !v)}
+                aria-expanded={open}
+                style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 10,
+                    padding: 0,
+                    margin: 0,
+                    border: 'none',
+                    background: 'transparent',
+                    cursor: 'pointer',
+                    color: 'inherit',
+                    textAlign: 'left',
+                    maxWidth: '100%',
+                }}
+            >
+                {children}
+                <FaChevronDown
+                    size={12}
+                    style={{
+                        flexShrink: 0,
+                        opacity: 0.75,
+                        transform: open ? 'rotate(180deg)' : 'none',
+                        transition: 'transform 0.15s',
+                    }}
+                />
+            </button>
+            {open && panelPos
+                ? createPortal(
+                    <div
+                        ref={panelRef}
+                        role="listbox"
+                        style={{
+                            position: 'fixed',
+                            top: panelPos.top,
+                            bottom: panelPos.bottom,
+                            left: panelPos.left,
+                            zIndex: 10000,
+                            width: panelPos.width,
+                            maxWidth: `calc(100vw - ${70 + 12 + 12}px)`,
+                            maxHeight: panelPos.maxHeight,
+                            overflowX: 'hidden',
+                            overflowY: 'auto',
+                            boxSizing: 'border-box',
+                            padding: 14,
+                            borderRadius: 12,
+                            border: '1px solid var(--color-border)',
+                            background: 'var(--color-bg-card)',
+                            boxShadow: '0 12px 32px rgba(0,0,0,0.5)',
+                            display: 'flex',
+                            flexWrap: 'wrap',
+                            gap: 10,
+                            alignContent: 'flex-start',
+                        }}
+                    >
+                        {items.map((item) => {
+                            const selected = item.id === selectedId;
+                            const weaponTheme = media === 'weapon' ? getWeaponTagTheme(item.id, 'master') : null;
+                            const weaponBg = weaponTheme
+                                ? `linear-gradient(rgba(0,0,0,0.58), rgba(0,0,0,0.52)), ${weaponTheme.bgGradient ?? weaponTheme.themeColor}`
+                                : undefined;
+                            const weaponScale = media === 'weapon' ? getWeaponSilhouetteScale(item.id) * 0.9 : 1;
+                            const outlineShadow = selected
+                                ? 'inset 0 0 0 2px #e17055'
+                                : weaponTheme
+                                    ? `inset 0 0 0 1px color-mix(in srgb, ${weaponTheme.themeColor} 45%, var(--color-border))`
+                                    : 'inset 0 0 0 1px var(--color-border)';
+                            return (
+                                <button
+                                    key={item.id}
+                                    type="button"
+                                    role="option"
+                                    aria-selected={selected}
+                                    title={item.label}
+                                    onClick={() => {
+                                        onSelect(item.id);
+                                        setOpen(false);
+                                    }}
+                                    style={{
+                                        position: 'relative',
+                                        width: cellW,
+                                        height: cellH,
+                                        borderRadius: 8,
+                                        border: 'none',
+                                        padding: 0,
+                                        overflow: 'hidden',
+                                        cursor: 'pointer',
+                                        // Legends stay grayscale when unselected; weapons use white silhouette on the img
+                                        filter: media === 'legend'
+                                            ? (selected ? 'grayscale(0%)' : 'grayscale(80%)')
+                                            : undefined,
+                                        opacity: selected ? 1 : media === 'weapon' ? 0.88 : 0.65,
+                                        background: weaponBg ?? 'rgba(0,0,0,0.28)',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                    }}
+                                >
+                                    <img
+                                        src={item.imageUrl}
+                                        alt={item.label}
+                                        style={media === 'legend'
+                                            ? { width: '100%', height: '100%', objectFit: 'cover', transform: 'scale(1.12)' }
+                                            : {
+                                                maxWidth: '92%',
+                                                maxHeight: '88%',
+                                                objectFit: 'contain',
+                                                filter: WHITE_SILHOUETTE_FILTER,
+                                                transform: `scale(${weaponScale})`,
+                                                transformOrigin: 'center',
+                                            }}
+                                        onError={(e) => {
+                                            if (media === 'legend') {
+                                                (e.target as HTMLImageElement).src = `${MAP_IMAGE_BASE}unknown.png`;
+                                            } else {
+                                                (e.target as HTMLImageElement).style.opacity = '0';
+                                            }
+                                        }}
+                                    />
+                                    <span
+                                        aria-hidden
+                                        style={{
+                                            position: 'absolute',
+                                            inset: 0,
+                                            borderRadius: 8,
+                                            boxShadow: outlineShadow,
+                                            pointerEvents: 'none',
+                                            zIndex: 1,
+                                        }}
+                                    />
+                                </button>
+                            );
+                        })}
+                    </div>,
+                    document.body,
+                )
+                : null}
+        </div>
+    );
+};
+
+/** Single-row stat strip: centered group; shrinks instead of wrapping when narrow. */
+const overviewStatStripStyle = (padding: string): React.CSSProperties => ({
+    padding,
+    display: 'flex',
+    flexWrap: 'nowrap',
+    justifyContent: 'center',
+    alignItems: 'stretch',
+    gap: '12px',
+    borderBottom: '1px solid var(--color-border)',
+    minWidth: 0,
+    width: '100%',
+    boxSizing: 'border-box',
+});
+
+/** Radar + Best Legend/Map/Weapon: always 4 columns on one row. */
+const overviewBestPicksGridStyle: React.CSSProperties = {
+    display: 'grid',
+    gridTemplateColumns: 'minmax(0, 1.15fr) repeat(3, minmax(0, 1fr))',
+    gap: 10,
+    minHeight: 280,
+    padding: 12,
+    alignItems: 'stretch',
+    justifyContent: 'center',
+    boxSizing: 'border-box',
+    minWidth: 0,
+    width: '100%',
+};
+
 const MapOverviewStat = ({ label, value, color = 'var(--color-text-primary)' }: { label: string; value: string | number; color?: string }) => (
     <div style={{
+        flex: '1 1 0',
+        minWidth: 0,
+        maxWidth: 160,
+        width: '100%',
         textAlign: 'center',
-        padding: '14px 10px',
+        padding: '14px 8px',
         background: 'rgba(255,255,255,0.03)',
         borderRadius: '10px',
         border: '1px solid var(--color-border)',
+        boxSizing: 'border-box',
     }}>
-        <div style={{ fontSize: '10px', color: 'var(--color-text-muted)', marginBottom: '6px', fontWeight: 600, lineHeight: 1.25 }}>{label}</div>
-        <div style={{ fontSize: '18px', fontWeight: 'bold', color, lineHeight: 1.2 }}>{value}</div>
+        <div style={{
+            fontSize: '10px',
+            color: 'var(--color-text-muted)',
+            marginBottom: '6px',
+            fontWeight: 600,
+            lineHeight: 1.25,
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+        }}>
+            {label}
+        </div>
+        <div style={{
+            fontSize: '18px',
+            fontWeight: 'bold',
+            color,
+            lineHeight: 1.2,
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+        }}>
+            {value}
+        </div>
     </div>
 );
 
@@ -785,18 +1168,30 @@ const OverviewRankCard = ({
     name,
     media,
     children,
+    onClick,
 }: {
     rank: number;
     id: string;
     name: string;
     media: 'legend' | 'weapon';
     children: React.ReactNode;
+    onClick?: () => void;
 }) => {
     const isFirst = rank === 0;
     const isLegend = media === 'legend';
     const imageSrc = isLegend ? `${MAP_IMAGE_BASE}${id}.png` : getWeaponImageUrl(id);
     return (
-        <div style={{
+        <div
+            onClick={onClick}
+            role={onClick ? 'button' : undefined}
+            tabIndex={onClick ? 0 : undefined}
+            onKeyDown={onClick ? (e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    onClick();
+                }
+            } : undefined}
+            style={{
             flex: 1,
             minWidth: 0,
             alignSelf: 'stretch',
@@ -807,6 +1202,7 @@ const OverviewRankCard = ({
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
+            cursor: onClick ? 'pointer' : undefined,
         }}>
             <div style={{
                 width: isLegend ? OVERVIEW_RANK_MEDIA_SIZE : '100%',
@@ -886,17 +1282,115 @@ const OverviewRankEmpty = ({ msg }: { msg: string }) => (
     </div>
 );
 
-const OverviewSideStatRow = ({ label, value, color = 'var(--color-text-primary)', noBorder = false }: { label: string; value: string | number; color?: string; noBorder?: boolean }) => (
-    <div style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        gap: '12px',
-        padding: '11px 0',
-        borderBottom: noBorder ? 'none' : '1px solid var(--color-border)',
-    }}>
-        <span style={{ fontSize: '11px', color: 'var(--color-text-muted)', fontWeight: 600, lineHeight: 1.3 }}>{label}</span>
-        <span style={{ fontSize: '15px', fontWeight: 'bold', color, flexShrink: 0 }}>{value}</span>
+const OVERVIEW_BEST_PICK_SCRIM =
+    'linear-gradient(180deg, rgba(0,0,0,0.2) 0%, rgba(0,0,0,0.45) 42%, rgba(0,0,0,0.88) 100%)';
+
+type OverviewBestPickStat = {
+    label: string;
+    value: string | number;
+    color?: string;
+};
+
+const OverviewBestPickCard = ({
+    label,
+    title,
+    stats,
+    style,
+    children,
+}: {
+    label: string;
+    title: string;
+    stats: OverviewBestPickStat[];
+    style?: React.CSSProperties;
+    children?: React.ReactNode;
+}) => (
+    <div
+        style={{
+            position: 'relative',
+            width: '100%',
+            height: '100%',
+            minHeight: 152,
+            minWidth: 0,
+            borderRadius: 12,
+            border: '1px solid color-mix(in srgb, var(--color-border-light) 70%, transparent)',
+            overflow: 'hidden',
+            boxSizing: 'border-box',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'flex-end',
+            padding: '12px 14px',
+            background: 'var(--color-bg-sub-header)',
+            ...style,
+        }}
+        title={label}
+    >
+        {children}
+        <div style={{ position: 'relative', zIndex: 2, minWidth: 0 }}>
+            <div style={{
+                fontSize: 9,
+                fontWeight: 600,
+                color: 'rgba(255,255,255,0.72)',
+                letterSpacing: '0.04em',
+                textTransform: 'uppercase',
+                marginBottom: 4,
+                textShadow: '0 1px 3px rgba(0,0,0,0.7)',
+            }}>
+                {label}
+            </div>
+            <div style={{
+                fontSize: 15,
+                fontWeight: 800,
+                color: '#fff',
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                textShadow: '0 1px 3px rgba(0,0,0,0.7)',
+                marginBottom: stats.length > 0 ? 10 : 0,
+            }}>
+                {title}
+            </div>
+            {stats.length > 0 ? (
+                <div style={{ display: 'flex', gap: 6, width: '100%' }}>
+                    {stats.map((stat) => (
+                        <div
+                            key={stat.label}
+                            style={{
+                                flex: 1,
+                                minWidth: 0,
+                                textAlign: 'center',
+                                padding: '6px 4px',
+                                borderRadius: 8,
+                                background: 'rgba(0,0,0,0.35)',
+                                border: '1px solid rgba(255,255,255,0.08)',
+                            }}
+                        >
+                            <div style={{
+                                fontSize: 9,
+                                color: 'rgba(255,255,255,0.62)',
+                                fontWeight: 600,
+                                marginBottom: 2,
+                                whiteSpace: 'nowrap',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                            }}>
+                                {stat.label}
+                            </div>
+                            <div style={{
+                                fontSize: 12,
+                                fontWeight: 800,
+                                color: stat.color || '#fff',
+                                whiteSpace: 'nowrap',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                textShadow: '0 1px 2px rgba(0,0,0,0.55)',
+                            }}>
+                                {stat.value}
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            ) : null}
+        </div>
     </div>
 );
 
@@ -907,7 +1401,7 @@ const overviewXAxisTick = { fill: 'var(--color-text-faint)', fontSize: 9 };
 
 type RadarAxisKey = 'combat' | 'damage' | 'macro' | 'team' | 'peak';
 
-const RADAR_OUTER_RADIUS_RATIO = 0.68;
+const RADAR_OUTER_RADIUS_RATIO = 0.78;
 
 const polarPointFromTopCw = (cx: number, cy: number, r: number, degFromTopCw: number) => {
     const rad = (degFromTopCw * Math.PI) / 180;
@@ -1099,7 +1593,7 @@ const OverviewRadarChart = ({
                     <RadarChart
                         cx="50%"
                         cy="50%"
-                        outerRadius="68%"
+                        outerRadius="78%"
                         data={radarData}
                         onClick={() => {}}
                     >
@@ -1161,8 +1655,8 @@ const OverviewTrendChart = ({
     onHoverMatch,
     syncId,
 }: {
-    data: Array<{ idx: number; name: string; kills: number; damage: number; placement: number; legendId: string; legendName: string }>;
-    valueKey: 'placement' | 'kills' | 'damage';
+    data: Array<{ idx: number; name: string; kills: number; assists: number; damage: number; placement: number; legendId: string; legendName: string }>;
+    valueKey: 'placement' | 'kills' | 'assists' | 'damage';
     color: string;
     type: 'bar' | 'line';
     reversedY?: boolean;
@@ -1286,7 +1780,7 @@ const OverviewTrendChart = ({
 const OverviewPerformanceCharts = ({
     data,
 }: {
-    data: Array<{ idx: number; name: string; kills: number; damage: number; placement: number; legendId: string; legendName: string }>;
+    data: Array<{ idx: number; name: string; kills: number; assists: number; damage: number; placement: number; legendId: string; legendName: string }>;
 }) => {
     const { t } = useTranslation();
     const [hoveredMatch, setHoveredMatch] = useState<string | null>(null);
@@ -1296,6 +1790,7 @@ const OverviewPerformanceCharts = ({
     const chartRows = [
         { title: t('statistics.overview.chartPlacement'), valueKey: 'placement' as const, color: '#54a0ff', type: 'line' as const, reversedY: true },
         { title: t('statistics.overview.chartKills'), valueKey: 'kills' as const, color: 'var(--color-danger)', type: 'bar' as const },
+        { title: t('statistics.overview.chartAssists'), valueKey: 'assists' as const, color: '#f1c40f', type: 'bar' as const },
         { title: t('statistics.overview.chartDamage'), valueKey: 'damage' as const, color: '#ffa502', type: 'bar' as const },
     ];
 
@@ -1347,6 +1842,7 @@ const OverviewPerformanceCharts = ({
                                 <div style={{ display: 'flex', gap: '12px', fontSize: '13px', fontWeight: 'bold', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                     <span style={{ color: getAvgPlacementColor(String(hovered.placement)) }}>#{hovered.placement}</span>
                                     <span style={{ color: 'var(--color-danger)' }}>{hovered.kills} {t('statistics.overview.chartKills')}</span>
+                                    <span style={{ color: '#f1c40f' }}>{hovered.assists} {t('statistics.overview.chartAssists')}</span>
                                     <span style={{ color: '#ffa502' }}>{hovered.damage.toLocaleString()} {t('statistics.overview.chartDamage')}</span>
                                 </div>
                             </div>
@@ -1432,8 +1928,64 @@ const OverviewView = ({
     const { t } = useTranslation();
     const stats = calculateStats(data);
     const analytics = useMemo(() => (stats ? computeOverviewAnalytics(stats, data) : null), [stats, data]);
-    const topMap = useMemo(() => aggregateMapStatsForMatches(data)[0], [data]);
+    const topMap = useMemo(() => {
+        const maps = aggregateMapStatsForMatches(data);
+        return [...maps].sort((a, b) => (b.games !== a.games ? b.games - a.games : a.name.localeCompare(b.name)))[0];
+    }, [data]);
     const headerBgUrl = getMapThumbnailUrl(topMap?.name ?? TARGET_MAPS[0]);
+
+    const bestPicks = useMemo(() => {
+        const usable = data.filter((m) => isKnownLegend(m.legend) && hasUsableMatchStats(m));
+        // Aggregators already sort by hybrid rankScore (volume × KD with prior).
+        const legends = aggregateLegendStatsForMatches(usable);
+        const maps = aggregateMapStatsForMatches(usable);
+        const weapons = aggregateWeaponStatsForMatches(usable);
+        return {
+            legend: legends[0] ?? null,
+            map: maps[0] ?? null,
+            weapon: weapons[0] ?? null,
+        };
+    }, [data]);
+
+    const radarPanelRef = useRef<HTMLDivElement>(null);
+    const [compactRadarTier, setCompactRadarTier] = useState(false);
+
+    useEffect(() => {
+        const el = radarPanelRef.current;
+        if (!el || typeof ResizeObserver === 'undefined') return;
+
+        const ENTER_W = 280;
+        const EXIT_W = 310;
+        const ENTER_H = 250;
+        const EXIT_H = 285;
+
+        const update = (width: number, height: number) => {
+            setCompactRadarTier((prev) => {
+                // Hysteresis: footer/padding must not flip the measured box across the threshold.
+                if (prev) return width < EXIT_W || height < EXIT_H;
+                return width < ENTER_W || height < ENTER_H;
+            });
+        };
+
+        const readSize = () => {
+            // Prefer border box — contentRect changes when padding toggles and causes flicker.
+            update(el.clientWidth, el.clientHeight);
+        };
+        readSize();
+
+        const observer = new ResizeObserver((entries) => {
+            const entry = entries[0];
+            if (!entry) return;
+            const box = entry.borderBoxSize?.[0];
+            if (box) {
+                update(box.inlineSize, box.blockSize);
+                return;
+            }
+            update(el.clientWidth, el.clientHeight);
+        });
+        observer.observe(el);
+        return () => observer.disconnect();
+    }, []);
 
     const radarData = useMemo(() => {
         if (!analytics) return [];
@@ -1458,6 +2010,7 @@ const OverviewView = ({
                     idx: i,
                     name: `${i + 1}`,
                     kills: m.kills || 0,
+                    assists: m.assists || 0,
                     damage: m.damage || 0,
                     placement: Number(m.placement),
                     legendId: legendKey,
@@ -1508,13 +2061,7 @@ const OverviewView = ({
                     </div>
                 </div>
 
-                <div style={{
-                    padding: '16px 24px',
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fit, minmax(96px, 1fr))',
-                    gap: '12px',
-                    borderBottom: '1px solid var(--color-border)',
-                }}>
+                <div style={overviewStatStripStyle('16px 24px')}>
                     <MapOverviewStat label={t('statistics.maps.totalMatches')} value={stats.matches} />
                     <MapOverviewStat label={t('statistics.maps.winRate')} value={`${stats.winRate}%`} color={getWinRateColor(stats.winRate)} />
                     <MapOverviewStat label={t('statistics.common.avgPlacementShort')} value={`#${stats.avgPlacement}`} color={getAvgPlacementColor(stats.avgPlacement)} />
@@ -1524,104 +2071,195 @@ const OverviewView = ({
                     <MapOverviewStat label={t('statistics.maps.avgSurvival')} value={stats.avgTime} color="#54a0ff" />
                 </div>
 
-                <div style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'minmax(0, 1.45fr) minmax(168px, 0.55fr)',
-                    alignItems: 'stretch',
-                    minHeight: '268px',
-                }}>
+                <div style={overviewBestPicksGridStyle}>
                     <div
+                        ref={radarPanelRef}
                         className="overview-radar-chart"
                         style={{
                             position: 'relative',
-                            minHeight: '268px',
-                            padding: '10px 12px 14px',
-                            borderRight: '1px solid var(--color-border)',
+                            minWidth: 0,
+                            minHeight: 260,
+                            height: '100%',
+                            padding: 0,
+                            borderRadius: 12,
+                            border: '1px solid var(--color-border)',
+                            background: 'var(--color-bg-sub-header)',
+                            boxSizing: 'border-box',
                             userSelect: 'none',
                             cursor: 'default',
+                            overflow: 'hidden',
+                            display: 'flex',
+                            flexDirection: 'column',
                         }}
                         onMouseDown={(e) => e.preventDefault()}
                     >
-                        <OverviewRadarChart
-                            radarData={radarData}
-                            stats={stats}
-                            radarScores={analytics.radarScores}
-                            bestPeakMatch={analytics.bestPeakMatch}
-                            isPremium
-                        />
                         <div style={{
-                            position: 'absolute',
-                            right: 16,
-                            bottom: 14,
-                            pointerEvents: 'none',
-                            padding: '8px 14px',
-                            borderRadius: '10px',
-                            background: 'rgba(0,0,0,0.45)',
-                            border: '1px solid var(--color-border)',
-                            backdropFilter: 'blur(4px)',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            minWidth: '76px',
+                            flex: 1,
+                            minHeight: 0,
+                            position: 'relative',
+                            padding: '8px 8px 12px',
                             boxSizing: 'border-box',
                         }}>
-                            <div style={{ fontSize: '10px', color: COLORS.NEON_RED, fontWeight: 'bold', letterSpacing: '0.06em', lineHeight: 1.2 }}>{t('statistics.overview.tier')}</div>
-                            <div style={{ fontSize: '30px', fontWeight: 900, color: tierColor, letterSpacing: '-1px', lineHeight: 1.1, margin: '2px 0' }}>{totalTier}</div>
-                            <div style={{ fontSize: '10px', color: 'var(--color-text-muted)', lineHeight: 1.2 }}>{totalScore}/100</div>
-                        </div>
-                    </div>
-
-                    <div style={{
-                        padding: '16px 18px',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        justifyContent: 'center',
-                        minWidth: 0,
-                        gap: '0',
-                    }}>
-                        {mostLegendName && (
-                            <div style={{
-                                display: 'flex',
-                                flexDirection: 'column',
-                                alignItems: 'center',
-                                textAlign: 'center',
-                                paddingBottom: '14px',
-                                marginBottom: '6px',
-                                borderBottom: '1px solid var(--color-border)',
-                            }}>
+                            <OverviewRadarChart
+                                radarData={radarData}
+                                stats={stats}
+                                radarScores={analytics.radarScores}
+                                bestPeakMatch={analytics.bestPeakMatch}
+                                isPremium
+                            />
+                            {!compactRadarTier ? (
                                 <div style={{
-                                    width: '52px',
-                                    height: '52px',
-                                    borderRadius: '50%',
-                                    overflow: 'hidden',
-                                    border: '2px solid #e17055',
-                                    background: 'rgba(255,255,255,0.05)',
-                                    marginBottom: '8px',
-                                    flexShrink: 0,
+                                    position: 'absolute',
+                                    right: 10,
+                                    bottom: 10,
+                                    zIndex: 3,
+                                    pointerEvents: 'none',
+                                    padding: '8px 12px',
+                                    borderRadius: '10px',
+                                    background: 'rgba(0,0,0,0.55)',
+                                    border: '1px solid var(--color-border)',
+                                    backdropFilter: 'blur(4px)',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    minWidth: '68px',
+                                    boxSizing: 'border-box',
                                 }}>
-                                    <img
-                                        src={`${MAP_IMAGE_BASE}${stats.mostLegend}.png`}
-                                        alt={mostLegendName}
-                                        style={{ width: '100%', height: '100%', objectFit: 'cover', transform: 'scale(1.12)' }}
-                                        onError={(e) => { e.currentTarget.src = `${MAP_IMAGE_BASE}unknown.png`; }}
-                                    />
+                                    <div style={{ fontSize: '10px', color: COLORS.NEON_RED, fontWeight: 'bold', letterSpacing: '0.06em', lineHeight: 1.2 }}>{t('statistics.overview.tier')}</div>
+                                    <div style={{ fontSize: '28px', fontWeight: 900, color: tierColor, letterSpacing: '-1px', lineHeight: 1.1, margin: '2px 0' }}>{totalTier}</div>
+                                    <div style={{ fontSize: '10px', color: 'var(--color-text-muted)', lineHeight: 1.2 }}>{totalScore}/100</div>
                                 </div>
-                                <div style={{ fontSize: '10px', color: 'var(--color-text-muted)', fontWeight: 600, marginBottom: '3px' }}>
-                                    {t('statistics.maps.mostPlayedLegend')}
+                            ) : null}
+                        </div>
+                        {compactRadarTier ? (
+                            <div style={{
+                                flexShrink: 0,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'flex-end',
+                                gap: 10,
+                                width: '100%',
+                                margin: 0,
+                                padding: '8px 12px',
+                                boxSizing: 'border-box',
+                                borderTop: '1px solid var(--color-border)',
+                                background: 'rgba(0,0,0,0.22)',
+                            }}>
+                                <div style={{ fontSize: '10px', color: COLORS.NEON_RED, fontWeight: 'bold', letterSpacing: '0.06em' }}>
+                                    {t('statistics.overview.tier')}
                                 </div>
-                                <div style={{ fontSize: '13px', fontWeight: 'bold', color: 'var(--color-text-dim)', lineHeight: 1.25, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%' }} title={mostLegendName}>
-                                    {mostLegendName}
+                                <div style={{ fontSize: '22px', fontWeight: 900, color: tierColor, letterSpacing: '-1px', lineHeight: 1 }}>
+                                    {totalTier}
+                                </div>
+                                <div style={{ fontSize: '10px', color: 'var(--color-text-muted)' }}>
+                                    {totalScore}/100
                                 </div>
                             </div>
-                        )}
-                        <OverviewSideStatRow label={t('statistics.overview.peakKillsShort')} value={stats.maxKills} color="#ff9ff3" />
-                        <OverviewSideStatRow label={t('statistics.legends.totalKills')} value={stats.kills} />
-                        <OverviewSideStatRow label={t('statistics.overview.killContributeShort')} value={`${stats.lograte}%`} color="#54a0ff" noBorder />
-                        <div style={{ paddingTop: '10px', fontSize: '10px', color: 'var(--color-text-faint)', lineHeight: 1.4, textAlign: 'center' }}>
-                            {t('statistics.overview.totalDamage', { count: stats.totalDamage })}
-                        </div>
+                        ) : null}
                     </div>
+
+                    {(() => {
+                            const legend = bestPicks.legend;
+                            const map = bestPicks.map;
+                            const weapon = bestPicks.weapon;
+                            const weaponTheme = weapon ? getWeaponTagTheme(weapon.id, 'user') : null;
+                            const weaponAccent = weaponTheme?.themeColor || weaponTheme?.color || '#8899aa';
+                            const weaponUrl = weapon ? getWeaponImageUrl(weapon.id) : '';
+                            const na = t('statistics.common.na');
+
+                            return (
+                                <>
+                                    <OverviewBestPickCard
+                                        label={t('statistics.overview.bestLegend', { defaultValue: 'Best Legend' })}
+                                        title={legend ? formatLegendDisplayName(legend.id) : '—'}
+                                        stats={legend ? [
+                                            { label: t('statistics.legends.matches'), value: legend.games },
+                                            { label: t('statistics.legends.winRate'), value: `${legend.winRate}%`, color: getWinRateColor(legend.winRate) },
+                                            { label: t('statistics.legends.kd'), value: formatKdNumber(legend.kd), color: getKdColor(legend.kd) },
+                                        ] : []}
+                                        style={legend ? {
+                                            backgroundColor: '#0a0a0a',
+                                            backgroundImage: `${OVERVIEW_BEST_PICK_SCRIM}, url(${MAP_IMAGE_BASE}${legend.id}.png)`,
+                                            // Height-fit (not cover): wide maximized cards otherwise crop to a center strip
+                                            backgroundSize: 'auto 100%',
+                                            backgroundPosition: 'center top',
+                                            backgroundRepeat: 'no-repeat',
+                                        } : undefined}
+                                    />
+                                    <OverviewBestPickCard
+                                        label={t('statistics.overview.bestMap', { defaultValue: 'Best Map' })}
+                                        title={map ? normalizeMapDisplayName(map.name) : '—'}
+                                        stats={map ? [
+                                            { label: t('statistics.legends.matches'), value: map.games },
+                                            { label: t('statistics.maps.winRate'), value: `${map.winRate}%`, color: getWinRateColor(map.winRate) },
+                                            { label: t('statistics.legends.kd'), value: formatKdNumber(map.kd), color: getKdColor(map.kd) },
+                                        ] : []}
+                                        style={map ? {
+                                            backgroundImage: `${OVERVIEW_BEST_PICK_SCRIM}, url(${getMapThumbnailUrl(map.name)})`,
+                                            backgroundSize: 'cover',
+                                            backgroundPosition: 'center',
+                                            backgroundRepeat: 'no-repeat',
+                                        } : undefined}
+                                    />
+                                    <OverviewBestPickCard
+                                        label={t('statistics.overview.bestWeapon', { defaultValue: 'Best Weapon' })}
+                                        title={weapon ? (getWeaponDisplayName(weapon.id) || weapon.name) : '—'}
+                                        stats={weapon ? [
+                                            { label: t('statistics.weapons.matches'), value: weapon.usageLabel },
+                                            { label: t('statistics.weapons.winRate'), value: formatWeaponWinRate(weapon.winRate, weapon.hasWinRate), color: getWinRateColor(weapon.winRate, { hasValue: weapon.hasWinRate }) },
+                                            { label: t('statistics.weapons.kd'), value: formatWeaponKd(weapon.kd, weapon.hasKd, na), color: getKdColor(weapon.hasKd ? weapon.kd : null) },
+                                        ] : []}
+                                        style={weapon ? {
+                                            background: `linear-gradient(160deg, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.72) 48%, color-mix(in srgb, ${weaponAccent} 26%, rgba(0,0,0,0.88)) 100%)`,
+                                        } : undefined}
+                                    >
+                                        {weaponUrl ? (
+                                            <>
+                                                <img
+                                                    src={weaponUrl}
+                                                    alt=""
+                                                    aria-hidden
+                                                    style={{
+                                                        position: 'absolute',
+                                                        left: '50%',
+                                                        top: '36%',
+                                                        transform: 'translate(-50%, -50%) scale(1.75)',
+                                                        width: 'min(64%, 168px)',
+                                                        maxHeight: 'min(72%, 108px)',
+                                                        objectFit: 'contain',
+                                                        opacity: 0.28,
+                                                        filter: 'blur(6px) saturate(1.15)',
+                                                        pointerEvents: 'none',
+                                                        zIndex: 0,
+                                                    }}
+                                                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                                                />
+                                                <img
+                                                    src={weaponUrl}
+                                                    alt=""
+                                                    aria-hidden
+                                                    style={{
+                                                        position: 'absolute',
+                                                        left: '50%',
+                                                        top: '36%',
+                                                        transform: 'translate(-50%, -50%)',
+                                                        width: 'min(64%, 168px)',
+                                                        maxHeight: 'min(70%, 104px)',
+                                                        objectFit: 'contain',
+                                                        opacity: 0.92,
+                                                        filter: 'drop-shadow(0 2px 8px rgba(0,0,0,0.55))',
+                                                        pointerEvents: 'none',
+                                                        zIndex: 1,
+                                                    }}
+                                                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                                                />
+                                            </>
+                                        ) : null}
+                                    </OverviewBestPickCard>
+                                </>
+                            );
+                        })()}
                 </div>
             </div>
 
@@ -1692,13 +2330,7 @@ const MapOverviewPanel = ({
                 </div>
             </div>
 
-            <div style={{
-                padding: '20px 24px',
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(96px, 1fr))',
-                gap: '12px',
-                borderBottom: '1px solid var(--color-border)',
-            }}>
+            <div style={overviewStatStripStyle('20px 24px')}>
                 <MapOverviewStat label={t('statistics.maps.totalMatches')} value={stats.matches} />
                 <MapOverviewStat label={t('statistics.maps.winRate')} value={`${stats.winRate}%`} color={getWinRateColor(stats.winRate)} />
                 <MapOverviewStat label={t('statistics.common.avgPlacementShort')} value={`#${stats.avgPlacement}`} color={getAvgPlacementColor(stats.avgPlacement)} />
@@ -1751,23 +2383,32 @@ const LegendOverviewPanel = ({
     stats,
     profileUid,
     profileName,
+    catalogItems,
+    onSelectLegend,
 }: {
-    legendId: string;
+    legendId: string | null;
     legendName: string;
     matches: MatchHistory[];
-    stats: NonNullable<ReturnType<typeof calculateStats>>;
+    stats: NonNullable<ReturnType<typeof calculateStats>> | null;
     profileUid?: string | null;
     profileName?: string | null;
+    catalogItems: CatalogPickerItem[];
+    onSelectLegend: (id: string) => void;
 }) => {
     const { t } = useTranslation();
     const topWeapons = useMemo(() => aggregateWeaponStatsForMatches(matches).slice(0, 3), [matches]);
-    const topMap = useMemo(() => aggregateMapStatsForMatches(matches)[0], [matches]);
+    const topMap = useMemo(() => {
+        const maps = aggregateMapStatsForMatches(matches);
+        return [...maps].sort((a, b) => (b.games !== a.games ? b.games - a.games : a.name.localeCompare(b.name)))[0];
+    }, [matches]);
     const topTeammateLegends = useMemo(
         () => aggregateTeammateLegendPicksForMatches(matches, profileUid, profileName).slice(0, 3),
         [matches, profileUid, profileName],
     );
-    const portraitUrl = `${MAP_IMAGE_BASE}${legendId}.png`;
+    const hasSelection = Boolean(legendId);
+    const portraitUrl = legendId ? `${MAP_IMAGE_BASE}${legendId}.png` : null;
     const headerBgUrl = getMapThumbnailUrl(topMap?.name ?? TARGET_MAPS[0]);
+    const selectPrompt = t('statistics.legends.selectPrompt', { defaultValue: 'Select a legend' });
 
     return (
         <div style={{
@@ -1781,92 +2422,117 @@ const LegendOverviewPanel = ({
                 position: 'relative',
                 padding: '22px 24px',
                 borderBottom: '1px solid var(--color-border)',
-                overflow: 'hidden',
             }}>
                 <div style={{
                     position: 'absolute',
                     inset: 0,
+                    overflow: 'hidden',
+                    borderRadius: '12px 12px 0 0',
                     backgroundImage: `linear-gradient(135deg, rgba(0,0,0,0.82), rgba(0,0,0,0.55)), url(${headerBgUrl})`,
                     backgroundSize: 'cover',
                     backgroundPosition: 'center',
                     opacity: 0.55,
                 }} />
-                <div style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center', gap: '18px' }}>
-                    <div style={{
-                        width: '72px',
-                        height: '72px',
-                        borderRadius: '50%',
-                        overflow: 'hidden',
-                        border: '3px solid #e17055',
-                        flexShrink: 0,
-                        background: 'rgba(0,0,0,0.4)',
-                    }}>
-                        <img
-                            src={portraitUrl}
-                            alt={legendName}
-                            style={{ width: '100%', height: '100%', objectFit: 'cover', transform: 'scale(1.15)' }}
-                            onError={(e) => { e.currentTarget.src = `${MAP_IMAGE_BASE}unknown.png`; }}
-                        />
-                    </div>
-                    <div style={{ minWidth: 0 }}>
-                        <div style={{ fontSize: '11px', color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '4px' }}>
-                            {t('statistics.legends.overview')}
+                <div style={{ position: 'relative', zIndex: 1 }}>
+                    <CatalogPickerDropdown
+                        items={catalogItems}
+                        selectedId={legendId}
+                        onSelect={onSelectLegend}
+                        media="legend"
+                    >
+                        <div style={{
+                            width: '72px',
+                            height: '72px',
+                            borderRadius: '50%',
+                            overflow: 'hidden',
+                            border: hasSelection ? '3px solid #e17055' : '2px dashed rgba(255,255,255,0.35)',
+                            flexShrink: 0,
+                            background: 'rgba(0,0,0,0.4)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                        }}>
+                            {portraitUrl ? (
+                                <img
+                                    src={portraitUrl}
+                                    alt={legendName}
+                                    style={{ width: '100%', height: '100%', objectFit: 'cover', transform: 'scale(1.15)' }}
+                                    onError={(e) => { e.currentTarget.src = `${MAP_IMAGE_BASE}unknown.png`; }}
+                                />
+                            ) : (
+                                <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.55)', fontWeight: 700 }}>?</span>
+                            )}
                         </div>
-                        <h3 style={{ margin: 0, color: 'var(--color-text-primary)', fontSize: '22px', fontWeight: 900, textTransform: 'capitalize' }}>{legendName}</h3>
-                        <div style={{ marginTop: '6px', fontSize: '12px', color: 'var(--color-text-dim)' }}>
-                            {t('statistics.legends.matches')}: {stats.matches}
+                        <div style={{ minWidth: 0 }}>
+                            <div style={{ fontSize: '11px', color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '4px' }}>
+                                {t('statistics.legends.overview')}
+                            </div>
+                            <h3 style={{ margin: 0, color: 'var(--color-text-primary)', fontSize: '22px', fontWeight: 900, textTransform: hasSelection ? 'capitalize' : 'none' }}>
+                                {hasSelection ? legendName : selectPrompt}
+                            </h3>
+                            {hasSelection ? (
+                                <div style={{ marginTop: '6px', fontSize: '12px', color: 'var(--color-text-dim)' }}>
+                                    {t('statistics.legends.matches')}: {stats?.matches ?? 0}
+                                </div>
+                            ) : null}
                         </div>
-                    </div>
+                    </CatalogPickerDropdown>
                 </div>
             </div>
 
-            <div style={{
-                padding: '20px 24px',
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(96px, 1fr))',
-                gap: '12px',
-                borderBottom: '1px solid var(--color-border)',
-            }}>
-                <MapOverviewStat label={t('statistics.legends.matches')} value={stats.matches} />
-                <MapOverviewStat label={t('statistics.legends.winRate')} value={`${stats.winRate}%`} color={getWinRateColor(stats.winRate)} />
-                <MapOverviewStat label={t('statistics.common.avgPlacementShort')} value={`#${stats.avgPlacement}`} color={getAvgPlacementColor(stats.avgPlacement)} />
-                <MapOverviewStat label={t('statistics.legends.avgSurvival')} value={stats.avgTime} color="#54a0ff" />
-                <MapOverviewStat label={t('statistics.legends.kd')} value={stats.kd} color={getKdColor(stats.kd)} />
-                <MapOverviewStat label={t('statistics.weapons.kad')} value={stats.kda} color={getKadColor(stats.kda)} />
-                <MapOverviewStat label={t('statistics.legends.avgDamage')} value={stats.avgDamage} color={getAvgDamageColor(stats.avgDamage)} />
-            </div>
+            {!hasSelection ? (
+                <div style={{ padding: '40px 24px', textAlign: 'center', color: 'var(--color-text-faint)', fontSize: '13px' }}>
+                    {selectPrompt}
+                </div>
+            ) : stats ? (
+                <>
+                    <div style={overviewStatStripStyle('20px 24px')}>
+                        <MapOverviewStat label={t('statistics.legends.matches')} value={stats.matches} />
+                        <MapOverviewStat label={t('statistics.legends.winRate')} value={`${stats.winRate}%`} color={getWinRateColor(stats.winRate)} />
+                        <MapOverviewStat label={t('statistics.common.avgPlacementShort')} value={`#${stats.avgPlacement}`} color={getAvgPlacementColor(stats.avgPlacement)} />
+                        <MapOverviewStat label={t('statistics.legends.avgSurvival')} value={stats.avgTime} color="#54a0ff" />
+                        <MapOverviewStat label={t('statistics.legends.kd')} value={stats.kd} color={getKdColor(stats.kd)} />
+                        <MapOverviewStat label={t('statistics.weapons.kad')} value={stats.kda} color={getKadColor(stats.kda)} />
+                        <MapOverviewStat label={t('statistics.legends.avgDamage')} value={stats.avgDamage} color={getAvgDamageColor(stats.avgDamage)} />
+                    </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', padding: '20px 24px 24px', alignItems: 'stretch' }}>
-                <OverviewRankSection title={t('statistics.legends.topWeapons')}>
-                    {topWeapons.length > 0 ? (
-                        <OverviewRankCardRow>
-                            {topWeapons.map((w, i) => (
-                                <OverviewRankCard key={w.id} rank={i} id={w.id} name={w.name} media="weapon">
-                                    <MapOverviewTopCardStat label={t('statistics.weapons.matches')} value={w.usageLabel} />
-                                    <MapOverviewTopCardStat label={t('statistics.weapons.kd')} value={formatWeaponKd(w.kd, w.hasKd, t('statistics.common.na'))} color={getKdColor(w.hasKd ? w.kd : null)} />
-                                </OverviewRankCard>
-                            ))}
-                        </OverviewRankCardRow>
-                    ) : (
-                        <OverviewRankEmpty msg={t('statistics.legends.noWeaponRankData')} />
-                    )}
-                </OverviewRankSection>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', padding: '20px 24px 24px', alignItems: 'stretch' }}>
+                        <OverviewRankSection title={t('statistics.legends.topWeapons')}>
+                            {topWeapons.length > 0 ? (
+                                <OverviewRankCardRow>
+                                    {topWeapons.map((w, i) => (
+                                        <OverviewRankCard key={w.id} rank={i} id={w.id} name={w.name} media="weapon">
+                                            <MapOverviewTopCardStat label={t('statistics.weapons.matches')} value={w.usageLabel} />
+                                            <MapOverviewTopCardStat label={t('statistics.weapons.kd')} value={formatWeaponKd(w.kd, w.hasKd, t('statistics.common.na'))} color={getKdColor(w.hasKd ? w.kd : null)} />
+                                        </OverviewRankCard>
+                                    ))}
+                                </OverviewRankCardRow>
+                            ) : (
+                                <OverviewRankEmpty msg={t('statistics.legends.noWeaponRankData')} />
+                            )}
+                        </OverviewRankSection>
 
-                <OverviewRankSection title={t('statistics.legends.topTeammateLegends')}>
-                    {topTeammateLegends.length > 0 ? (
-                        <OverviewRankCardRow>
-                            {topTeammateLegends.map((leg, i) => (
-                                <OverviewRankCard key={leg.id} rank={i} id={leg.id} name={leg.name} media="legend">
-                                    <MapOverviewTopCardStat label={t('statistics.maps.teammatePicks')} value={leg.picks} />
-                                    <MapOverviewTopCardStat label={t('statistics.maps.legendWinPercent')} value={`${leg.winRate}%`} color={getWinRateColor(leg.winRate)} />
-                                </OverviewRankCard>
-                            ))}
-                        </OverviewRankCardRow>
-                    ) : (
-                        <OverviewRankEmpty msg={t('statistics.maps.noTeammatePickData')} />
-                    )}
-                </OverviewRankSection>
-            </div>
+                        <OverviewRankSection title={t('statistics.legends.topTeammateLegends')}>
+                            {topTeammateLegends.length > 0 ? (
+                                <OverviewRankCardRow>
+                                    {topTeammateLegends.map((leg, i) => (
+                                        <OverviewRankCard key={leg.id} rank={i} id={leg.id} name={leg.name} media="legend">
+                                            <MapOverviewTopCardStat label={t('statistics.maps.teammatePicks')} value={leg.picks} />
+                                            <MapOverviewTopCardStat label={t('statistics.maps.legendWinPercent')} value={`${leg.winRate}%`} color={getWinRateColor(leg.winRate)} />
+                                        </OverviewRankCard>
+                                    ))}
+                                </OverviewRankCardRow>
+                            ) : (
+                                <OverviewRankEmpty msg={t('statistics.maps.noTeammatePickData')} />
+                            )}
+                        </OverviewRankSection>
+                    </div>
+                </>
+            ) : (
+                <div style={{ padding: '40px 24px', textAlign: 'center', color: 'var(--color-text-faint)', fontSize: '13px' }}>
+                    {t('statistics.legends.noMatchesFound', { legend: legendName })}
+                </div>
+            )}
         </div>
     );
 };
@@ -1922,120 +2588,40 @@ const MapsView = ({ data, profileUid, profileName }: { data: MatchHistory[]; pro
 };
 
 const LegendsView = ({ data, profileUid, profileName }: { data: MatchHistory[]; profileUid?: string | null; profileName?: string | null }) => {
-    const { t } = useTranslation();
-    const [selectedLegend, setSelectedLegend] = useState<string>(() => LEGENDS_LIST[0]);
+    const catalogItems = useMemo<CatalogPickerItem[]>(
+        () => LEGENDS_LIST.map((id) => ({
+            id,
+            label: formatLegendDisplayName(id),
+            imageUrl: `${MAP_IMAGE_BASE}${id}.png`,
+        })),
+        [],
+    );
+    const [selectedLegend, setSelectedLegend] = useState<string | null>(null);
+
     const legendMatches = useMemo(
-        () => data.filter(m => normalizeLegendKey(m.legend) === selectedLegend.toLowerCase()),
+        () => selectedLegend
+            ? data.filter(m => normalizeLegendKey(m.legend) === selectedLegend.toLowerCase())
+            : [],
         [data, selectedLegend]
     );
     const stats = useMemo(() => calculateStats(legendMatches), [legendMatches]);
-    const legendDisplayName = formatLegendDisplayName(selectedLegend);
-
-    const mostUsedLegend = useMemo(() => {
-        const list = aggregateLegendStatsForMatches(data);
-        if (list.length === 0) return null;
-        return [...list].sort((a, b) => {
-            if (b.games !== a.games) return b.games - a.games;
-            return b.rankScore - a.rankScore;
-        })[0];
-    }, [data]);
+    const legendDisplayName = selectedLegend ? formatLegendDisplayName(selectedLegend) : '';
 
     return (
         <div style={{ animation: 'fadeIn 0.3s' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(220px, 1fr)', gap: '20px', marginBottom: '20px', alignItems: 'stretch' }}>
-                <div style={{ minWidth: 0, display: 'flex', flexWrap: 'wrap', gap: '8px', padding: '15px', background: 'var(--color-bg-deep)', borderRadius: '10px', border: '1px solid var(--color-border)', maxHeight: '300px', overflowY: 'auto', alignContent: 'flex-start' }}>
-                    {LEGENDS_LIST.map(legend => {
-                        const isSelected = selectedLegend === legend;
-                        const legendTitle = formatLegendDisplayName(legend);
-                        return (
-                            <div
-                                key={legend}
-                                onClick={() => setSelectedLegend(legend)}
-                                style={{
-                                    width: '45px', height: '45px', borderRadius: '6px',
-                                    boxShadow: isSelected ? 'inset 0 0 0 2px #e17055' : 'inset 0 0 0 1px var(--color-border)',
-                                    overflow: 'hidden', cursor: 'pointer',
-                                    filter: isSelected ? 'grayscale(0%)' : 'grayscale(80%)',
-                                    opacity: isSelected ? 1 : 0.6, transition: '0.2s',
-                                    transform: isSelected ? 'scale(1.1)' : 'scale(1)',
-                                    zIndex: isSelected ? 1 : 0
-                                }}
-                                title={legendTitle}
-                            >
-                                <img src={`https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/${legend}.png`} alt={legendTitle} style={{ width: '100%', height: '100%', objectFit: 'cover', transform: 'scale(1.1)' }} onError={(e) => { (e.target as HTMLImageElement).src = 'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/unknown.png'; }} />
-                            </div>
-                        );
-                    })}
-                </div>
-                <div style={{
-                    minWidth: 0,
-                    background: 'var(--color-bg-card)',
-                    borderRadius: '10px',
-                    border: '1px solid var(--color-border)',
-                    padding: '14px 16px',
-                    display: 'flex',
-                    flexDirection: 'column',
-                }}>
-                    {mostUsedLegend ? (
-                        <>
-                            <div
-                                onClick={() => setSelectedLegend(mostUsedLegend.id)}
-                                style={{
-                                    display: 'flex',
-                                    flexDirection: 'column',
-                                    alignItems: 'center',
-                                    textAlign: 'center',
-                                    paddingBottom: '12px',
-                                    marginBottom: '4px',
-                                    borderBottom: '1px solid var(--color-border)',
-                                    cursor: 'pointer',
-                                }}
-                                title={mostUsedLegend.name}
-                            >
-                                <div style={{
-                                    width: '56px',
-                                    height: '56px',
-                                    borderRadius: '50%',
-                                    overflow: 'hidden',
-                                    border: '2px solid #e17055',
-                                    background: 'rgba(255,255,255,0.05)',
-                                    marginBottom: '8px',
-                                    flexShrink: 0,
-                                }}>
-                                    <img
-                                        src={`${MAP_IMAGE_BASE}${mostUsedLegend.id}.png`}
-                                        alt={mostUsedLegend.name}
-                                        style={{ width: '100%', height: '100%', objectFit: 'cover', transform: 'scale(1.12)' }}
-                                        onError={(e) => { e.currentTarget.src = `${MAP_IMAGE_BASE}unknown.png`; }}
-                                    />
-                                </div>
-                                <div style={{ fontSize: '10px', color: 'var(--color-text-muted)', fontWeight: 600, marginBottom: '3px' }}>
-                                    {t('statistics.maps.mostPlayedLegend')}
-                                </div>
-                                <div style={{ fontSize: '14px', fontWeight: 'bold', color: 'var(--color-text-dim)', lineHeight: 1.25, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%' }}>
-                                    {mostUsedLegend.name}
-                                </div>
-                            </div>
-                            <OverviewSideStatRow label={t('statistics.legends.matches')} value={mostUsedLegend.games} />
-                            <OverviewSideStatRow label={t('statistics.legends.winRate')} value={`${mostUsedLegend.winRate}%`} color={getWinRateColor(mostUsedLegend.winRate)} />
-                            <OverviewSideStatRow label={t('statistics.common.avgPlacementShort')} value={`#${mostUsedLegend.avgPlacement}`} color={getAvgPlacementColor(mostUsedLegend.avgPlacement)} />
-                            <OverviewSideStatRow label={t('statistics.legends.kd')} value={formatKdNumber(mostUsedLegend.kd)} color={getKdColor(mostUsedLegend.kd)} />
-                            <OverviewSideStatRow label={t('statistics.legends.avgDamage')} value={mostUsedLegend.avgDamage} color={getAvgDamageColor(mostUsedLegend.avgDamage)} noBorder />
-                        </>
-                    ) : (
-                        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--color-text-faint)', fontSize: '12px' }}>
-                            {t('statistics.legends.noData')}
-                        </div>
-                    )}
-                </div>
-            </div>
-
+            <LegendOverviewPanel
+                legendId={selectedLegend}
+                legendName={legendDisplayName}
+                matches={legendMatches}
+                stats={stats}
+                profileUid={profileUid}
+                profileName={profileName}
+                catalogItems={catalogItems}
+                onSelectLegend={setSelectedLegend}
+            />
             {stats ? (
-                <>
-                    <LegendOverviewPanel legendId={selectedLegend} legendName={legendDisplayName} matches={legendMatches} stats={stats} profileUid={profileUid} profileName={profileName} />
-                    <LegendWeaponMapBreakdown matches={legendMatches} legendName={legendDisplayName} />
-                </>
-            ) : <EmptyState msg={t('statistics.legends.noMatchesFound', { legend: selectedLegend })} />}
+                <LegendWeaponMapBreakdown matches={legendMatches} legendName={legendDisplayName} />
+            ) : null}
         </div>
     );
 };
@@ -2043,29 +2629,38 @@ const LegendsView = ({ data, profileUid, profileName }: { data: MatchHistory[]; 
 const WeaponsView = ({ data }: { data: MatchHistory[] }) => {
     const { t } = useTranslation();
     const weaponCatalog = useMemo(() => buildWeaponItems(), []);
+    const weaponPickerItems = useMemo<CatalogPickerItem[]>(
+        () => weaponCatalog.map((w) => ({
+            id: w.id,
+            label: w.label,
+            imageUrl: w.image || getWeaponImageUrl(w.id),
+        })),
+        [weaponCatalog],
+    );
     const weaponStats = useMemo(() => aggregateWeaponStatsForMatches(data), [data]);
     const threatWeapons = useMemo(() => aggregateThreatWeaponStatsForMatches(data).slice(0, 3), [data]);
     const topWeapons = useMemo(() => weaponStats.slice(0, 3), [weaponStats]);
 
-    const [selectedWeaponId, setSelectedWeaponId] = useState<string>(
-        () => weaponCatalog[0]?.id ?? 'r-301',
-    );
+    const [selectedWeaponId, setSelectedWeaponId] = useState<string | null>(null);
 
     const selectedStat = useMemo(
-        () => weaponStats.find(w => w.id === selectedWeaponId) ?? null,
+        () => selectedWeaponId ? (weaponStats.find(w => w.id === selectedWeaponId) ?? null) : null,
         [weaponStats, selectedWeaponId],
     );
     const pairedWeapons = useMemo(
-        () => aggregatePairedWeaponsForWeapon(data, selectedWeaponId),
+        () => selectedWeaponId ? aggregatePairedWeaponsForWeapon(data, selectedWeaponId) : [],
         [data, selectedWeaponId],
     );
     const weaponLegends = useMemo(
-        () => aggregateLegendsForWeapon(data, selectedWeaponId),
+        () => selectedWeaponId ? aggregateLegendsForWeapon(data, selectedWeaponId) : [],
         [data, selectedWeaponId],
     );
     const topPaired = pairedWeapons.slice(0, 3);
     const topWeaponLegends = weaponLegends.slice(0, 3);
-    const selectedName = selectedStat?.name ?? getWeaponDisplayName(selectedWeaponId);
+    const selectWeaponPrompt = t('statistics.weapons.selectPrompt', { defaultValue: 'Select a weapon' });
+    const selectedName = selectedWeaponId
+        ? (selectedStat?.name ?? getWeaponDisplayName(selectedWeaponId))
+        : selectWeaponPrompt;
     const headerBgUrl = getMapThumbnailUrl(TARGET_MAPS[0]);
 
     type PairSortCol = 'name' | 'games' | 'winRate' | 'avgPlacement' | 'kd' | 'kda';
@@ -2125,7 +2720,7 @@ const WeaponsView = ({ data }: { data: MatchHistory[] }) => {
             {topWeapons.length > 0 ? (
                 <OverviewRankCardRow>
                     {topWeapons.map((w, i) => (
-                        <OverviewRankCard key={w.id} rank={i} id={w.id} name={w.name} media="weapon">
+                        <OverviewRankCard key={w.id} rank={i} id={w.id} name={w.name} media="weapon" onClick={() => setSelectedWeaponId(w.id)}>
                             <MapOverviewTopCardStat label={t('statistics.weapons.matches')} value={w.usageLabel} />
                             <MapOverviewTopCardStat label={t('statistics.weapons.kd')} value={formatWeaponKd(w.kd, w.hasKd, t('statistics.common.na'))} color={getKdColor(w.hasKd ? w.kd : null)} />
                             <MapOverviewTopCardStat label={t('statistics.weapons.winPercent')} value={formatWeaponWinRate(w.winRate, w.hasWinRate)} color={getWinRateColor(w.winRate, { hasValue: w.hasWinRate })} />
@@ -2143,7 +2738,7 @@ const WeaponsView = ({ data }: { data: MatchHistory[] }) => {
             {threatWeapons.length > 0 ? (
                 <OverviewRankCardRow>
                     {threatWeapons.map((w, i) => (
-                        <OverviewRankCard key={w.id} rank={i} id={w.id} name={w.name} media="weapon">
+                        <OverviewRankCard key={w.id} rank={i} id={w.id} name={w.name} media="weapon" onClick={() => setSelectedWeaponId(w.id)}>
                             <MapOverviewTopCardStat label={t('statistics.weapons.threatKills')} value={w.kills} color="#ff6b6b" />
                             <MapOverviewTopCardStat label={t('statistics.weapons.threatKnockdowns')} value={w.knockdowns} color="#feca57" />
                         </OverviewRankCard>
@@ -2157,43 +2752,9 @@ const WeaponsView = ({ data }: { data: MatchHistory[] }) => {
 
     return (
         <div style={{ animation: 'fadeIn 0.5s' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.25fr) minmax(300px, 1.15fr)', gap: '20px', marginBottom: '20px', alignItems: 'start' }}>
-                <div style={{ minWidth: 0, display: 'flex', flexWrap: 'wrap', gap: '8px', padding: '15px', background: 'var(--color-bg-deep)', borderRadius: '10px', border: '1px solid var(--color-border)', maxHeight: '420px', overflowY: 'auto', alignContent: 'flex-start' }}>
-                    {weaponCatalog.map(weapon => {
-                        const isSelected = selectedWeaponId === weapon.id;
-                        return (
-                            <div
-                                key={weapon.id}
-                                onClick={() => setSelectedWeaponId(weapon.id)}
-                                style={{
-                                    width: '56px', height: '40px', borderRadius: '6px',
-                                    boxShadow: isSelected ? 'inset 0 0 0 2px #e17055' : 'inset 0 0 0 1px var(--color-border)',
-                                    overflow: 'hidden', cursor: 'pointer',
-                                    filter: isSelected ? 'grayscale(0%)' : 'grayscale(80%)',
-                                    opacity: isSelected ? 1 : 0.6, transition: '0.2s',
-                                    transform: isSelected ? 'scale(1.08)' : 'scale(1)',
-                                    zIndex: isSelected ? 1 : 0,
-                                    background: 'rgba(0,0,0,0.25)',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                }}
-                                title={weapon.label}
-                            >
-                                <img
-                                    src={weapon.image || `${MAP_IMAGE_BASE}${weapon.id}.png`}
-                                    alt={weapon.label}
-                                    style={{ maxWidth: '90%', maxHeight: '85%', objectFit: 'contain' }}
-                                    onError={(e) => { (e.target as HTMLImageElement).style.opacity = '0'; }}
-                                />
-                            </div>
-                        );
-                    })}
-                </div>
-                <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                    {renderTopWeaponsSection()}
-                    {renderTopThreatsSection()}
-                </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', marginBottom: '20px', alignItems: 'stretch' }}>
+                {renderTopWeaponsSection()}
+                {renderTopThreatsSection()}
             </div>
 
             {selectedStat ? (
@@ -2209,55 +2770,57 @@ const WeaponsView = ({ data }: { data: MatchHistory[] }) => {
                             position: 'relative',
                             padding: '22px 24px',
                             borderBottom: '1px solid var(--color-border)',
-                            overflow: 'hidden',
                         }}>
                             <div style={{
                                 position: 'absolute',
                                 inset: 0,
+                                overflow: 'hidden',
+                                borderRadius: '12px 12px 0 0',
                                 backgroundImage: `linear-gradient(135deg, rgba(0,0,0,0.82), rgba(0,0,0,0.55)), url(${headerBgUrl})`,
                                 backgroundSize: 'cover',
                                 backgroundPosition: 'center',
                                 opacity: 0.55,
                             }} />
-                            <div style={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center', gap: '18px' }}>
-                                <div style={{
-                                    width: '72px',
-                                    height: '72px',
-                                    borderRadius: '12px',
-                                    overflow: 'hidden',
-                                    border: '3px solid #e17055',
-                                    flexShrink: 0,
-                                    background: 'rgba(0,0,0,0.4)',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                }}>
-                                    <img
-                                        src={getWeaponImageUrl(selectedWeaponId)}
-                                        alt={selectedName}
-                                        style={{ maxWidth: '90%', maxHeight: '90%', objectFit: 'contain' }}
-                                        onError={(e) => { e.currentTarget.style.display = 'none'; }}
-                                    />
-                                </div>
-                                <div style={{ minWidth: 0 }}>
-                                    <div style={{ fontSize: '11px', color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '4px' }}>
-                                        {t('statistics.weapons.overview')}
+                            <div style={{ position: 'relative', zIndex: 1 }}>
+                                <CatalogPickerDropdown
+                                    items={weaponPickerItems}
+                                    selectedId={selectedWeaponId}
+                                    onSelect={setSelectedWeaponId}
+                                    media="weapon"
+                                >
+                                    <div style={{
+                                        width: '72px',
+                                        height: '72px',
+                                        borderRadius: '12px',
+                                        overflow: 'hidden',
+                                        border: '3px solid #e17055',
+                                        flexShrink: 0,
+                                        background: 'rgba(0,0,0,0.4)',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                    }}>
+                                        <img
+                                            src={getWeaponImageUrl(selectedWeaponId!)}
+                                            alt={selectedName}
+                                            style={{ maxWidth: '90%', maxHeight: '90%', objectFit: 'contain' }}
+                                            onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                                        />
                                     </div>
-                                    <h3 style={{ margin: 0, color: 'var(--color-text-primary)', fontSize: '22px', fontWeight: 900 }}>{selectedName}</h3>
-                                    <div style={{ marginTop: '6px', fontSize: '12px', color: 'var(--color-text-dim)' }}>
-                                        {t('statistics.weapons.matches')}: {selectedStat.usageLabel}
+                                    <div style={{ minWidth: 0 }}>
+                                        <div style={{ fontSize: '11px', color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '4px' }}>
+                                            {t('statistics.weapons.overview')}
+                                        </div>
+                                        <h3 style={{ margin: 0, color: 'var(--color-text-primary)', fontSize: '22px', fontWeight: 900 }}>{selectedName}</h3>
+                                        <div style={{ marginTop: '6px', fontSize: '12px', color: 'var(--color-text-dim)' }}>
+                                            {t('statistics.weapons.matches')}: {selectedStat.usageLabel}
+                                        </div>
                                     </div>
-                                </div>
+                                </CatalogPickerDropdown>
                             </div>
                         </div>
 
-                        <div style={{
-                            padding: '20px 24px',
-                            display: 'grid',
-                            gridTemplateColumns: 'repeat(auto-fit, minmax(96px, 1fr))',
-                            gap: '12px',
-                            borderBottom: '1px solid var(--color-border)',
-                        }}>
+                        <div style={overviewStatStripStyle('20px 24px')}>
                             <MapOverviewStat label={t('statistics.weapons.matches')} value={selectedStat.usageLabel} />
                             <MapOverviewStat label={t('statistics.weapons.winRate')} value={formatWeaponWinRate(selectedStat.winRate, selectedStat.hasWinRate)} color={getWinRateColor(selectedStat.winRate, { hasValue: selectedStat.hasWinRate })} />
                             <MapOverviewStat label={t('statistics.common.avgPlacementShort')} value={selectedStat.hasWinRate ? `#${selectedStat.avgPlacement}` : '-'} color={selectedStat.hasWinRate ? getAvgPlacementColor(selectedStat.avgPlacement) : undefined} />
@@ -2303,10 +2866,11 @@ const WeaponsView = ({ data }: { data: MatchHistory[] }) => {
                             {panelHeader(t('statistics.weapons.pairedWeapons'))}
                             <div style={{ maxHeight: '360px', overflowY: 'auto' }}>
                                 {pairedWeapons.length > 0 ? (
-                                    <table style={{ ...mapBreakdownTableStyle, tableLayout: 'auto' }}>
+                                    <table style={catalogPairTableStyle}>
+                                        <CatalogPairColgroup />
                                         <thead style={{ position: 'sticky', top: 0, zIndex: 2 }}>
                                             <tr style={{ borderBottom: '1px solid var(--color-border)' }}>
-                                                <th style={{ ...mapBreakdownHeadCellStyle, textAlign: 'center', width: '36px' }}>#</th>
+                                                <th style={{ ...mapBreakdownHeadCellStyle, textAlign: 'center' }}>#</th>
                                                 <SortableTh column="name" sortState={pairSort} onSort={(col) => setPairSort((prev) => toggleCatalogNameTableSort(prev, col))} style={{ ...mapBreakdownHeadCellStyle, textAlign: 'left' }}>
                                                     {t('statistics.weapons.weapon')}
                                                 </SortableTh>
@@ -2333,8 +2897,8 @@ const WeaponsView = ({ data }: { data: MatchHistory[] }) => {
                                                     <td style={{ ...mapBreakdownBodyCellStyle, textAlign: 'center', color: 'var(--color-text-faint)', fontWeight: 'bold' }}>{i + 1}</td>
                                                     <td style={mapBreakdownLegendBodyCellStyle}>
                                                         <div style={{ ...mapBreakdownLegendInnerStyle, alignItems: 'center' }}>
-                                                            <div style={{ width: '44px', height: '22px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,255,255,0.05)', borderRadius: '4px', flexShrink: 0 }}>
-                                                                <img src={getWeaponImageUrl(w.id)} alt={w.name} style={{ maxWidth: '40px', maxHeight: '18px', objectFit: 'contain' }} onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+                                                            <div style={catalogPairMediaSlotStyle}>
+                                                                <WeaponTableIcon weaponId={w.id} name={w.name} width={40} height={20} />
                                                             </div>
                                                             <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }} title={w.name}>{w.name}</span>
                                                         </div>
@@ -2360,10 +2924,11 @@ const WeaponsView = ({ data }: { data: MatchHistory[] }) => {
                             {panelHeader(t('statistics.weapons.weaponLegends'))}
                             <div style={{ maxHeight: '360px', overflowY: 'auto' }}>
                                 {weaponLegends.length > 0 ? (
-                                    <table style={{ ...mapBreakdownTableStyle, tableLayout: 'auto' }}>
+                                    <table style={catalogPairTableStyle}>
+                                        <CatalogPairColgroup />
                                         <thead style={{ position: 'sticky', top: 0, zIndex: 2 }}>
                                             <tr style={{ borderBottom: '1px solid var(--color-border)' }}>
-                                                <th style={{ ...mapBreakdownHeadCellStyle, textAlign: 'center', width: '36px' }}>#</th>
+                                                <th style={{ ...mapBreakdownHeadCellStyle, textAlign: 'center' }}>#</th>
                                                 <SortableTh column="name" sortState={legendSort} onSort={(col) => setLegendSort((prev) => toggleCatalogNameTableSort(prev, col))} style={{ ...mapBreakdownHeadCellStyle, textAlign: 'left' }}>
                                                     {t('statistics.tabs.legends')}
                                                 </SortableTh>
@@ -2390,7 +2955,12 @@ const WeaponsView = ({ data }: { data: MatchHistory[] }) => {
                                                     <td style={{ ...mapBreakdownBodyCellStyle, textAlign: 'center', color: 'var(--color-text-faint)', fontWeight: 'bold' }}>{i + 1}</td>
                                                     <td style={mapBreakdownLegendBodyCellStyle}>
                                                         <div style={{ ...mapBreakdownLegendInnerStyle, alignItems: 'center' }}>
-                                                            <img src={`${MAP_IMAGE_BASE}${leg.id}.png`} alt={leg.name} style={{ width: '22px', height: '22px', borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }} onError={(e) => { e.currentTarget.src = `${MAP_IMAGE_BASE}unknown.png`; }} />
+                                                                <img
+                                                                    src={`${MAP_IMAGE_BASE}${leg.id}.png`}
+                                                                    alt={leg.name}
+                                                                    style={{ width: '24px', height: '24px', borderRadius: '50%', objectFit: 'cover', flexShrink: 0 }}
+                                                                    onError={(e) => { e.currentTarget.src = `${MAP_IMAGE_BASE}unknown.png`; }}
+                                                                />
                                                             <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', minWidth: 0 }} title={leg.name}>{leg.name}</span>
                                                         </div>
                                                     </td>
@@ -2413,7 +2983,73 @@ const WeaponsView = ({ data }: { data: MatchHistory[] }) => {
                     </div>
                 </>
             ) : (
-                <EmptyState msg={t('statistics.weapons.noMatchesFound', { weapon: selectedName })} />
+                <div style={{
+                    background: 'var(--color-bg-card)',
+                    borderRadius: '12px',
+                    border: '1px solid var(--color-border)',
+                    overflow: 'hidden',
+                    marginBottom: '24px',
+                }}>
+                    <div style={{
+                        position: 'relative',
+                        padding: '22px 24px',
+                        borderBottom: '1px solid var(--color-border)',
+                    }}>
+                        <div style={{
+                            position: 'absolute',
+                            inset: 0,
+                            overflow: 'hidden',
+                            borderRadius: '12px 12px 0 0',
+                            backgroundImage: `linear-gradient(135deg, rgba(0,0,0,0.82), rgba(0,0,0,0.55)), url(${headerBgUrl})`,
+                            backgroundSize: 'cover',
+                            backgroundPosition: 'center',
+                            opacity: 0.55,
+                        }} />
+                        <div style={{ position: 'relative', zIndex: 1 }}>
+                            <CatalogPickerDropdown
+                                items={weaponPickerItems}
+                                selectedId={selectedWeaponId}
+                                onSelect={setSelectedWeaponId}
+                                media="weapon"
+                            >
+                                <div style={{
+                                    width: '72px',
+                                    height: '72px',
+                                    borderRadius: '12px',
+                                    overflow: 'hidden',
+                                    border: selectedWeaponId ? '3px solid #e17055' : '2px dashed rgba(255,255,255,0.35)',
+                                    flexShrink: 0,
+                                    background: 'rgba(0,0,0,0.4)',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                }}>
+                                    {selectedWeaponId ? (
+                                        <img
+                                            src={getWeaponImageUrl(selectedWeaponId)}
+                                            alt={selectedName}
+                                            style={{ maxWidth: '90%', maxHeight: '90%', objectFit: 'contain' }}
+                                            onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                                        />
+                                    ) : (
+                                        <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.55)', fontWeight: 700 }}>?</span>
+                                    )}
+                                </div>
+                                <div style={{ minWidth: 0 }}>
+                                    <div style={{ fontSize: '11px', color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '4px' }}>
+                                        {t('statistics.weapons.overview')}
+                                    </div>
+                                    <h3 style={{ margin: 0, color: 'var(--color-text-primary)', fontSize: '22px', fontWeight: 900 }}>{selectedName}</h3>
+                                </div>
+                            </CatalogPickerDropdown>
+                        </div>
+                    </div>
+                    <div style={{ padding: '40px 24px', textAlign: 'center', color: 'var(--color-text-faint)', fontSize: '13px' }}>
+                        {selectedWeaponId
+                            ? t('statistics.weapons.noMatchesFound', { weapon: selectedName })
+                            : selectWeaponPrompt}
+                    </div>
+                </div>
             )}
         </div>
     );
@@ -2549,10 +3185,9 @@ const TeammatesView = ({ data, profileUid, profileName }: { data: MatchHistory[]
         <img
             src={`https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/${legend}.png`}
             alt={legend}
-            style={{ width: size, height: size, objectFit: 'contain', borderRadius: '50%' }}
+            style={{ width: size, height: size, objectFit: 'contain', borderRadius: '50%', flexShrink: 0 }}
             onError={(e) => {
-                e.currentTarget.style.display = 'none';
-                e.currentTarget.parentElement!.innerHTML = '<span style="font-size:30px">👤</span>';
+                e.currentTarget.src = 'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/unknown.png';
             }}
         />
     );
@@ -2919,9 +3554,7 @@ const TeammatesView = ({ data, profileUid, profileName }: { data: MatchHistory[]
                                     <td style={{ padding: '12px 20px', color: 'var(--color-text-faint)', fontWeight: 'bold' }}>#{i + 1}</td>
                                     <td style={{ padding: '12px 20px', maxWidth: '200px' }}>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', minWidth: 0 }}>
-                                            <div style={{ width: '36px', height: '36px', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(255,255,255,0.05)', borderRadius: '50%', overflow: 'hidden' }}>
-                                                {renderAvatar(tm.legend, 32)}
-                                            </div>
+                                            {renderAvatar(tm.legend, 32)}
                                             <div style={{ minWidth: 0, flex: 1 }}>
                                                 <div style={{ height: '18px' }}>
                                                     <MarqueeOverflowText

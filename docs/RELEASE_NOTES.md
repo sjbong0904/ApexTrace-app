@@ -4,6 +4,30 @@
 
 ---
 
+## v0.0.15 — 2026-09-10
+
+Statistics 탭 레이아웃/시각 정리, 모드 라벨 정비, 무기 실루엣 톤 통일. 상세 기준: [WEAPON-STATS.md](WEAPON-STATS.md). GitHub `v0.0.15`.
+
+### 개선
+
+- **대시보드 모드 라벨** — 내부 `BR` 로직은 유지하고, 표시만 **ALL**로 변경. 10개 언어 시드와 language pack version 15 동기화.
+- **좁은 폭 대응** — Statistics Overview / Maps / Legends / Weapons 상단 스탯 스트립을 한 줄 유지 + 중앙 정렬로 정리하고, 레이더 + Best 3 카드도 4열 고정으로 2단 밀림을 방지.
+- **무기 드롭다운 시각 통일** — 무기 선택 드롭다운 이미지를 로드아웃 타임라인과 같은 **white silhouette** 스타일로 변경하고, 확대 비율은 기존 대비 10% 축소.
+- **무기 표 아이콘** — 레전드/무기 관련 표의 무기 썸네일을 탄종 색상 tinted silhouette로 통일. CARE PACKAGE는 `#D73055` mythic 톤 사용, Elite는 골드 대신 실제 탄종 색 사용.
+
+### 수정
+
+- **드롭다운 윤곽선 가림** — 확대된 무기 이미지가 셀 윤곽선을 덮던 문제를 오버레이 outline으로 수정.
+- **레전드 초상화 프레임 제거** — 각종 표의 원형 레전드 초상화 바깥 네모 슬롯 제거로 밀도 개선.
+- **케어패키지 색 통일** — mythic/care package 색상을 `#D73055`로 통일하고 관련 강조색을 HEX 기준으로 정리.
+
+### 문서
+
+- [RELEASE_NOTES.md](RELEASE_NOTES.md) — `v0.0.15` 릴리즈 내역 추가.
+- [WEAPON-STATS.md](WEAPON-STATS.md) — 기준 버전 `v0.0.15`로 갱신.
+
+---
+
 ## v0.0.14 — 2026-09-09
 
 무기 통계·Weapons 탭 개편. 상세 기준: [WEAPON-STATS.md](WEAPON-STATS.md). GitHub `v0.0.14`.

@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react';
 import { AMMO_COLORS, SHORT_WEAPON_NAMES } from './gameData';
 import { WEAPONS_DB, type WeaponInfo, type WeaponVariant } from './WeaponsData';
 
@@ -180,10 +181,45 @@ const getWeaponAmmoColor = (rawName?: string | null): string => {
     const weapon = findWeaponByLoadoutId(rawName);
     const variant = weapon?.variant ?? 'STANDARD';
     if (variant === 'CARE_PACKAGE') return AMMO_COLORS.Mythic;
-    if (variant === 'ELITE') return '#FFD700';
     const ammo = weapon?.ammoType?.[0] ?? 'Light';
     return AMMO_COLORS[ammo] ?? AMMO_COLORS.Light;
 };
+
+/** Primary ammo / variant color for silhouettes and accents. */
+export function getWeaponAmmoTint(rawName?: string | null): string {
+    return getWeaponAmmoColor(rawName);
+}
+
+/**
+ * White silhouette recolored to ammo tint.
+ * Mask keeps alpha; drop-shadow matches {@link WHITE_SILHOUETTE_FILTER}.
+ */
+export function getWeaponAmmoSilhouetteStyle(
+    rawName: string,
+    size: { width: number | string; height: number | string },
+): CSSProperties {
+    const src = getWeaponImageUrl(rawName);
+    const color = getWeaponAmmoColor(rawName);
+    const scale = getWeaponSilhouetteScale(rawName);
+    return {
+        display: 'inline-block',
+        width: size.width,
+        height: size.height,
+        flexShrink: 0,
+        backgroundColor: color,
+        WebkitMaskImage: `url("${src}")`,
+        WebkitMaskSize: 'contain',
+        WebkitMaskRepeat: 'no-repeat',
+        WebkitMaskPosition: 'center',
+        maskImage: `url("${src}")`,
+        maskSize: 'contain',
+        maskRepeat: 'no-repeat',
+        maskPosition: 'center',
+        filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.35))',
+        transform: scale !== 1 ? `scale(${scale})` : undefined,
+        transformOrigin: 'center',
+    };
+}
 
 /** Combat-log row tint from primary + secondary weapon ammo types. */
 export function getLoadoutRowTheme(primaryWeapon?: string | null, secondaryWeapon?: string | null) {

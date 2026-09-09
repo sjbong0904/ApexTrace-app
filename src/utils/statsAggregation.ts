@@ -2,7 +2,7 @@ import type { MatchHistory } from './match';
 import { hasUsableMatchStats } from './match';
 import { isKnownLegend, normalizeLegendKey, toGameElapsedMs, getMatchDeaths, normalizeMapDisplayName } from './helpers';
 import { TARGET_MAPS } from './gameData';
-import { formatHoldDuration, formatUsageGames, resolveWeaponCombatForMatch, resolveWeaponThreatsForMatch } from './weaponMatchStats';
+import { formatHoldDuration, formatUsageGames, resolveWeaponCombatForMatch, resolveWeaponThreatsForMatch, computePairedPartnerCombatWhileSelected } from './weaponMatchStats';
 import { getCanonicalWeaponId, getWeaponDisplayName, weaponsMatchId } from './weaponTheme';
 import type { WeaponCombatEntry, WeaponCombatMap } from '../types';
 
@@ -215,10 +215,16 @@ const findCombatEntry = (combat: WeaponCombatMap, weaponId: string) => {
     return hit?.[1] ?? null;
 };
 
-const weaponUsedInCombat = (combat: WeaponCombatMap, weaponId: string): boolean => {
-    const entry = findCombatEntry(combat, weaponId);
+/** True when the weapon earned combat credit — not mere swap/hold time. */
+const weaponHasMatchCredit = (entry: WeaponCombatEntry | null | undefined): boolean => {
     if (!entry) return false;
-    return (entry.holdMs || 0) > 0 || (entry.kills || 0) > 0 || entry.qualify || (entry.assists || 0) > 0;
+    return Boolean(entry.qualify)
+        || (entry.kills || 0) > 0
+        || (entry.assists || 0) > 0;
+};
+
+const weaponUsedInCombat = (combat: WeaponCombatMap, weaponId: string): boolean => {
+    return weaponHasMatchCredit(findCombatEntry(combat, weaponId));
 };
 
 export const filterMatchesForWeapon = (matches: MatchHistory[], weaponId: string): MatchHistory[] =>
@@ -264,7 +270,8 @@ export const aggregateWeaponStatsForMatches = (matches: MatchHistory[]): Aggrega
         });
 
         Object.entries(byCanon).forEach(([id, c]) => {
-            if (!weaponUsedInCombat({ [id]: c }, id)) return;
+            // Exclude swap-only holds with no combat/qualify events from match counts.
+            if (!weaponHasMatchCredit(c)) return;
 
             if (!map[id]) {
                 map[id] = {
@@ -358,7 +365,10 @@ export const aggregateThreatWeaponStatsForMatches = (matches: MatchHistory[]): A
         });
 };
 
-/** Other weapons held in the same matches as `weaponId` (one primary partner per match). */
+/**
+ * Partner weapons held in the other slot at the same time as `weaponId`.
+ * K/D/A are the partner's combat only during those simultaneous windows.
+ */
 export const aggregatePairedWeaponsForWeapon = (
     matches: MatchHistory[],
     weaponId: string,
@@ -375,41 +385,30 @@ export const aggregatePairedWeaponsForWeapon = (
 
     matches.forEach(m => {
         if (!hasUsableMatchStats(m)) return;
-        const combat = resolveCombatMap(m);
-        if (!weaponUsedInCombat(combat, weaponId)) return;
+        if (!weaponUsedInCombat(resolveCombatMap(m), weaponId)) return;
 
         const isWin = m.placement === 1;
         const matchPlacement = getMatchPlacement(m);
-        const selected = findCombatEntry(combat, weaponId);
-        const selectedQualifies = Boolean(selected?.qualify);
+        const paired = computePairedPartnerCombatWhileSelected(m, weaponId);
 
-        let bestId: string | null = null;
-        let bestEntry: WeaponCombatEntry | null = null;
-        Object.entries(combat).forEach(([rawId, entry]) => {
-            if (weaponsMatchId(rawId, weaponId)) return;
-            if ((entry.holdMs || 0) <= 0 && (entry.kills || 0) <= 0 && !entry.qualify) return;
-            const id = getCanonicalWeaponId(rawId);
-            if (!bestEntry || (entry.holdMs || 0) > (bestEntry.holdMs || 0)) {
-                bestId = id;
-                bestEntry = entry;
+        Object.entries(paired).forEach(([partnerId, stat]) => {
+            if (!(stat.overlapMs > 0)) return;
+            // Same rule as weapon match counts: ignore swap-only co-holds with no credit.
+            if (!(stat.qualify || stat.kills > 0 || stat.assists > 0 || stat.deaths > 0)) return;
+
+            if (!map[partnerId]) {
+                map[partnerId] = { games: 0, wins: 0, placement: 0, kills: 0, assists: 0, deaths: 0, qualifyGames: 0 };
             }
-        });
-        if (!bestId || !bestEntry) return;
-
-        const partnerEntry: WeaponCombatEntry = bestEntry;
-        if (!map[bestId]) {
-            map[bestId] = { games: 0, wins: 0, placement: 0, kills: 0, assists: 0, deaths: 0, qualifyGames: 0 };
-        }
-        const row = map[bestId];
-        row.games += 1;
-        row.kills += partnerEntry.kills || 0;
-        row.assists += partnerEntry.assists || 0;
-        row.deaths += partnerEntry.deaths || 0;
-        if (selectedQualifies) {
+            const row = map[partnerId];
+            row.games += 1;
+            row.kills += stat.kills || 0;
+            row.assists += stat.assists || 0;
+            row.deaths += stat.deaths || 0;
+            // Match outcome while this pairing had combat credit.
             row.qualifyGames += 1;
             row.placement += matchPlacement;
             if (isWin) row.wins += 1;
-        }
+        });
     });
 
     return Object.entries(map)
@@ -495,25 +494,54 @@ export const aggregateLegendsForWeapon = (
 };
 
 export const aggregateMapStatsForMatches = (matches: MatchHistory[]) => {
-    const map: Record<string, { games: number; wins: number }> = {};
+    const map: Record<string, {
+        games: number;
+        wins: number;
+        kills: number;
+        assists: number;
+        deaths: number;
+        damage: number;
+        placement: number;
+    }> = {};
     const usable = matches.filter(hasUsableMatchStats);
     usable.forEach(m => {
         const mapName = resolveMapName(String((m as { map?: string }).map ?? ''));
         if (!mapName) return;
-        if (!map[mapName]) map[mapName] = { games: 0, wins: 0 };
-        map[mapName].games++;
-        if (m.placement === 1) map[mapName].wins++;
+        if (!map[mapName]) {
+            map[mapName] = { games: 0, wins: 0, kills: 0, assists: 0, deaths: 0, damage: 0, placement: 0 };
+        }
+        const entry = map[mapName];
+        entry.games++;
+        entry.kills += m.kills || 0;
+        entry.assists += m.assists || 0;
+        entry.deaths += getMatchDeaths(m);
+        entry.damage += m.damage || 0;
+        entry.placement += getMatchPlacement(m);
+        if (m.placement === 1) entry.wins++;
     });
 
     const total = usable.length;
     return Object.entries(map)
-        .map(([name, { games, wins }]) => ({
-            name,
-            games,
-            share: total > 0 ? (games / total) * 100 : 0,
-            winRate: games > 0 ? ((wins / games) * 100).toFixed(1) : '0.0',
-        }))
-        .sort((a, b) => b.games - a.games);
+        .map(([name, v]) => {
+            const kdNum = v.deaths === 0 ? v.kills : v.kills / v.deaths;
+            return {
+                name,
+                games: v.games,
+                share: total > 0 ? (v.games / total) * 100 : 0,
+                winRate: v.games > 0 ? ((v.wins / v.games) * 100).toFixed(1) : '0.0',
+                avgPlacement: formatAvgPlacement(v.placement, v.games),
+                avgDamage: v.games > 0 ? Math.round(v.damage / v.games) : 0,
+                kd: parseFloat(kdNum.toFixed(2)),
+                rankScore: hybridRankScore(v.games, kdNum, LEGEND_RANK_PRIOR_GAMES),
+            };
+        })
+        .sort((a, b) => {
+            if (b.rankScore !== a.rankScore) return b.rankScore - a.rankScore;
+            if (b.games !== a.games) return b.games - a.games;
+            const winDiff = compareWinRateDesc(a.winRate, b.winRate);
+            if (winDiff !== 0) return winDiff;
+            return a.name.localeCompare(b.name);
+        });
 };
 
 export const calculateStats = (matches: MatchHistory[]) => {
