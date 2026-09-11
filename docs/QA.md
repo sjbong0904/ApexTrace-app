@@ -17,7 +17,7 @@
 
 - [x] `npm run build` 성공 `코드` (tsc + vite, 2026-08-08)
 - [x] Overwolf에 최신 `dist` (또는 unpacked) 로드
-- [x] Free 티어 기본 (광고 레일 표시, Premium 미리보기 토글 없음) `코드` (`isPremium = false`, Settings Premium 토글 없음)
+- [x] Free 티어 기본 (광고 레일 표시, Premium 미리보기 토글 없음) `코드` (`isPremium = false` 커밋/스토어 빌드 기준. 로컬 미리보기만 `App.tsx` TEMP 플래그를 `true`로 둘 수 있음 — 제출 전 `false`로 복원)
 - [x] 스키마: `manifest.json` valid (ajv) `코드` (community-gists schema + `ajv-cli` → `manifest.json valid`, 2026-08-08)
 
 ---
@@ -259,7 +259,7 @@
 ## 6. 회귀 스모크 (핵심 플로우)
 
 - [ ] Apex 로비/매치에서 GEP 상태 표시·매치 기록 수집
-- [ ] 데스크톱에서 매치 히스토리 / 통계 / 무기 / 티어표 탭 전환
+- [ ] 데스크톱에서 매치 히스토리 / 통계(Overview·Weapons 서브탭) / 티어표 탭 전환
 - [ ] 플레이어 검색 모달 열기·닫기
 - [x] 설정: Discord / 로그 폴더 / 핫키 UI / 리셋 확인 = `AppDialog` (native alert 없음) `코드`
 - [x] Settings Discord 버튼 클릭 시 콘솔 에러 없음 (2026-09-03 실기, STORE-QA #5)

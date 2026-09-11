@@ -1,14 +1,14 @@
 # 무기 통계 기준 (Weapons)
 
 Statistics → Weapons 탭·집계 규칙.  
-**기준일:** 2026-09-10 (`v0.0.15`).
+**기준일:** 2026-09-11 (`v0.0.15`).
 
 **관련 코드**
 
 | 영역 | 경로 |
 |------|------|
 | 클라이언트 집계 SSOT | `src/utils/weaponMatchStats.ts` |
-| 집계 UI | `src/utils/statsAggregation.ts`, `src/components/StatisticsTab.tsx` |
+| 집계 UI | `src/utils/statsAggregation.ts` (`hybridRankScore`), `src/components/StatisticsTab.tsx` |
 | 라이브 finalize | `public/background/utils.js` (`syncWeaponCombatFromEvents`) |
 | 프록시 (gitignore) | `trace-proxy-server/lib/weaponCombat.js`, `playerStats.js` (threat backfill) |
 
@@ -18,6 +18,7 @@ Statistics → Weapons 탭·집계 규칙.
 
 - `hasUsableMatchStats`를 통과한 매치만 집계.
 - 매치 단위 원자값은 `resolveWeaponCombatForMatch` / `resolveWeaponThreatsForMatch`.
+- 시즌 데이터 소스: `GET /player-stats` `payload.matches` (대시보드 history 아님).
 - finalize 시 **rich** `weaponCombat` + `weaponThreats`를 매치에 저장. 이후 클라이언트는 rich 저장값이 있으면 그대로 씀(디테일 있어도 재계산하지 않음).
 - 옛 매치에 `weaponThreats`가 비어 있으면: events가 있으면 클라이언트에서 재계산 가능 / 시즌 stats fetch 시 프록시 backfill(프록시 배포 필요).
 
@@ -34,7 +35,7 @@ Statistics → Weapons 탭·집계 규칙.
 | **K/D · KA/D** | `kills / deaths`, `(kills+assists) / deaths`. **deaths==0이면 N/A** (킬 수로 대체하지 않음). |
 | **Win Rate / Avg Placement** | `qualify`된 매치만. qualify 없으면 `-`. |
 | **Qualify** | 최종 로드아웃 항상 후보 + 내 kill/knockdown/damage 시점의 primary·secondary. |
-| **Top Weapons** | hold/usage·KD 하이브리드 랭크. |
+| **Top Weapons** | 매치 수 × K/D 하이브리드 (`hybridRankScore`: `volume^0.6 × kd × volume/(volume+prior)`, prior ≈ 12판). |
 | **Top Threats** | 나를 죽인/녹다운한 적 무기 (`weaponThreats`). 킬 귀속은 녹다운 선호(나와 동일한 로직). 표시: 킬(확정 데스 크레딧) + 녹다운 횟수. |
 | **Paired weapons** | 선택 무기와 **같은 매치**에서 같이 쓴 다른 총기. 매치 수 합 ≠ 선택 무기 매치 수일 수 있음(한 판에 페어가 여럿). |
 | **Weapon legends** | 선택 무기를 쓴 매치의 내 레전드. |

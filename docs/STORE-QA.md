@@ -28,7 +28,7 @@ Critical는 승인 차단. High/Medium/Low는 가능한 한 수정.
 광고 클릭 시 Overwolf 내장 브라우저로 열림. 시스템 기본 브라우저로 열려야 함.
 
 - OW 안내: [`force_browser`](https://dev.overwolf.com/ow-native/reference/manifest/manifest-json/#top-level-data-properties) — `"user"` | `"overwolf"`
-- 현재: `desktop`에 `block_top_window_navigation` / `popup_blocker` / `mute`만 있음. **`data.force_browser` 없음**
+- 현재: `desktop`에 `block_top_window_navigation` / `popup_blocker` / `mute`만 있음. **`data.force_browser` 없음** (제출 당시)
 - 조치: `manifest.json` → `data.force_browser: "user"` ✅ (반영)
 
 ---

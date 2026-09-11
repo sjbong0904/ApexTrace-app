@@ -30,7 +30,9 @@
 
 #### 3. WeaponsDB / Weapons UI 삭제
 
-에이펙스 게임 내 관련 기능으로 앱 쪽 무기 레퍼런스 필요성 소멸 → 시드·탭·관련 코드 제거 예정.
+네비 **무기 레퍼런스 탭은 이미 제거**됨 (`NavTabId`에 `WEAPONS` 없음, 옛 `mainTab === 'WEAPONS'`는 DASHBOARD로 리다이렉트). Statistics → Weapons(통계)는 유지.
+
+남은 작업: 미사용 `src/components/weaponsTab.tsx`, `seed:weapons`, `public.weapons` / 어드민 무기 편집을 정리할지 결정.
 
 #### 4. 개별 매치 카드 (공유용)
 

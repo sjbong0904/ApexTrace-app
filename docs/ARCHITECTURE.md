@@ -4,7 +4,7 @@ ApexTrace 매치 데이터·통계·클라이언트 로딩 전략.
 *(구 파일명: `match-data-architecture-v3.md`.)*
 
 **상태:** Shipped. Supabase 마이그레이션 적용됨. 프로덕션 프록시: `trace-proxy-server.vercel.app`.  
-**관련 코드:** `trace-proxy-server/lib/matchHistory.js` (`rowFromMatch` / `matchFromRow`), `api/history.js`, `api/address-book.js`, `src/App.tsx`, `src/components/StatisticsTab.tsx`, `public/background/services/matchService.js`, `public/background/main.js` (`SyncManager`)
+**관련 코드:** `trace-proxy-server/lib/matchHistory.js` (`rowFromMatch` / `matchFromRow`), `api/history.js`, `api/address-book.js`, `src/App.tsx`, `src/components/StatisticsTab.tsx`, `src/utils/playerStatsApi.ts`, `src/utils/statsAggregation.ts`, `public/background/services/matchService.js`, `public/background/main.js` (`SyncManager`)
 
 ---
 
@@ -13,9 +13,9 @@ ApexTrace 매치 데이터·통계·클라이언트 로딩 전략.
 | 목표 | 설명 |
 | --- | --- |
 | 빠른 첫 페인트 | 수천 판이 있어도 다른 유저 프로필에서 매치 목록이 빨리 뜸 |
-| 완전한 통계 | Statistics 탭이 클라이언트 history 동기화를 기다리지 않고 **시즌 전체** 집계를 표시 |
+| 완전한 통계 | Statistics 탭이 대시보드 history 동기화를 기다리지 않고 `player-stats` 시즌 묶음으로 집계를 표시 |
 | 완전한 매치 상세 | 펼치면 Combat Log·맵 경로·로드아웃 타임라인 사용 가능 |
-| 서버가 SSOT | 시즌·매치·사전집계는 Supabase; 앱은 표시·라이브 캡처 셸 |
+| 서버가 SSOT | 시즌·매치·시즌 summary 묶음은 Supabase; 앱은 표시·라이브 캡처·지표 집계 셸 |
 | v2 `matches`만 | `public.match_archives`(v1)는 읽기/쓰기 없음 |
 
 ---
@@ -31,8 +31,9 @@ Overwolf 확장이 담당:
 - 활성 세션용 `Store.history`
 - LocalDB(IndexedDB) 캐시 (오프라인·재방문)
 - UI 렌더·네비게이션
+- Statistics 집계: 대시보드 `history`가 아니라 `GET /player-stats`의 `payload.matches`를 클라이언트에서 집계 (`statsAggregation` / `weaponMatchStats`)
 
-목표 설계에서 클라이언트는 raw 매치로 **시즌 전체 통계를 다시 집계하지 않음**.
+대시보드 목록 동기화와 Statistics는 **독립**. 시즌 통계를 위해 history 전체를 기다리지 않음.
 
 ### 2.2 서버 역할 (SSOT)
 
@@ -40,7 +41,7 @@ Overwolf 확장이 담당:
 
 - 시즌 정의 (단일 소스)
 - 정규화 매치 행 (`public.matches`)
-- 사전집계 시즌 통계 (`public.player_season_stats`)
+- 시즌/모드별 summary 매치 묶음 (`public.player_season_stats.payload.matches`)
 - 일별 랭크 스냅샷 (기존, RP 차트용)
 
 ### 2.3 데이터 3단
@@ -53,8 +54,8 @@ Overwolf 확장이 담당:
 │ Tier 2 — Detail      events, path, weapon_timeline, ring_rounds │
 │                      펼침(또는 prefetch) 시 매치별 로드          │
 ├─────────────────────────────────────────────────────────────────┤
-│ Tier 3 — Season stats  uid/season/mode별 집계 JSONB             │
-│                        Statistics 탭이 직접 읽음                │
+│ Tier 3 — Season stats  uid/season/mode별 payload.matches JSONB  │
+│                        Statistics가 받아 클라이언트 집계        │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -105,7 +106,7 @@ PK는 `(uid, match_id)`.
 
 ### 3.3 `public.player_season_stats`
 
-Statistics 탭용 사전집계.
+Statistics 탭용 시즌 범위 summary 묶음. 사전집계 숫자 JSON이 아니라 **매치 summary 배열**.
 
 | 컬럼 | 타입 | 비고 |
 | --- | --- | --- |
@@ -113,48 +114,29 @@ Statistics 탭용 사전집계.
 | `season_id` | `integer` | FK → `public.seasons.id` |
 | `mode` | `text` | `ALL` \| `RANKED` \| `TRIO` \| `DUO` |
 | `match_count` | `integer` | 해당 버킷 매치 수 |
-| `payload` | `jsonb` | 집계 (§3.4) |
+| `payload` | `jsonb` | `{ matches: summaryMatch[] }` (§3.4) |
 | `updated_at` | `timestamptz` | 마지막 increment / recompute |
 
 **PK:** `(uid, season_id, mode)`
 
 새 매치 1판 → 최대 **4행** increment: `ALL` + 큐 버킷(`RANKED` / `TRIO` / `DUO`).
 
-### 3.4 Statistics `payload` shape (v1)
+### 3.4 Statistics `payload` shape
 
-`StatisticsTab`이 raw `history` 스캔 없이 만족해야 함. 마이그레이션 중에는 기존 클라이언트 집계와 필드를 맞춤.
+클라이언트가 읽는 형태 (`src/utils/playerStatsApi.ts`):
 
 ```json
 {
-  "overview": {
-    "wins": 0,
-    "avg_placement": "0.0",
-    "avg_kills": "0.0",
-    "avg_assists": "0.0",
-    "avg_damage": "0",
-    "total_games": 0
-  },
-  "legends": [],
-  "weapons": [],
-  "maps": [],
-  "teammates": [],
-  "performance_series": [
-    {
-      "matchId": "1781987842965",
-      "startTime": 1781987842965,
-      "kills": 3,
-      "damage": 1200,
-      "placement": 5,
-      "legend": "wraith"
-    }
-  ]
+  "matches": [ /* camelCase summary matches (Tier 1 + weaponCombat / weaponThreats) */ ]
 }
 ```
 
-- **`performance_series`:** Overview 라인/바 차트용 매치별 포인트 (전체 `history` 순회 대체).
-- **상한:** 시즌/모드당 최근 N개(예: 500)로 JSON 크기 제한 가능.
+- **상한:** 시즌/모드당 최근 **2000**판 (`scripts/seed-teammate-test-data.ts` recompute와 동일).
+- 대시보드 `history`와 별도. events / path / ring_rounds는 없음.
+- `StatisticsTab`은 `payload.matches`를 `statsHistory`로 정규화한 뒤 Maps / Legends / Weapons / Teammates / Overview를 **클라이언트 집계**.
+- 예전 `overview` / `legends` / `weapons` / `maps` / `teammates` / `performance_series` nested payload는 **사용하지 않음**.
 
-랭크 진행 차트는 기존 **`daily_rank_snapshots`** 사용.
+랭크 진행 차트는 기존 **`daily_rank_snapshots`**. 사이드바 최근 20판 등수 추이는 대시보드 `history` (`PerformanceTrend`).
 
 ### 3.5 모드 의미
 
@@ -167,7 +149,7 @@ Statistics 필터 4모드. `src/utils/matchMode.ts`의 `matchesStatisticsMode()`
 | `TRIO` | Trio, 비랭크 |
 | `DUO` | Duo, 비랭크 |
 
-`ALL`은 대시보드 history 탭의 `BR` 필터와 **다름**. 대시보드 `BR`은 `matchesHistoryTab()` 기준.
+`ALL`(통계)은 대시보드 history 탭의 내부 키 `BR`과 **다름**. 대시보드 `BR`은 `matchesHistoryTab()` 기준이고, UI 라벨은 **ALL** (`statistics.modes.br`).
 
 ---
 
@@ -183,7 +165,7 @@ Statistics 필터 4모드. `src/utils/matchMode.ts`의 `matchesStatisticsMode()`
 | `view=summary` | 기본. Tier 1만 (events/path 없음) |
 | `view=detail` | 내부 별칭; 단건은 `matchId` 사용 |
 | `matchId` | 설정 시 **한 판** 전체 (Tier 1 + 2) |
-| `matchIds` | 선택 배치 detail (콤마, 최대 ~5) |
+| `matchIds` | 선택 배치 detail (콤마, 최대 ~5). **클라이언트 미사용** |
 | `cursor` | 페이지네이션: 이전 페이지 가장 오래된 `start_time` |
 | `startDate` / `endDate` | 범위 (epoch ms); `ROWS_PER_FETCH`(200) 한도 |
 
@@ -214,7 +196,7 @@ HTTP GET은 짧은 엣지 캐시 (`Cache-Control: public, max-age=0, s-maxage=30
 1. `resolveRelatedUids`로 `mainUid` 해석
 2. `public.seasons` + `match.startTime`으로 `season_id` 해석
 3. `rowFromMatch`로 정규화 컬럼만 upsert (`player_name`, `missing_signals` 포함). `_` 키·`isDead`/`startPos`/`endPos`는 저장하지 않음
-4. `(mainUid, season_id, ALL|RANKED|TRIO|DUO)`에 대해 `player_season_stats` increment
+4. `(mainUid, season_id, ALL|RANKED|TRIO|DUO)`에 대해 `player_season_stats.payload.matches` upsert (상한 2000)
 5. 해당 시 `daily_rank_snapshots` upsert (기존 경로)
 
 `match_archives`에는 **쓰지 않음**. `legacy_match` / `schema_version` / `dataQuality` / `confidence` 컬럼은 없음. 불완전 판정은 클라이언트가 `placement`·combat null로 하고, 배지 툴팁만 `missing_signals`를 씀.
@@ -267,12 +249,12 @@ GEP 로스터는 매치당 최대 ~60명. 트래픽 가드:
 ```
 1. fetchUserHistory(uid)           → summary 1페이지(20행) — 목록 ASAP
 2. getUserDetail(uid)              → 프로필 + history promise 재사용 (이중 fetch 금지)
-3. 백그라운드: summary 페이지네이션 → 빈 응답까지; “목록 완료” 오버레이는 제품 선택
-4. LocalDB: summary 행 저장
-5. 선택: 보이는 페이지 detail prefetch
+3. LocalDB: summary 행 저장
+4. 본인 계정만: 나머지 summary를 백그라운드 페이지네이션 (목록 위 진행 오버레이)
+5. 타인 프로필: 페이지를 넘길 때만 다음 summary 청크 lazy fetch
 ```
 
-**Statistics 탭은 3단계를 기다리지 않음.** `GET /player-stats`를 독립 호출.
+**Statistics 탭은 목록 sync를 기다리지 않음.** `GET /player-stats`를 독립 호출.
 
 ### 5.2 매치 펼침 (detail)
 
@@ -290,27 +272,28 @@ onClick       → detail 캐시 있으면 즉시 expand
 2. LocalDB detail 캐시
 3. 네트워크 `GET /history?matchId=`
 
-**Summary sync 완료 후:** 현재 페이지(최대 20 matchId) detail을 백그라운드 prefetch.
+보이는 페이지 **상위 3행**을 백그라운드 prefetch + pointerdown. `matchIds=` 배치 API는 미사용.
 
 ### 5.3 Statistics 탭
 
 ```
 마운트 또는 시즌/모드 변경:
   GET /player-stats?uid=&season_id=&mode=
-  → payload로 StatisticsTab 렌더
-  → 집계용으로 client history 필터하지 않음 (롤아웃 중 fallback만)
+  → payload.matches → statsHistory
+  → Overview/Maps/Legends/Weapons/Teammates 클라이언트 집계
 ```
 
-선택: 로컬 `POST /history` 성공 후 현재 시즌 + `ALL` stats prefetch.
+대시보드 `history`로 시즌 통계를 만들지 않음. 매치 저장 후 `statsRefreshToken`으로 현재 시즌 stats 재요청.
 
 ### 5.4 오버레이
 
 | 오버레이 | 시점 | 막는 것 |
 | --- | --- | --- |
-| Profile loading | ALS 스탯 + 첫 summary 페이지 | 사이드바 프로필 필드 |
-| History sync | summary 페이지네이션 완료까지 | 대시보드 매치 목록 (제품 선택) |
+| Profile loading | ALS 스탯 + 첫 summary 페이지 | 스크롤 영역 전체 (패딩 포함) |
+| History sync | **본인 계정** summary 페이지네이션 | 매치 목록 (진행 카운트 오버레이) |
+| 타인 lazy page | 페이지 넘김 시 다음 청크 | 목록을 통째로 막지 않음 |
 | Match row spinner | expand 전 detail fetch | 해당 행만 |
-| Statistics | stats API가 빠르면 불필요 | — |
+| Statistics | `player-stats` 로딩 중 | 통계 탭 본문 |
 
 ---
 
@@ -346,7 +329,7 @@ sequenceDiagram
     UI->>UI: User opens Statistics tab
     UI->>Proxy: GET /player-stats
     Proxy->>SB: read player_season_stats
-    Proxy-->>UI: payload includes just-played match
+    Proxy-->>UI: payload.matches includes just-played match
 ```
 
 **타임라인 (전형적):**
@@ -371,12 +354,8 @@ sequenceDiagram
     Proxy-->>UI: 20 summary matches → list renders
     UI->>Proxy: getUserDetail / apex-stats (parallel)
 
-    loop Background
-        UI->>Proxy: GET /history?view=summary&cursor=...
-        Proxy-->>UI: next pages → merge → IDB
-    end
-
-    UI->>User: Optional overlay until summary sync done
+    Note over UI: Other profiles: next pages only when the user paginates
+    UI->>IDB: save page 1 summaries
 
     User->>UI: Expand match M
     UI->>IDB: detail cached?
@@ -389,10 +368,10 @@ sequenceDiagram
 
     User->>UI: Statistics tab
     UI->>Proxy: GET /player-stats?uid&season_id&mode
-    Proxy-->>UI: full season aggregates (independent of summary sync)
+    Proxy-->>UI: payload.matches (independent of summary sync)
 ```
 
-헤비 유저: summary sync는 **목록 완전성**에 수분 걸릴 수 있음. 통계는 `player-stats` 응답만으로 정확.
+타인 프로필은 목록을 끝까지 백그라운드 받지 않음. 통계는 `player-stats`만으로 시즌 전체를 표시.
 
 ### 6.3 Flow C — 재방문 incremental sync
 
@@ -447,35 +426,29 @@ LocalDB                                     → summary + detail 캐시 merge
 
 ---
 
-## 9. 통계 계산 (서버)
+## 9. 통계 계산
+
+표시 지표(승률·K/D·Top Weapons 등)는 **클라이언트** (`statsAggregation.ts`, `weaponMatchStats.ts`). 서버 행은 시즌 범위 summary 배열만 유지.
 
 ### 9.1 `POST /history` 시 increment
 
 저장 매치마다:
 
 1. 적용 모드 결정 (항상 `ALL` + 지원 시 `RANKED`/`TRIO`/`DUO` 하나)
-2. 각 `(uid, season_id, mode)` 행:
-   - `payload.overview` 카운터 증가
-   - legend / weapon / map / teammate 집계 갱신
-   - `performance_series` append (상한 준수)
-
-구현 옵션:
-
-- **프록시 Node 모듈** (1순위 권장): `history.js` POST에서 호출, 단위 테스트 가능
-- **Postgres RPC/trigger**: 일관성↑, `StatisticsTab` 로직과 동기화 난이도↑
+2. 각 `(uid, season_id, mode)` 행의 `payload.matches`에 해당 summary upsert, `match_count` 갱신 (상한 2000)
 
 ### 9.2 Full recompute
 
-Backfill·드리프트 수정용:
+Backfill·드리프트 수정용 (시드 스크립트와 동일 패턴):
 
 ```
-SELECT * FROM matches WHERE uid = ? AND season_id = ?
-→ increment와 동일 집계로 payload 교체
+SELECT summary columns FROM matches WHERE uid = ? AND season range
+→ payload = { matches: [...] } 로 교체
 ```
 
 ### 9.3 로직 동등성
 
-롤아웃 중 **shadow 비교**: 샘플 프로필에서 서버 payload vs 클라이언트 `StatisticsTab` 출력이 임계값 이하일 때까지.
+서버는 집계 숫자를 만들지 않으므로 payload vs UI shadow 비교는 **해당 없음**. 무기 킬/데스 규칙은 클라이언트·background·프록시 `weaponCombat`이 같아야 함 ([WEAPON-STATS.md](./WEAPON-STATS.md)).
 
 ---
 
@@ -496,7 +469,8 @@ SELECT * FROM matches WHERE uid = ? AND season_id = ?
 | 항목 | 상태 |
 | --- | --- |
 | `public.match_archives` | Deprecated — v3에서 읽기/쓰기 없음 |
-| `history` 기반 클라이언트 통계 | StatisticsTab 마이그레이션 후 deprecated |
+| 대시보드 `history`로 시즌 통계 집계 | Deprecated — `player-stats` `payload.matches`만 |
+| nested `overview` / `performance_series` payload | Deprecated — `{ matches }`만 |
 | `view=summary` 없이 full rows 반환하는 `GET /history` | Deprecated — 기본 summary |
 | `matches.legacy_match` / `schema_version` | 제거됨 — 정규화 컬럼 + `missing_signals` |
 | 권한원으로서의 `FALLBACK_SEASONS` | 부트스트랩만 |
@@ -526,7 +500,7 @@ SELECT * FROM matches WHERE uid = ? AND season_id = ?
 - [x] `GET /player-stats` 구현
 - [x] `POST /history` 시 increment
 - [x] 기존 매치 전체 backfill — 스킵 (프리런치)
-- [x] StatisticsTab이 서버 payload 사용; 클라이언트 집계 제거
+- [x] StatisticsTab이 `payload.matches` 사용 (대시보드 history fallback 없음; 집계는 클라)
 
 ### Phase D — Polish
 
@@ -557,12 +531,12 @@ SELECT * FROM matches WHERE uid = ? AND season_id = ?
 
 ---
 
-## 15. 미결 질문
+## 15. 결정된 로딩 정책 (구 미결)
 
-1. **Summary sync 오버레이:** 전체 대시보드를 막을지, 진행 배지만 할지?
-2. **performance_series 상한:** 고정 500 vs 시즌 전체?
-3. **배치 detail API:** prefetch에 `matchIds=`가 나은지, 단건 N병렬이 나은지?
-4. **Weapons 탭:** full history가 필요한지, stats payload / summary만으로 충분한지?
+1. **Summary sync 오버레이:** 본인 계정은 목록 위 진행 오버레이. 타인 프로필은 페이지 lazy fetch, 대시보드 전체를 막지 않음.
+2. **시즌 포인트 상한:** `performance_series` 없음. `payload.matches` 최근 2000. Overview는 이 배열 집계, 사이드바 등수 스파크라인은 대시보드 history 최근 20.
+3. **배치 detail:** `matchIds=` 미사용. 단건 prefetch (보이는 페이지 상위 3 + pointerdown).
+4. **Weapons 탭:** `payload.matches`의 `weaponCombat` / `weaponThreats`로 충분. 펼침용 events/path는 불필요.
 
 ---
 
@@ -573,11 +547,12 @@ SELECT * FROM matches WHERE uid = ? AND season_id = ?
 | 매치 목록 카드 | Summary `GET /history` (+ LocalDB) |
 | 펼침 (방금 플레이한 라이브) | `Store.history` full object |
 | 펼침 (그 외) | `GET /history?matchId=` 또는 캐시 |
-| Statistics 탭 | `GET /player-stats` |
+| Statistics 탭 | `GET /player-stats` → `payload.matches` 클라 집계 |
+| 사이드바 최근 20 등수 | 대시보드 `history` (`PerformanceTrend`) |
 | 랭크 진행 차트 | `daily_rank_snapshots` (기존) |
 | 시즌 셀렉터 라벨 | config sync의 `public.seasons` |
 | 게임 후 새 매치 | `POST /history` → matches + stats increment |
 
 ---
 
-*최종 갱신: 2026-06-28 · 한국어화: 2026-08-01*
+*최종 갱신: 2026-09-11 · 한국어화: 2026-08-01*

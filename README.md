@@ -47,7 +47,7 @@ flowchart LR
 |-------|------|
 | **Overwolf app** | GEP event capture, match session state, local cache, UI |
 | **Vercel proxy** | Mozambique API proxy, player search, match upload/download, CORS-safe backend |
-| **Supabase** | i18n strings, normalized match storage (v2), rank snapshots |
+| **Supabase** | i18n strings, normalized match storage (v2), season stats payloads, name aliases, rank snapshots |
 
 Default proxy URL: `https://trace-proxy-server.vercel.app/api` (configured in `public/background/config.js`).
 
@@ -96,7 +96,7 @@ New matches are stored as one row per match in `public.matches`. Legacy `match_a
 
 | Doc | Contents |
 |-----|----------|
-| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | **Shipped:** summary/detail split, seasons SSOT, server-side season stats, loading flows |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | **Shipped:** summary/detail split, seasons SSOT, `player-stats` `payload.matches` + client aggregation |
 
 ---
 
@@ -151,6 +151,7 @@ apex-trace/
 ├── scripts/
 │   ├── locale-seeds/          # Translation source JSON (10 languages, BCP 47)
 │   ├── seed-languages.ts      # Push locale seeds → Supabase
+│   ├── seed-weapons.ts        # Push weapon catalog → Supabase
 │   ├── seed-teammate-test-data.ts  # Dev-only fake teammate matches for UI testing
 │   └── generate-zh-tw.mjs     # Regenerate zh-TW from zh-CN
 │
@@ -160,6 +161,8 @@ apex-trace/
 │   ├── RELEASE_NOTES.md       # Version changelog
 │   ├── ROADMAP.md             # Product + Overwolf API future plans
 │   ├── ARCHITECTURE.md        # Match data V3 (shipped)
+│   ├── WEAPON-STATS.md        # Weapons tab metrics
+│   ├── NICKNAME-SEARCH.md     # Alias / exact search / keep-alive
 │   ├── QA.md                  # Overwolf manual QA checklist
 │   └── LAUNCH.md              # Phase 1 launch (infra / store / organic / week-2)
 │
@@ -205,6 +208,7 @@ For local proxy development, set `window.PROXY_BASE_URL` or edit [`public/backgr
 | `npm run preview` | Preview production build |
 | `npm run lint` | ESLint |
 | `npm run seed:languages` | Push `scripts/locale-seeds/*.json` to Supabase |
+| `npm run seed:weapons` | Push weapon catalog seed → Supabase `public.weapons` |
 | `npm run seed:teammate-test` | Insert dev-only fake teammate matches (requires service role key) |
 | `npm run seed:teammate-test:clean` | Remove `test_tm_*` dev matches and recompute stats |
 
@@ -237,9 +241,13 @@ Apply migrations in chronological order:
 | `20260624062600_matches_uid_match_id_primary_key.sql` | Composite PK `(uid, match_id)` |
 | `20260628100000_create_seasons.sql` | Season boundaries SSOT (`public.seasons`) |
 | `20260628100100_matches_add_season_id.sql` | `season_id` on `matches` |
-| `20260628100200_create_player_season_stats.sql` | Precomputed season/mode stats for Statistics tab |
+| `20260628100200_create_player_season_stats.sql` | Season/mode `payload.matches` for Statistics tab |
+| `20260714090000_seasons_drop_is_active.sql` | Drop unused `seasons.is_active` (UI uses start/end time) |
 | `20260721010000_matches_add_weapon_combat.sql` | Per-match `weapon_combat` summary JSON |
 | `20260721020000_matches_add_deaths.sql` | Combat-log death count column on `matches` |
+| `20260723090000_admin_users_and_weapons.sql` | Admin allowlist + `public.weapons` catalog |
+| `20260806090000_create_profile_name_aliases.sql` | Former-name aliases for exact search |
+| `20260808050000_matches_nullable_combat_stats.sql` | Nullable kills/assists/knocks/damage for incomplete matches |
 
 Legacy table `match_archives` is managed by the proxy repo and is not recreated here.
 
@@ -247,26 +255,27 @@ Legacy table `match_archives` is managed by the proxy repo and is not recreated 
 
 ## UI features (high level)
 
-- **Match list & map** — movement path overlay per match, ring rounds (when GEP provides data), fullscreen map with `Esc` to exit
+- **Match list & map** — movement path overlay per match, fullscreen map with `Esc` to exit. Round rings are stored (`ring_rounds`) but not yet drawn on the map ([ROADMAP](docs/ROADMAP.md))
 - **Match detail tabs** — Stats + Loadout Timeline (weapon change history)
-- **Statistics** — Overview (5-axis radar, last-20 match trends, free full preview); Maps/Legends/Weapons/Teammates show blurred premium preview with upgrade CTA; season + mode filters; **server-side season stats** via `player_season_stats` (V3)
-- **Weapon combat stats** — hold time (`hh:mm`), event kills, death-slot deaths (+ mid-hold kill correction), win rate / avg placement from qualifying slots; KA/D hidden; per-match `weaponCombat` persisted
+- **Statistics** — Overview (5-axis radar, free full preview); Maps/Legends/Weapons/Teammates show blurred premium preview with upgrade CTA; season + mode filters. Data from `GET /player-stats` `payload.matches` (client aggregation, independent of dashboard history sync)
+- **Weapon combat stats** — hold time (`hh:mm`), knockdown-priority kills, deaths split by hold-time share in each life; K/D and KA/D show **N/A** when deaths=0. Win rate / avg placement from qualifying slots. Per-match `weaponCombat` + `weaponThreats` persisted. Details: [WEAPON-STATS.md](docs/WEAPON-STATS.md)
 - **K/D deaths** — overall / legend / teammate K/D use combat-log death counts (2 deaths in one match = 2); legacy matches fall back to loss = 1 death
-- **Top Legends / Weapons ranking** — hybrid score `sqrt(usage) × K/D` (legends = games, weapons = hold minutes); same for Overview main picks
+- **Top Legends / Weapons ranking** — hybrid score `volume^0.6 × K/D × volume/(volume+prior)` (legends and weapons both use **match count**; prior ≈ 12 games)
 - **Stat color tiers** — win rate, K/D, KA/D, avg damage, avg placement use gray / white / green / gold bands
-- **Teammates tab** — “My stats when playing with X” framing; TOP3 cards with legend podium; detailed table with season-average baseline row, ▲/▼ deltas (5+ games), long-nickname marquee
+- **Teammates tab** — “My stats when playing with X” framing; TOP3 cards with legend podium; detailed table with season-average baseline row, ▲/▼ deltas (5+ games), long-nickname marquee. Up to 30 rows; nameless UIDs counted in aggregates but omitted from the table
 - **Rank RP trend chart** — daily snapshots from `daily_rank_snapshots` (Overview, All/Ranked); tier-colored line, hides unranked (0 RP) seasons
-- **Sidebar stats** — recent-20 summary cards (win rate, avg placement, kills, damage, assists, top legend)
+- **Sidebar stats** — recent-20 summary cards (win rate, avg placement, kills, damage, assists, top legend) plus a 20-match placement sparkline from dashboard history
 - **Combat log** — Supabase-hosted event icons (kill, knockdown, death, revive, respawn); kill/knockdown/assist/revive events with improved revive/respawn display; localized GEP finishes promoted via pending knockdowns
-- **Weapons tab** — weapon / hop-up reference; podium win rate kept (≥10% highlighted green); map/legend overview cards omit weapon WR / teammate pick rate (tables keep them)
+- **Tier table** — legend/weapon tier list with capture (html2canvas)
 - **Settings** — theme (dark/light), in-app hotkey rebinding, tutorial, log folder, **app data reset** (clears local cache and relaunches)
-- **Player search** — autocomplete via proxy, multi-profile local history, rank tier colors
+- **Player search** — case-insensitive **exact** nick (current name or former alias) or UID; recent-search dropdown (not typeahead autocomplete). Ambiguous hits open a picker with “Former name”
 - **GEP event status** — click the colored dot next to refresh to see which recordings are affected (Game Mode, Combat Logs, Placement, Movement Path, …) via Overwolf's live status API
-- **Game mode fallback** — when GEP omits `game_mode`, real matches with map + teammates are saved as `BR` and shown only in the BR tab
-- **Progressive history sync** — initial 100-match UI load, background archive sync, flush on navigation/filter change
+- **Game mode fallback** — when GEP omits `game_mode`, real matches with map + teammates are saved as `BR` and shown only on the dashboard **ALL** tab (internal filter key remains `BR`)
+- **Progressive history sync** — first summary page (~20 matches) for the list; own account continues in the background; other profiles fetch the next page on demand
 - **Live match sync** — newly saved matches merge into the UI without flicker when viewing the same player
 - **Close confirm** — “hide vs quit” dialog (+ don’t ask again) on desktop X and **Alt+F4** (`is_alt_f4_blocked`); taskbar close still hides to background without prompting
 - **Match detail lazy load** — summary list first; events/path/timeline fetched on expand (V3)
+- **Desktop ads (Free)** — right-side OwAd rail on the desktop window only; in-game overlay has no ads
 
 ---
 
@@ -290,6 +299,8 @@ Internal docs (Korean): **[docs/README.md](docs/README.md)**
 | [Release notes](docs/RELEASE_NOTES.md) | Changelog |
 | [Roadmap](docs/ROADMAP.md) | Product + Overwolf API plans |
 | [Architecture](docs/ARCHITECTURE.md) | Match data V3 |
+| [Weapon stats](docs/WEAPON-STATS.md) | Weapons tab metrics |
+| [Nickname search](docs/NICKNAME-SEARCH.md) | Alias / exact search / keep-alive |
 | [QA](docs/QA.md) | Overwolf manual QA |
 | [Launch](docs/LAUNCH.md) | Phase 1 launch guide |
 
