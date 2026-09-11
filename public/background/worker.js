@@ -1,4 +1,3 @@
-// src/background/worker.js
 if (typeof Utils === 'undefined') console.error('[Worker] Utils missing!');
 
 const getPlatformMap = () => {
@@ -86,12 +85,11 @@ const RosterScanner = {
                 const pName = Utils.cleanName(p.name);
                 const hwId = p.platform_hw ?? null;
 
-                // ✅ platform_hw → 플랫폼 문자열 (Origin/Steam 구분)
                 const platform = (hwId !== null && hwId !== undefined)
-                    ? (PLATFORM_MAP[hwId] ?? `hw_${hwId}`)  // 알 수 없는 값은 hw_숫자로 로깅
+                    ? (PLATFORM_MAP[hwId] ?? `hw_${hwId}`)
                     : null;
 
-                // ✅ origin_id(EA) 우선, 없으면 platform_id(Steam 등)
+                // Prefer origin_id (EA); fall back to platform_id (Steam, etc.).
                 const originId = p.origin_id || null;
                 const platformId = p.platform_id || null;
                 const mainUid = originId || platformId;
@@ -102,8 +100,8 @@ const RosterScanner = {
                         name: pName,
                         uid: mainUid,
                         linked_uid: linkedUid,
-                        hw: hwId !== null ? String(hwId) : null,  // ✅ String으로 저장
-                        platform                                    // ✅ "Origin", "Steam" 등
+                        hw: hwId !== null ? String(hwId) : null,
+                        platform
                     });
                 }
 

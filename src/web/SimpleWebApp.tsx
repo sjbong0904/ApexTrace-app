@@ -533,7 +533,7 @@ export default function SimpleWebApp() {
                         <div
                             ref={mainScrollRef}
                             style={{
-                                padding: mainTab === 'TIER_TABLE' ? 0 : (isNarrowLayout ? '16px' : '30px'),
+                                padding: isNarrowLayout ? '16px' : '30px',
                                 overflowY: (
                                     mainTab === 'TIER_TABLE'
                                     || (isProfileLoading && (mainTab === 'DASHBOARD' || mainTab === 'STATISTICS'))
@@ -544,16 +544,18 @@ export default function SimpleWebApp() {
                                 minHeight: 0,
                                 position: 'relative',
                                 minWidth: 0,
+                                boxSizing: 'border-box',
                             }}
                         >
                         <div style={{
                             width: '100%',
-                            maxWidth: mainTab === 'TIER_TABLE' ? undefined : CONTENT_MAX_WIDTH,
+                            maxWidth: CONTENT_MAX_WIDTH,
                             marginLeft: 'auto',
                             marginRight: 'auto',
                             boxSizing: 'border-box',
                             minWidth: 0,
-                        }}>
+                            height: mainTab === 'TIER_TABLE' ? '100%' : undefined,
+                        }} data-catalog-bounds="content">
                             {(mainTab === 'DASHBOARD' || mainTab === 'STATISTICS') && (
                                 <InlineProfileSection
                                     showFavoritePin={false}

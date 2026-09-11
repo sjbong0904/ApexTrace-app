@@ -1,4 +1,3 @@
-// src/background/events.js
 let lastMatchEndTime = 0;
 let lastBoundaryRotateAt = 0;
 
@@ -2053,7 +2052,6 @@ const EventRouter = {
 
 MatchBoundary.rememberClosedSession = rememberClosedSession;
 MatchBoundary.isBoundaryArtifactSession = isBoundaryArtifactSession;
-// markInferredBoundaryIfArtifact / shouldInferNewMatch live on MatchBoundary above.
 
 window.EventRouter = EventRouter;
 window.MatchBoundary = MatchBoundary;

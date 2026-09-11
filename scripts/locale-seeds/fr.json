@@ -311,6 +311,7 @@
     "winRate": "Taux de victoire",
     "avgPlacement": "Moy. #",
     "avgKills": "Élim. moy.",
+    "avgKnocks": "M. à terre moy.",
     "avgDamage": "Dégâts moy.",
     "avgAssists": "Assist. moy.",
     "mostPlayed": "Le plus joué"
@@ -628,6 +629,7 @@
       "premiumHint": "Premium débloque les analyses par carte, légende, arme et coéquipier, les filtres classé/trio/duo et le graphique des 20 derniers matchs.",
       "chartDamage": "Dégâts",
       "chartKills": "Éliminations",
+      "chartAssists": "Assistances",
       "chartPlacement": "Placement",
       "tooltipMatch": "Match {{n}}",
       "chartHoverHint": "Survolez un graphique pour voir les détails du match",

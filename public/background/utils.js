@@ -1,12 +1,10 @@
-// src/background/utils.js
-// 1. DEFAULT CONFIGURATION — DB 로드 전 빈 객체로만 초기화
+// Empty until ConfigController loads maps from the DB.
 window.GAME_MODE_MAP = window.GAME_MODE_MAP || {};
 window.LEGEND_MAP    = window.LEGEND_MAP    || {};
 window.BG_MAP_DATA   = window.BG_MAP_DATA   || {};
 window.WEAPON_MAP    = window.WEAPON_MAP    || {};
 window.SEASONS       = window.SEASONS       || [];
 
-// 2. UTILITY FUNCTIONS
 const Utils = {
 
     /**
@@ -93,7 +91,7 @@ const Utils = {
 
         if (window.LEGEND_MAP?.[clean]) return window.LEGEND_MAP[clean];
 
-        // 알 수 없는 레전드 코드 감지 → Discord 알림
+        // Unknown GEP legend codes: Discord once, then keep the raw token.
         if (clean && clean !== "unknown") {
             if (!Utils._alertedLegends) Utils._alertedLegends = new Set();
             if (!Utils._alertedLegends.has(clean)) {
@@ -104,7 +102,7 @@ const Utils = {
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
                             embeds: [{
-                                title: "⚠️ Unknown Legend Detected",
+                                title: "Unknown Legend Detected",
                                 color: 0xFF4444,
                                 fields: [
                                     { name: "코드명", value: `\`${clean}\``, inline: true },

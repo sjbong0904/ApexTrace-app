@@ -1,10 +1,8 @@
-// src/background/main.js
 import { createClient } from '@supabase/supabase-js';
 
 const SUPABASE_URL = "https://ureuzkxyyozzzluzawwr.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVyZXV6a3h5eW96enpsdXphd3dyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY3NjYyMDYsImV4cCI6MjA4MjM0MjIwNn0.iErYt2OhF2HYiQUVHjbCkO-c9zJPRodYpJZ2DB3WIp0";
 
-// 3. window 객체에 할당
 if (!window._supabase) {
     window._supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 }
@@ -973,7 +971,7 @@ const CoreController = {
                     finalData = dbInfo;
                     source = 'DB_FETCH';
                 } else {
-                    // 🌟 [방어 로직] ALS API 닉네임 오염 방지 (로컬 DB 우선)
+                    // ALS nicknames can lag or collide; prefer the local address-book name.
                     if (dbInfo.name && dbInfo.name !== "Unknown") finalData.name = dbInfo.name;
                     if (dbInfo.role) finalData.role = dbInfo.role;
                     if (dbInfo.linked_uid && !finalData.linked_uid) finalData.linked_uid = dbInfo.linked_uid;
@@ -993,7 +991,6 @@ const CoreController = {
                         finalData.name = window.Store.user.name;
                     }
                 }
-                // 🌟 [깔끔한 정제] 흩어진 스탯 필드들을 예쁜 단일 객체로 통일
                 let fullRankName = window.Utils.formatFullRankName(
                     finalData.rankName || finalData.rank_name || "Unranked",
                     finalData.rankDiv ?? finalData.rank_div,
@@ -1013,7 +1010,6 @@ const CoreController = {
                     linked_uid: finalData.linked_uid || finalData.linkedUid || null
                 };
 
-                // DB 주소록 업데이트 시 정제된 객체 전달
                 if (window.CloudRepository) {
                     window.CloudRepository.updateAddressBook(normalizedUser.name, normalizedUser.uid, normalizedUser);
                     if (!useCachedStats && apiStats && window.CloudRepository.upsertDailyRankSnapshot) {
@@ -1057,7 +1053,7 @@ const CoreController = {
 
             if (totalFound > 1) {
                 const limitedCandidates = candidates.slice(0, 10); 
-                // 🌟 [깔끔한 매핑] DB에서 온 데이터이므로 무조건 snake_case만 바라보도록 수정
+                // Address-book rows are snake_case; do not read camelCase aliases here.
                 const safeCandidates = limitedCandidates.map(c => ({
                     uid: String(c.uid),
                     name: String(c.name),
@@ -1391,7 +1387,7 @@ const CoreController = {
             console.error("Match Init Error (Handled safely):", e);
         }
 
-        // 🌟 에러가 나든 안 나든, 워커(Worker) 스캐너는 무조건 켜지도록 보장됨!
+        // Roster scan must start even if match init failed.
         GameStatePoller.start();
         if (window.Utils && window.Utils.sendWorkerMessage) {
             window.Utils.sendWorkerMessage('CMD_START_SCAN', { targetName: null });
@@ -1643,8 +1639,7 @@ const GameProcessMonitor = {
                 WindowController._lastGameMonitorHandle = null;
                 if (window.Store.activeMatch) window.CoreController.endMatch();
                 GameProcessMonitor._featuresRegistered = false;
-                
-                // 🌟 게임이 꺼지면 떠있던 인게임 창을 완전히 닫습니다.
+
                 overwolf.windows.obtainDeclaredWindow("in_game", (res) => {
                     if (res.status === "success") overwolf.windows.close(res.window.id);
                 });

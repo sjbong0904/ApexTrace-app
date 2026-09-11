@@ -77,11 +77,10 @@ const MapVisualizer: React.FC<MapVisualizerProps> = ({ match }) => {
     const [hoveredEndpoint, setHoveredEndpoint] = useState<'start' | 'end' | null>(null);
     const jumpHoverClearTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
     
-    const containerRef = useRef<HTMLDivElement>(null); // 🌟 전체 화면을 위한 ref
+    const containerRef = useRef<HTMLDivElement>(null);
     const isDragging = useRef(false);
     const dragStart = useRef({ x: 0, y: 0 });
 
-    // 🌟 Fullscreen API 상태 변경 감지
     useEffect(() => {
         const handleFullscreenChange = () => {
             const isCurrentlyFullscreen = !!document.fullscreenElement;
@@ -93,15 +92,14 @@ const MapVisualizer: React.FC<MapVisualizerProps> = ({ match }) => {
             }
         };
 
-        // 휠 스크롤 줌 로직
+        // Wheel zoom is fullscreen-only so the match panel still scrolls normally.
         const handleWheel = (e: WheelEvent) => {
-            // 전체 화면일 때만 휠 줌 작동
             if (!document.fullscreenElement) return;
 
-            e.preventDefault(); // 페이지 스크롤 방지
+            e.preventDefault();
 
             const zoomStep = 0.5;
-            const delta = e.deltaY > 0 ? -zoomStep : zoomStep; // 휠 아래로: 축소, 위로: 확대
+            const delta = e.deltaY > 0 ? -zoomStep : zoomStep;
 
             setScale(prev => {
                 const newScale = prev + delta;
@@ -140,7 +138,6 @@ const MapVisualizer: React.FC<MapVisualizerProps> = ({ match }) => {
         e.stopPropagation();
         if (!document.fullscreenElement) {
             try {
-                // 전체 화면 요청
                 if (containerRef.current?.requestFullscreen) {
                     await containerRef.current.requestFullscreen();
                 }
@@ -148,7 +145,6 @@ const MapVisualizer: React.FC<MapVisualizerProps> = ({ match }) => {
                 console.error(`Error attempting to enable fullscreen: ${err}`);
             }
         } else {
-            // 전체 화면 해제
             if (document.exitFullscreen) {
                 await document.exitFullscreen();
             }
@@ -317,7 +313,7 @@ const MapVisualizer: React.FC<MapVisualizerProps> = ({ match }) => {
 
     return (
         <div
-            ref={containerRef} // 🌟 전체 화면 전환을 위한 타겟
+            ref={containerRef}
             style={{ 
                 flex: '0 0 auto', 
                 height: '100%', 
@@ -338,7 +334,7 @@ const MapVisualizer: React.FC<MapVisualizerProps> = ({ match }) => {
         >
             <div style={{ position: 'absolute', top: '15px', right: '15px', display: 'flex', flexDirection: 'column', gap: '5px', zIndex: 100 }}>
                 <button 
-                    onClick={toggleFullscreen} // 🌟 네이티브 전체화면 함수 호출
+                    onClick={toggleFullscreen}
                     className="apex-btn zoom-btn"
                     title={isFullscreen ? "Exit Fullscreen" : "Fullscreen"}
                 >
@@ -374,7 +370,6 @@ const MapVisualizer: React.FC<MapVisualizerProps> = ({ match }) => {
                         const dotStroke = (0.3 * markerBase) / scale;
                         return (
                     <>
-                    {/* 경로 그리기 */}
                     {segments?.map((segment, index) => {
                         const color = PATH_COLORS[index % PATH_COLORS.length];
                         const baseWidth = 1.0 / scale;
@@ -382,15 +377,12 @@ const MapVisualizer: React.FC<MapVisualizerProps> = ({ match }) => {
 
                         return (
                             <g key={`path-group-${index}`}>
-                                {/* 테두리 (검은색 반투명) */}
                                 <path d={segment} fill="none" stroke="#000" strokeWidth={outlineWidth} strokeLinecap="round" strokeLinejoin="round" strokeOpacity="0.6" vectorEffect="non-scaling-stroke" />
-                                {/* 본체 (색상) */}
                                 <path d={segment} fill="none" stroke={color} strokeWidth={baseWidth} strokeLinecap="round" strokeLinejoin="round" strokeOpacity="1" vectorEffect="non-scaling-stroke" />
                             </g>
                         );
                     })}
 
-                    {/* 점프 마커 */}
                     {jumpMarkers?.map((marker, i) => (
                         <MapDot
                             key={`marker-${i}`}
@@ -405,7 +397,6 @@ const MapVisualizer: React.FC<MapVisualizerProps> = ({ match }) => {
                         />
                     ))}
 
-                    {/* 시작(초록) & 끝(빨강) 점 */}
                     {displayPath.length > 0 && (() => {
                         const start = displayPath[0];
                         const end = displayPath[displayPath.length - 1];
@@ -443,7 +434,6 @@ const MapVisualizer: React.FC<MapVisualizerProps> = ({ match }) => {
                 </svg>
             </div>
 
-            {/* 줌 컨트롤 UI */}
             <div style={{ position: 'absolute', top: '15px', left: '15px', display: 'flex', flexDirection: 'column', gap: '5px' }}>
                 <button onClick={() => handleZoom('in')} className="apex-btn zoom-btn" title="Zoom In">+</button>
                 <button onClick={() => handleZoom('out')} className="apex-btn zoom-btn" title="Zoom Out">-</button>

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { getMapConfig, formatMatchTime, toGameElapsedMs } from '../utils/helpers';
 import type { Match } from '../types';
 import { FaInfoCircle } from 'react-icons/fa';
-import type { TFunction } from 'i18next'; // ✅ TFunction 타입 import
+import type { TFunction } from 'i18next';
 import { useTranslation } from 'react-i18next';
 import { c } from '../theme';
 
@@ -14,7 +14,6 @@ interface AutoResizingTextProps {
     suffix?: string;
 }
 
-// ✅ any → AutoResizingTextProps 적용
 const AutoResizingText = ({ text, baseSize = 16, color = 'var(--color-text-primary)', weight = '800', suffix = '' }: AutoResizingTextProps) => {
     const str = String(text);
     const len = str.length + (suffix ? suffix.length : 0);
@@ -82,7 +81,6 @@ const calculateTotalDistance = (path: any[], mapName: string) => {
     return Math.round(totalDist);
 };
 
-// ✅ t: any → TFunction 적용
 const determinePlaystyle = (t: TFunction, timeMin: number, dpm: number, speed: number, dist: number, dpk: number, kills: number, damage: number, KillConversionRate: number, Assists: number, placement: number, KPP: number, squadKills: number) => {
 
     if (timeMin < 3 && damage < 150)
@@ -249,7 +247,6 @@ const MatchStats = ({ match, onUserSelect }: MatchStatsProps) => {
     const { t } = useTranslation();
     const [showTooltip, setShowTooltip] = useState(false);
     const [showTooltip2, setShowTooltip2] = useState(false);
-    // ✅ DOM 직접 조작 대신 state로 hover 관리
     const [hoveredTm, setHoveredTm] = useState<number | null>(null);
 
     const placement = typeof match.placement === 'string' ? parseInt(match.placement) : (match.placement || 20);
@@ -262,7 +259,6 @@ const MatchStats = ({ match, onUserSelect }: MatchStatsProps) => {
 
     const teammateStats = useMemo(() => {
         const roster = (match.teamStats || []).filter(tm => tm.name !== myName);
-        // ✅ member: any 제거 — types.ts의 teamStats 타입 그대로 사용
         const stats = roster.map((member) => ({
             name: member.name,
             uid: member.uid,
@@ -311,7 +307,6 @@ const MatchStats = ({ match, onUserSelect }: MatchStatsProps) => {
     const avgSpeedSec = (avgSpeed / 60).toFixed(1);
     const dmgPerKill = totalKills > 0 ? Math.round(totalDamage / totalKills) : 0;
 
-    // ✅ == → === 수정
     let KPP = Number(Math.round(((totalKills + totalAssists) / squadKills) * 100));
     if (squadKills === 0) KPP = 0;
     else if (KPP > 100) KPP = 100;
@@ -340,7 +335,6 @@ const MatchStats = ({ match, onUserSelect }: MatchStatsProps) => {
                 flex: 1,
                 minHeight: 0
             }}>
-                {/* Playstyle */}
                 <div style={{
                     ...boxStyle,
                     background: style.bgGradient,
@@ -409,7 +403,6 @@ const MatchStats = ({ match, onUserSelect }: MatchStatsProps) => {
                     )}
                 </div>
 
-                {/* Survived */}
                 <div style={boxStyle}>
                     <MarqueeLabel>{t('matchStats.survivalTime')}</MarqueeLabel>
                     <div style={valContainerStyle}>
@@ -417,7 +410,6 @@ const MatchStats = ({ match, onUserSelect }: MatchStatsProps) => {
                     </div>
                 </div>
 
-                {/* KPP */}
                 <div style={boxStyle}>
                     <MarqueeLabel>{t('matchStats.killParticipant')}</MarqueeLabel>
                     <div style={valContainerStyle}>
@@ -425,7 +417,6 @@ const MatchStats = ({ match, onUserSelect }: MatchStatsProps) => {
                     </div>
                 </div>
 
-                {/* Conv. Rate */}
                 <div style={{ ...boxStyle, position: 'relative' }}>
                     <MarqueeLabel style={{ paddingRight: '16px' }}>{t('matchStats.knockToKill')}</MarqueeLabel>
                     <div style={valContainerStyle}>
@@ -450,7 +441,6 @@ const MatchStats = ({ match, onUserSelect }: MatchStatsProps) => {
                     )}
                 </div>
 
-                {/* Damage Per Kill */}
                 <div style={boxStyle}>
                     <MarqueeLabel>{t('matchStats.damagePerKill')}</MarqueeLabel>
                     <div style={valContainerStyle}>
@@ -458,7 +448,6 @@ const MatchStats = ({ match, onUserSelect }: MatchStatsProps) => {
                     </div>
                 </div>
 
-                {/* DPM */}
                 <div style={boxStyle}>
                     <MarqueeLabel>{t('matchStats.damagePerMin')}</MarqueeLabel>
                     <div style={valContainerStyle}>
@@ -466,7 +455,6 @@ const MatchStats = ({ match, onUserSelect }: MatchStatsProps) => {
                     </div>
                 </div>
 
-                {/* Distance */}
                 <div style={boxStyle}>
                     <MarqueeLabel>{t('matchStats.travelDistance')}</MarqueeLabel>
                     <div style={valContainerStyle}>
@@ -474,7 +462,6 @@ const MatchStats = ({ match, onUserSelect }: MatchStatsProps) => {
                     </div>
                 </div>
 
-                {/* Avg Speed */}
                 <div style={boxStyle}>
                     <MarqueeLabel>{t('matchStats.avgMoveSpeed')}</MarqueeLabel>
                     <div style={valContainerStyle}>
@@ -488,7 +475,6 @@ const MatchStats = ({ match, onUserSelect }: MatchStatsProps) => {
                             <div
                                 key={idx}
                                 onClick={() => handleTeammateClick(tm)}
-                                // ✅ DOM 직접 조작 제거 → hoveredTm state로 대체
                                 onMouseEnter={() => { if (tm.uid && onUserSelect) setHoveredTm(idx); }}
                                 onMouseLeave={() => setHoveredTm(null)}
                                 style={{

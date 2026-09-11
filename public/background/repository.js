@@ -1,9 +1,7 @@
-// src/background/repository.js
 (function() { 
     const getProxyBaseUrl = () =>
         window.PROXY_BASE_URL ?? "https://trace-proxy-server.vercel.app/api";
 
-    // 공통 Fetch 헬퍼
     const requestProxy = async (endpoint, method, body = null) => {
         try {
             const PROXY_BASE_URL = getProxyBaseUrl();
@@ -16,7 +14,6 @@
 
             const res = await fetch(url, options);
             
-            // 404 등 에러 처리
             if (!res.ok) {
                 console.warn(`[Repository] Proxy Error (${res.status}): ${url}`);
                 return null;
@@ -28,6 +25,7 @@
         }
     };
 
+    // Skip identical consecutive writes so GEP roster spam does not hammer the proxy.
     const lastProfileWrite = new Map();
     const profileWriteFingerprint = (data) => JSON.stringify({
         name: data.name ?? null,
@@ -44,7 +42,6 @@
     });
 
     const AddressBookModule = {
-        // 이름으로 후보군 찾기 (Autocomplete)
         findCandidatesByName: async (name) => {
             const PROXY_BASE_URL = getProxyBaseUrl();
             if (!name || name.trim().length < 1) return [];
@@ -75,11 +72,10 @@
             return res ? res.data : null;
         },
 
-        // 🌟 [수정] 단일 유저 업데이트: 정제된 객체(stats)를 받아 DB 스키마에 맞게 매핑
         update: async (name, uid, stats = {}) => {
             if (!uid) return;
             const updateData = { 
-                uid: String(uid), // 🌟 확실한 형변환
+                uid: String(uid),
                 updated_at: new Date().toISOString() 
             };
 
@@ -87,11 +83,8 @@
                 updateData.name = window.Utils ? window.Utils.cleanName(name) : name;
             }
 
-            // 🌟 융합 시스템: linked_uid와 hw를 텍스트 타입으로 안전하게 삽입
             if (stats.linked_uid) updateData.linked_uid = String(stats.linked_uid);
             if (stats.hw !== undefined && stats.hw !== null) updateData.hw = String(stats.hw);
-
-            // API에서 가져온 상세 스탯 업데이트
             if (stats.level !== undefined) updateData.level = stats.level;
             if (stats.prestige !== undefined) updateData.prestige = stats.prestige;
             if (stats.rankScore !== undefined) updateData.rank_score = stats.rankScore;
@@ -118,7 +111,7 @@
                         name: cleanName,
                         linked_uid: u.linked_uid ? String(u.linked_uid) : null,
                         hw: (u.hw !== undefined && u.hw !== null) ? String(u.hw) : null,
-                        platform: u.platform ?? null,  // ✅ 추가
+                        platform: u.platform ?? null,
                         updated_at: new Date().toISOString()
                     });
                 }
@@ -166,7 +159,6 @@
             }
         },
 
-        // 히스토리 저장하기 (백엔드가 메인 UID 찾아서 저장해 줌)
         save: async (uid, matchData) => {
             const mode = (matchData.mode || "").toLowerCase();
             if (mode.includes('firing') || mode.includes('training')) {
@@ -230,7 +222,6 @@
         }
     };
 
-    // EXPORT
     window.CloudRepository = {
         findUidByName: async (name) => {
             const candidates = await AddressBookModule.findCandidatesByName(name);

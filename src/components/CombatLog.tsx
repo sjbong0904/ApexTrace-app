@@ -73,13 +73,11 @@ const CombatLog = ({ match }: { match: Match }) => {
             overflow: 'hidden',
         }}>
             
-            {/* 헤더 */}
             <div style={MATCH_PANEL_HEADER}>
                 <span>{t('combatLog.title')}</span>
                 <span style={{ fontWeight: 400 }}>{t('combatLog.eventsCount', { count: validEvents.length })}</span>
             </div>
 
-            {/* 로그 리스트 */}
             <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: MATCH_PANEL_BODY_PADDING }}>
                 {validEvents.map((event: any, index: number) => {
                     const attackerDisplay = formatLogName(
@@ -146,7 +144,7 @@ const CombatLog = ({ match }: { match: Match }) => {
 
                             <div style={matchTimelineContentStyle}>
                                 
-                                {/* 1. 공격자 — 빈칸이어도 flex 유지로 다른 행과 정렬 통일 */}
+                                {/* Empty attacker cells still occupy flex space so rows stay aligned. */}
                                 <span style={{
                                     ...nameStyle,
                                     textAlign: 'center',
@@ -156,7 +154,6 @@ const CombatLog = ({ match }: { match: Match }) => {
                                     {attackerDisplay}
                                 </span>
                                 
-                                {/* 2. 중앙 아이콘 그룹 */}
                                 <div style={{ 
                                     flex: '0 0 auto',
                                     margin: '0 5px',
@@ -179,7 +176,6 @@ const CombatLog = ({ match }: { match: Match }) => {
                                     )}
                                 </div>
     
-                                {/* 3. 피해자 */}
                                 <span style={{ 
                                     ...nameStyle,
                                     textAlign: 'center',

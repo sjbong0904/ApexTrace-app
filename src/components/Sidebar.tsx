@@ -11,7 +11,6 @@ import { formatFullRankName, isKnownLegend } from '../utils/helpers';
 import { getWeaponTagTheme, getLegendImageId, getWeaponImageId, getWeaponDisplayName, type WeaponTagTier } from '../utils/weaponTheme';
 import ProfileTagIcon from './ProfileTagIcon';
 
-// ✅ 최소 타입 정의
 interface UserData {
     uid: string | null;
     name?: string;
@@ -94,7 +93,6 @@ const getDynamicGradient = (name: string): string => {
     return gradients[Math.abs(hash) % gradients.length];
 };
 
-// ✅ 아이콘을 외부 맵으로 분리
 const ROLE_ICONS: Record<string, React.ReactNode> = {
     dev: <FaCode />,
     pro: <FaTrophy />,
@@ -116,7 +114,6 @@ const getRoleTagConfig = (role: string): RoleTagConfig => {
     return { label: role.toUpperCase(), icon: ROLE_ICONS.default, bg: 'linear-gradient(110deg, #1a1a1a 25%, #bdc3c7 50%, #1a1a1a 75%)', color: '#f0f0f0', themeColor: '#bdc3c7', glow: 'rgba(189, 195, 199, 0.7)', score: 9999, isRole: true };
 };
 
-// ✅ <style> 태그 JSX 외부로 분리
 const SIDEBAR_STYLES = `
     @keyframes roleShine {
         0% { background-position: -200% center; }
@@ -231,7 +228,6 @@ const Sidebar: React.FC<SidebarProps> = ({
         const winRate = totalWins / totalGames;
         const top5Rate = totalTop5 / totalGames;
 
-        // 🏆 Playstyle Tags
         if (avgKills >= 6 || avgDmg >= 2000)
             tags.push({ label: t('sidebar.tags.playstyle.grimReaper.label'), desc: t('sidebar.tags.playstyle.grimReaper.desc'), icon: <FaSkull />, color: '#fff', score: 110, bgGradient: 'linear-gradient(135deg, #870000 0%, #190a05 100%)' });
         if (winRate >= 0.20)
@@ -255,7 +251,6 @@ const Sidebar: React.FC<SidebarProps> = ({
         if (avgRank <= 8 && avgDmg <= 250)
             tags.push({ label: t('sidebar.tags.playstyle.survivor.label'), desc: t('sidebar.tags.playstyle.survivor.desc'), icon: <FaUserSecret />, color: '#95a5a6', score: 60 });
 
-        // 🔫 Weapon Tags
         Object.entries(weaponStats).forEach(([key, wstats]) => {
             const pickRate = wstats.count / totalGames;
             const avgWpnKills = wstats.kills / wstats.count;
@@ -307,7 +302,6 @@ const Sidebar: React.FC<SidebarProps> = ({
             }
         });
 
-        // 🦸 Legend Tags
         Object.entries(legendStats).forEach(([name, lstats]) => {
             const pickRate = lstats.count / totalGames;
             const avgLegRank = lstats.placement / lstats.count;
@@ -436,12 +430,10 @@ const Sidebar: React.FC<SidebarProps> = ({
 
             <div ref={contentRef} style={{ padding: isInline ? inlinePadding : containerPadding, display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
 
-                {/* 핀 & 즐겨찾기 */}
                 {showFavoritePin && (
                 <div style={{ position: 'absolute', top: dense ? 8 : 15, width: '100%', padding: dense ? '0 10px' : '0 20px', display: 'flex', justifyContent: 'space-between', left: 0, boxSizing: 'border-box', zIndex: 10, overflow: 'hidden', maxWidth: '100%' }}>
                     <button
                         onClick={onTogglePin}
-                        // ✅ 번역 키 적용
                         title={isPinned ? t('controls.unpin') : t('controls.pin')}
                         style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: dense ? 16 : 20, color: isPinned ? 'var(--color-success)' : 'var(--color-text-subtle)', transform: isPinned ? 'rotate(-45deg)' : 'rotate(0deg)', transition: 'color 0.2s ease, transform 0.2s ease', padding: '5px', filter: isPinned ? 'drop-shadow(0 0 5px rgba(46, 204, 113, 0.5))' : 'none' }}
                     >
@@ -457,12 +449,10 @@ const Sidebar: React.FC<SidebarProps> = ({
                 </div>
                 )}
 
-                {/* 아바타 */}
                 <div style={{ width: avatarSize, height: avatarSize, borderRadius: '50%', border: `${avatarBorder} solid var(--color-border)`, overflow: 'hidden', background: 'var(--color-bg-deep)', marginBottom: avatarMarginBottom, marginTop: dense ? 4 : 10, boxShadow: '0 8px 20px rgba(0,0,0,0.3)', flexShrink: 0 }}>
                     <img src={displayImage} alt="Legend" style={{ width: '100%', height: '100%', objectFit: 'cover', transform: 'scale(1.1)' }} />
                 </div>
 
-                {/* 이름 및 리턴 버튼 */}
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', marginBottom: '4px', position: 'relative' }}>
                     {showReturnBtn && <div style={{ width: `${btnSize}px`, marginRight: `${btnGap}px`, flexShrink: 0 }} />}
                     <div
@@ -474,7 +464,6 @@ const Sidebar: React.FC<SidebarProps> = ({
                     {showReturnBtn && (
                         <button
                             onClick={onReturnToPinned}
-                            // ✅ 번역 키 적용
                             title={t('controls.returnToPinned')}
                             style={{ width: `${btnSize}px`, height: `${btnSize}px`, minWidth: `${btnSize}px`, minHeight: `${btnSize}px`, marginLeft: `${btnGap}px`, borderRadius: '50%', background: 'var(--color-success)', border: 'none', color: 'var(--color-text-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, cursor: 'pointer', flexShrink: 0, transition: 'all 0.2s', boxShadow: '0 2px 5px rgba(46, 204, 113, 0.4)' }}
                         >
@@ -483,12 +472,10 @@ const Sidebar: React.FC<SidebarProps> = ({
                     )}
                 </div>
 
-                {/* ✅ "Level" 하드코딩 → 번역 키 적용 */}
                 <div style={{ fontSize: dense ? 11 : 13, color: 'var(--color-text-muted)', marginBottom: dense ? 8 : 15, background: 'var(--color-bg-card)', padding: '2px 10px', borderRadius: '12px' }}>
                     {t('favorites.level')} {totalLevel}
                 </div>
 
-                {/* 랭크 */}
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: dense ? 6 : 10, marginBottom: rankMarginBottom, background: 'var(--color-bg-card)', border: '1px solid var(--color-border)', padding: dense ? '6px 10px' : '8px 15px', borderRadius: '8px', width: '100%', boxSizing: 'border-box' }}>
                     <img src={rankIcon} alt="Rank" style={{ width: rankIconSize, height: rankIconSize, objectFit: 'contain' }} />
                     <div style={{ textAlign: 'left', minWidth: 0 }}>
@@ -501,7 +488,6 @@ const Sidebar: React.FC<SidebarProps> = ({
                     </div>
                 </div>
 
-                {/* 태그 리스트 */}
                 {playerTags.length > 0 && (
                     <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: '6px', width: '100%' }}>
                         {playerTags.map((tag, idx) => {

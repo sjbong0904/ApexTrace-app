@@ -1,4 +1,3 @@
-// src/utils/tutorial.ts
 import { driver } from "driver.js";
 import "driver.js/dist/driver.css";
 import i18n from '../i18n';

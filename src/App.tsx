@@ -101,10 +101,10 @@ const getTabStyle = (isActive: boolean): React.CSSProperties => ({
 });
 
 const App = () => {
-    const { t, i18n } = useTranslation(); // 🌟 훅 사용
+    const { t, i18n } = useTranslation();
     const [SEASONS, setSeasons] = useState<Season[]>(FALLBACK_SEASONS);
     /** TEMP local preview — set back to false before store QA / commit. */
-    const isPremium = true;
+    const isPremium = false;
     /** false until window name is known — avoids mounting AdsRail on in-game briefly */
     const [isDesktopWindow, setIsDesktopWindow] = useState(false);
     const [history, setHistory] = useState<any[]>([]);
@@ -1213,7 +1213,7 @@ const App = () => {
                 <ResizeHandles insetRight={showDesktopAds ? ADS_RAIL_WIDTH : 0} />
             )}
 
-            {/* 🌟 상단 드래그 바 (Top Bar) + 언어 선택 드롭다운 — z-index above driver.js overlay (STORE-QA #4) */}
+            {/* Title bar sits above driver.js overlay (STORE-QA #4). */}
             <div
                 id="apex-title-bar"
                 onDoubleClick={handleHeaderDoubleClick}
@@ -1226,13 +1226,11 @@ const App = () => {
                 }}
                 style={{ height: '35px', background: 'var(--color-bg-top-bar)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'default', flexShrink: 0, userSelect: 'none', position: 'relative', zIndex: 100000001 } as any }>
                 
-                {/* 왼쪽: 앱 로고 & 타이틀 */}
                 <div style={{ paddingLeft: '15px', fontSize: '12px', fontWeight: 'bold', color: 'var(--color-text-muted)', letterSpacing: '1px', display: 'flex', alignItems: 'center' }}>
                     <img src="/icons/IconMouseOver.png" style={{ width: '18px', height: '18px', marginRight: '8px', objectFit: 'contain' }} />
                     {t('app.title')}
                 </div>
                 
-                {/* 오른쪽: 단축키 · 언어 선택 & 창 컨트롤 */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '10px', paddingRight: '0px' }}>
                     <HotkeyReminder />
                     <AppSelect
@@ -1338,7 +1336,7 @@ const App = () => {
                             <ProfileLoadingOverlay label={t('search.loadingProfile')} />
                         )}
                     <div ref={mainScrollRef} style={{
-                        padding: mainTab === 'TIER_TABLE' ? 0 : (isNarrowLayout ? '16px' : '30px'),
+                        padding: isNarrowLayout ? '16px' : '30px',
                         overflowY: (
                             mainTab === 'TIER_TABLE'
                             || (isProfileLoading && (mainTab === 'DASHBOARD' || mainTab === 'STATISTICS'))
@@ -1349,15 +1347,17 @@ const App = () => {
                         minHeight: 0,
                         position: 'relative',
                         minWidth: 0,
+                        boxSizing: 'border-box',
                     }}>
                     <div style={{
                         width: '100%',
-                        maxWidth: mainTab === 'TIER_TABLE' ? undefined : CONTENT_MAX_WIDTH,
+                        maxWidth: CONTENT_MAX_WIDTH,
                         marginLeft: 'auto',
                         marginRight: 'auto',
                         boxSizing: 'border-box',
                         minWidth: 0,
-                    }}>
+                        height: mainTab === 'TIER_TABLE' ? '100%' : undefined,
+                    }} data-catalog-bounds="content">
                         {(mainTab === "DASHBOARD" || mainTab === "STATISTICS") && (
                             <InlineProfileSection
                                 modeTabsSlot={(

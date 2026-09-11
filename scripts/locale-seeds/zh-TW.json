@@ -311,6 +311,7 @@
     "winRate": "勝率",
     "avgPlacement": "平均#",
     "avgKills": "平均擊殺",
+    "avgKnocks": "平均擊倒",
     "avgDamage": "平均傷害",
     "avgAssists": "平均助攻",
     "mostPlayed": "最常使用"
@@ -628,6 +629,7 @@
       "premiumHint": "Premium 可查看地圖、傳奇、武器、隊友細部分析，以及排位/三人/雙人篩選和最近 20 場趨勢圖。",
       "chartDamage": "傷害",
       "chartKills": "擊殺",
+      "chartAssists": "助攻",
       "chartPlacement": "名次",
       "tooltipMatch": "第 {{n}} 場",
       "chartHoverHint": "懸停圖表查看對局詳情",

@@ -74,7 +74,7 @@ async function main() {
     const packs = LANGUAGE_PACKS.map((meta) => ({
         ...meta,
         strings: loadSeed(meta.lang),
-        version: 15,
+        version: 17,
         is_default: meta.is_default ?? false,
     }));
 
@@ -91,7 +91,7 @@ async function main() {
             console.error(`Failed to upsert ${pack.lang}:`, error.message);
             process.exit(1);
         }
-        console.log(`✅ languages.${pack.lang} (${Object.keys(pack.strings).length} top-level keys)`);
+        console.log(`languages.${pack.lang} (${Object.keys(pack.strings).length} top-level keys)`);
     }
 
     const { error: deactivateError } = await supabase
@@ -102,7 +102,7 @@ async function main() {
     if (deactivateError) {
         console.warn('Could not deactivate legacy lang codes:', deactivateError.message);
     } else {
-        console.log(`✅ Deactivated legacy codes: ${LEGACY_LANGS.join(', ')}`);
+        console.log(`Deactivated legacy codes: ${LEGACY_LANGS.join(', ')}`);
     }
 }
 

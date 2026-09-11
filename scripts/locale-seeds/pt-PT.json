@@ -311,6 +311,7 @@
     "winRate": "Taxa de vitória",
     "avgPlacement": "Méd. #",
     "avgKills": "Abates méd.",
+    "avgKnocks": "Derrub. méd.",
     "avgDamage": "Dano méd.",
     "avgAssists": "Assist. méd.",
     "mostPlayed": "Mais jogado"
@@ -628,6 +629,7 @@
       "premiumHint": "Premium libera análises por mapa, lenda, arma e colega, filtros ranqueado/trio/duo e o gráfico de tendência das últimas 20 partidas.",
       "chartDamage": "Dano",
       "chartKills": "Abates",
+      "chartAssists": "Assistências",
       "chartPlacement": "Colocação",
       "tooltipMatch": "Partida {{n}}",
       "chartHoverHint": "Passe o rato sobre um gráfico para ver os detalhes",

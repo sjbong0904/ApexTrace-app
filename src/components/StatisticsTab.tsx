@@ -28,6 +28,7 @@ import {
     calculateStats,
 } from '../utils/statsAggregation';
 import { buildWeaponItems } from '../utils/tierTableData';
+import { getSessionCatalogId, setSessionCatalogId } from '../utils/statsCatalogSelection';
 import { getWeaponDisplayName, findWeaponByLoadoutId, getWeaponAmmoSilhouetteStyle, getWeaponImageUrl, getWeaponSilhouetteScale, getWeaponTagTheme, WHITE_SILHOUETTE_FILTER } from '../utils/weaponTheme';
 import {
     type TeammateMatchStat,
@@ -790,7 +791,6 @@ const MapLegendBreakdown = ({
     );
 };
 
-// ✅ MatchHistory 타입 적용
 interface EmptyStateProps {
     msg?: string;
 }
@@ -800,13 +800,36 @@ const EmptyState = ({ msg }: EmptyStateProps) => {
     return (
         <div style={{ padding: '60px', textAlign: 'center', color: 'var(--color-text-faint)', border: '2px dashed var(--color-border)', borderRadius: '10px' }}>
             <h3>{t('statistics.emptyState.title')}</h3>
-            {/* ✅ 하드코딩 제거 */}
             <p>{msg || t('statistics.emptyState.noData')}</p>
         </div>
     );
 };
 
 type CatalogPickerItem = { id: string; label: string; imageUrl: string };
+
+const CATALOG_PICKER_MARGIN = 12;
+const CATALOG_PICKER_NAV_SAFE = 70;
+
+const getCatalogPickerBounds = (anchor: HTMLElement | null) => {
+    const viewport = {
+        left: CATALOG_PICKER_NAV_SAFE + CATALOG_PICKER_MARGIN,
+        right: window.innerWidth - CATALOG_PICKER_MARGIN,
+        top: CATALOG_PICKER_MARGIN,
+        bottom: window.innerHeight - CATALOG_PICKER_MARGIN,
+    };
+
+    const content = (anchor?.closest('[data-catalog-bounds="content"]')
+        ?? document.querySelector('[data-catalog-bounds="content"]')) as HTMLElement | null;
+    if (!content) return viewport;
+
+    const box = content.getBoundingClientRect();
+    return {
+        left: Math.max(viewport.left, box.left + CATALOG_PICKER_MARGIN),
+        right: Math.min(viewport.right, box.right - CATALOG_PICKER_MARGIN),
+        top: viewport.top,
+        bottom: viewport.bottom,
+    };
+};
 
 /** Click trigger → icon grid dropdown for legend/weapon catalog selection. */
 const CatalogPickerDropdown = ({
@@ -842,34 +865,31 @@ const CatalogPickerDropdown = ({
             const el = rootRef.current;
             if (!el) return;
             const rect = el.getBoundingClientRect();
-            const margin = 12;
-            const navSafe = 70;
-            const leftSafe = navSafe + margin;
-            const rightSafe = margin;
-            const availableW = Math.max(0, window.innerWidth - leftSafe - rightSafe);
+            const bounds = getCatalogPickerBounds(el);
+            const availableW = Math.max(0, bounds.right - bounds.left);
             const width = Math.min(760, availableW);
             if (width <= 0) return;
 
             const centerX = rect.left + rect.width / 2;
             const left = Math.min(
-                Math.max(leftSafe, centerX - width / 2),
-                Math.max(leftSafe, window.innerWidth - width - rightSafe),
+                Math.max(bounds.left, centerX - width / 2),
+                Math.max(bounds.left, bounds.right - width),
             );
 
             const gap = 8;
-            const spaceBelow = Math.max(0, window.innerHeight - rect.bottom - gap - margin);
-            const spaceAbove = Math.max(0, rect.top - gap - margin);
+            const spaceBelow = Math.max(0, window.innerHeight - rect.bottom - gap - CATALOG_PICKER_MARGIN);
+            const spaceAbove = Math.max(0, rect.top - gap - CATALOG_PICKER_MARGIN);
             const preferBelow = spaceBelow >= 220 || spaceBelow >= spaceAbove;
             const rawMax = Math.min(440, preferBelow ? spaceBelow : spaceAbove);
             const maxHeight = Math.max(0, rawMax);
 
             if (preferBelow) {
-                const top = Math.min(rect.bottom + gap, window.innerHeight - margin);
-                const capped = Math.min(maxHeight, Math.max(0, window.innerHeight - margin - top));
+                const top = Math.min(rect.bottom + gap, window.innerHeight - CATALOG_PICKER_MARGIN);
+                const capped = Math.min(maxHeight, Math.max(0, window.innerHeight - CATALOG_PICKER_MARGIN - top));
                 setPanelPos({ top, left, width, maxHeight: capped });
             } else {
-                const bottom = Math.max(margin, window.innerHeight - rect.top + gap);
-                const capped = Math.min(maxHeight, Math.max(0, window.innerHeight - margin - bottom));
+                const bottom = Math.max(CATALOG_PICKER_MARGIN, window.innerHeight - rect.top + gap);
+                const capped = Math.min(maxHeight, Math.max(0, window.innerHeight - CATALOG_PICKER_MARGIN - bottom));
                 setPanelPos({ bottom, left, width, maxHeight: capped });
             }
         };
@@ -886,36 +906,46 @@ const CatalogPickerDropdown = ({
     useLayoutEffect(() => {
         if (!open || !panelPos) return;
         const panel = panelRef.current;
+        const anchor = rootRef.current;
         if (!panel) return;
         const box = panel.getBoundingClientRect();
-        const margin = 12;
-        const leftSafe = 70 + margin;
+        const bounds = getCatalogPickerBounds(anchor);
         let left = panelPos.left;
+        let width = panelPos.width;
         let maxHeight = panelPos.maxHeight;
         let changed = false;
 
-        if (box.right > window.innerWidth - margin) {
-            left = Math.max(leftSafe, window.innerWidth - margin - box.width);
+        const maxWidth = Math.max(0, bounds.right - bounds.left);
+        if (width > maxWidth) {
+            width = maxWidth;
             changed = true;
         }
-        if (box.left < leftSafe) {
-            left = leftSafe;
+        if (box.right > bounds.right + 0.5) {
+            left = Math.max(bounds.left, bounds.right - (width || box.width));
             changed = true;
         }
-        if (box.bottom > window.innerHeight - margin) {
-            maxHeight = Math.max(80, maxHeight - (box.bottom - (window.innerHeight - margin)));
+        if (box.left < bounds.left - 0.5) {
+            left = bounds.left;
             changed = true;
         }
-        if (box.top < margin) {
-            maxHeight = Math.max(80, maxHeight - (margin - box.top));
+        if (left + width > bounds.right + 0.5) {
+            left = Math.max(bounds.left, bounds.right - width);
+            changed = true;
+        }
+        if (box.bottom > window.innerHeight - CATALOG_PICKER_MARGIN + 0.5) {
+            maxHeight = Math.max(80, maxHeight - (box.bottom - (window.innerHeight - CATALOG_PICKER_MARGIN)));
+            changed = true;
+        }
+        if (box.top < CATALOG_PICKER_MARGIN - 0.5) {
+            maxHeight = Math.max(80, maxHeight - (CATALOG_PICKER_MARGIN - box.top));
             changed = true;
         }
 
         if (
             changed
-            && (left !== panelPos.left || maxHeight !== panelPos.maxHeight)
+            && (left !== panelPos.left || width !== panelPos.width || maxHeight !== panelPos.maxHeight)
         ) {
-            setPanelPos({ ...panelPos, left, maxHeight });
+            setPanelPos({ ...panelPos, left, width, maxHeight });
         }
     }, [open, panelPos]);
 
@@ -983,7 +1013,7 @@ const CatalogPickerDropdown = ({
                             left: panelPos.left,
                             zIndex: 10000,
                             width: panelPos.width,
-                            maxWidth: `calc(100vw - ${70 + 12 + 12}px)`,
+                            maxWidth: panelPos.width,
                             maxHeight: panelPos.maxHeight,
                             overflowX: 'hidden',
                             overflowY: 'auto',
@@ -1085,61 +1115,90 @@ const CatalogPickerDropdown = ({
     );
 };
 
-/** Single-row stat strip: centered group; shrinks instead of wrapping when narrow. */
-const overviewStatStripStyle = (padding: string): React.CSSProperties => ({
-    padding,
+/** Content-box width where 7-stat strip + 4-col radar/cards start clipping (Free ads rail). */
+const STATS_COMPACT_ENTER = 880;
+const STATS_COMPACT_EXIT = 940;
+
+const StatsCompactContext = React.createContext(false);
+const useStatsCompact = () => React.useContext(StatsCompactContext);
+
+/** Single-row stat strip: centered group; compact density instead of ellipsis-clipping. */
+const overviewStatStripStyle = (padding: string, compact = false): React.CSSProperties => ({
+    padding: compact ? '10px 10px' : padding,
     display: 'flex',
     flexWrap: 'nowrap',
     justifyContent: 'center',
     alignItems: 'stretch',
-    gap: '12px',
+    gap: compact ? 6 : 12,
     borderBottom: '1px solid var(--color-border)',
     minWidth: 0,
     width: '100%',
     boxSizing: 'border-box',
 });
 
-/** Radar + Best Legend/Map/Weapon: always 4 columns on one row. */
-const overviewBestPicksGridStyle: React.CSSProperties = {
-    display: 'grid',
-    gridTemplateColumns: 'minmax(0, 1.15fr) repeat(3, minmax(0, 1fr))',
-    gap: 10,
-    minHeight: 280,
-    padding: 12,
-    alignItems: 'stretch',
-    justifyContent: 'center',
-    boxSizing: 'border-box',
-    minWidth: 0,
-    width: '100%',
+const OverviewStatStrip = ({ padding, children }: { padding: string; children: React.ReactNode }) => {
+    const compact = useStatsCompact();
+    return <div style={overviewStatStripStyle(padding, compact)}>{children}</div>;
 };
 
-const MapOverviewStat = ({ label, value, color = 'var(--color-text-primary)' }: { label: string; value: string | number; color?: string }) => (
+/** Radar + Best Legend/Map/Weapon. Compact: radar full-width, then 3 cards (avoids side clipping). */
+const overviewBestPicksGridStyle = (compact: boolean): React.CSSProperties => (
+    compact
+        ? {
+            display: 'grid',
+            gridTemplateColumns: 'minmax(0, 1fr)',
+            gap: 10,
+            padding: 10,
+            alignItems: 'stretch',
+            boxSizing: 'border-box',
+            minWidth: 0,
+            width: '100%',
+        }
+        : {
+            display: 'grid',
+            gridTemplateColumns: 'minmax(0, 1.15fr) repeat(3, minmax(0, 1fr))',
+            gap: 10,
+            minHeight: 280,
+            padding: 12,
+            alignItems: 'stretch',
+            justifyContent: 'center',
+            boxSizing: 'border-box',
+            minWidth: 0,
+            width: '100%',
+        }
+);
+
+const MapOverviewStat = ({ label, value, color = 'var(--color-text-primary)' }: { label: string; value: string | number; color?: string }) => {
+    const compact = useStatsCompact();
+    return (
     <div style={{
         flex: '1 1 0',
         minWidth: 0,
-        maxWidth: 160,
+        maxWidth: compact ? 120 : 160,
         width: '100%',
         textAlign: 'center',
-        padding: '14px 8px',
+        padding: compact ? '8px 4px' : '14px 8px',
         background: 'rgba(255,255,255,0.03)',
         borderRadius: '10px',
         border: '1px solid var(--color-border)',
         boxSizing: 'border-box',
     }}>
         <div style={{
-            fontSize: '10px',
+            fontSize: compact ? '8px' : '10px',
             color: 'var(--color-text-muted)',
-            marginBottom: '6px',
+            marginBottom: compact ? '4px' : '6px',
             fontWeight: 600,
-            lineHeight: 1.25,
-            whiteSpace: 'nowrap',
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
+            lineHeight: 1.2,
+            whiteSpace: compact ? 'normal' : 'nowrap',
+            wordBreak: 'keep-all',
+            overflow: compact ? 'visible' : 'hidden',
+            textOverflow: compact ? undefined : 'ellipsis',
+            minHeight: compact ? '1.8em' : undefined,
         }}>
             {label}
         </div>
         <div style={{
-            fontSize: '18px',
+            fontSize: compact ? '13px' : '18px',
             fontWeight: 'bold',
             color,
             lineHeight: 1.2,
@@ -1150,7 +1209,8 @@ const MapOverviewStat = ({ label, value, color = 'var(--color-text-primary)' }: 
             {value}
         </div>
     </div>
-);
+    );
+};
 
 const MapOverviewTopCardStat = ({ label, value, color = 'var(--color-text-primary)' }: { label: string; value: string | number; color?: string }) => (
     <div style={{ textAlign: 'center', minWidth: 0, flex: 1 }}>
@@ -1303,13 +1363,15 @@ const OverviewBestPickCard = ({
     stats: OverviewBestPickStat[];
     style?: React.CSSProperties;
     children?: React.ReactNode;
-}) => (
+}) => {
+    const compact = useStatsCompact();
+    return (
     <div
         style={{
             position: 'relative',
             width: '100%',
             height: '100%',
-            minHeight: 152,
+            minHeight: compact ? 168 : 152,
             minWidth: 0,
             borderRadius: 12,
             border: '1px solid color-mix(in srgb, var(--color-border-light) 70%, transparent)',
@@ -1318,7 +1380,7 @@ const OverviewBestPickCard = ({
             display: 'flex',
             flexDirection: 'column',
             justifyContent: 'flex-end',
-            padding: '12px 14px',
+            padding: compact ? '10px 10px' : '12px 14px',
             background: 'var(--color-bg-sub-header)',
             ...style,
         }}
@@ -1338,27 +1400,37 @@ const OverviewBestPickCard = ({
                 {label}
             </div>
             <div style={{
-                fontSize: 15,
+                fontSize: compact ? 14 : 15,
                 fontWeight: 800,
                 color: '#fff',
                 whiteSpace: 'nowrap',
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
                 textShadow: '0 1px 3px rgba(0,0,0,0.7)',
-                marginBottom: stats.length > 0 ? 10 : 0,
+                marginBottom: stats.length > 0 ? (compact ? 8 : 10) : 0,
             }}>
                 {title}
             </div>
             {stats.length > 0 ? (
-                <div style={{ display: 'flex', gap: 6, width: '100%' }}>
+                <div style={{
+                    display: 'flex',
+                    flexDirection: compact ? 'column' : 'row',
+                    gap: compact ? 4 : 6,
+                    width: '100%',
+                }}>
                     {stats.map((stat) => (
                         <div
                             key={stat.label}
                             style={{
-                                flex: 1,
+                                flex: compact ? '0 0 auto' : 1,
                                 minWidth: 0,
-                                textAlign: 'center',
-                                padding: '6px 4px',
+                                display: compact ? 'flex' : undefined,
+                                flexDirection: compact ? 'row' : undefined,
+                                alignItems: compact ? 'center' : undefined,
+                                justifyContent: compact ? 'space-between' : undefined,
+                                gap: compact ? 8 : undefined,
+                                textAlign: compact ? 'left' : 'center',
+                                padding: compact ? '4px 8px' : '6px 4px',
                                 borderRadius: 8,
                                 background: 'rgba(0,0,0,0.35)',
                                 border: '1px solid rgba(255,255,255,0.08)',
@@ -1368,7 +1440,7 @@ const OverviewBestPickCard = ({
                                 fontSize: 9,
                                 color: 'rgba(255,255,255,0.62)',
                                 fontWeight: 600,
-                                marginBottom: 2,
+                                marginBottom: compact ? 0 : 2,
                                 whiteSpace: 'nowrap',
                                 overflow: 'hidden',
                                 textOverflow: 'ellipsis',
@@ -1383,6 +1455,7 @@ const OverviewBestPickCard = ({
                                 overflow: 'hidden',
                                 textOverflow: 'ellipsis',
                                 textShadow: '0 1px 2px rgba(0,0,0,0.55)',
+                                flexShrink: 0,
                             }}>
                                 {stat.value}
                             </div>
@@ -1392,7 +1465,8 @@ const OverviewBestPickCard = ({
             ) : null}
         </div>
     </div>
-);
+    );
+};
 
 const OVERVIEW_CHART_MARGIN = { top: 4, right: 12, left: 8, bottom: 18 };
 const OVERVIEW_Y_AXIS_WIDTH = 44;
@@ -1926,6 +2000,7 @@ const OverviewView = ({
     seasons: Season[];
 }) => {
     const { t } = useTranslation();
+    const compact = useStatsCompact();
     const stats = calculateStats(data);
     const analytics = useMemo(() => (stats ? computeOverviewAnalytics(stats, data) : null), [stats, data]);
     const topMap = useMemo(() => {
@@ -2061,7 +2136,7 @@ const OverviewView = ({
                     </div>
                 </div>
 
-                <div style={overviewStatStripStyle('16px 24px')}>
+                <OverviewStatStrip padding="16px 24px">
                     <MapOverviewStat label={t('statistics.maps.totalMatches')} value={stats.matches} />
                     <MapOverviewStat label={t('statistics.maps.winRate')} value={`${stats.winRate}%`} color={getWinRateColor(stats.winRate)} />
                     <MapOverviewStat label={t('statistics.common.avgPlacementShort')} value={`#${stats.avgPlacement}`} color={getAvgPlacementColor(stats.avgPlacement)} />
@@ -2069,17 +2144,17 @@ const OverviewView = ({
                     <MapOverviewStat label={t('statistics.maps.avgDamage')} value={stats.avgDamage} color={getAvgDamageColor(stats.avgDamage)} />
                     <MapOverviewStat label={t('statistics.weapons.kad')} value={stats.kda} color={getKadColor(stats.kda)} />
                     <MapOverviewStat label={t('statistics.maps.avgSurvival')} value={stats.avgTime} color="#54a0ff" />
-                </div>
+                </OverviewStatStrip>
 
-                <div style={overviewBestPicksGridStyle}>
+                <div style={overviewBestPicksGridStyle(compact)}>
                     <div
                         ref={radarPanelRef}
                         className="overview-radar-chart"
                         style={{
                             position: 'relative',
                             minWidth: 0,
-                            minHeight: 260,
-                            height: '100%',
+                            minHeight: compact ? 280 : 260,
+                            height: compact ? 280 : '100%',
                             padding: 0,
                             borderRadius: 12,
                             border: '1px solid var(--color-border)',
@@ -2168,7 +2243,7 @@ const OverviewView = ({
                             const weaponUrl = weapon ? getWeaponImageUrl(weapon.id) : '';
                             const na = t('statistics.common.na');
 
-                            return (
+                            const cards = (
                                 <>
                                     <OverviewBestPickCard
                                         label={t('statistics.overview.bestLegend', { defaultValue: 'Best Legend' })}
@@ -2259,6 +2334,16 @@ const OverviewView = ({
                                     </OverviewBestPickCard>
                                 </>
                             );
+                            return compact ? (
+                                <div style={{
+                                    display: 'grid',
+                                    gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+                                    gap: 10,
+                                    minWidth: 0,
+                                }}>
+                                    {cards}
+                                </div>
+                            ) : cards;
                         })()}
                 </div>
             </div>
@@ -2330,7 +2415,7 @@ const MapOverviewPanel = ({
                 </div>
             </div>
 
-            <div style={overviewStatStripStyle('20px 24px')}>
+            <OverviewStatStrip padding="20px 24px">
                 <MapOverviewStat label={t('statistics.maps.totalMatches')} value={stats.matches} />
                 <MapOverviewStat label={t('statistics.maps.winRate')} value={`${stats.winRate}%`} color={getWinRateColor(stats.winRate)} />
                 <MapOverviewStat label={t('statistics.common.avgPlacementShort')} value={`#${stats.avgPlacement}`} color={getAvgPlacementColor(stats.avgPlacement)} />
@@ -2338,7 +2423,7 @@ const MapOverviewPanel = ({
                 <MapOverviewStat label={t('statistics.maps.kdRatio')} value={stats.kd} color={getKdColor(stats.kd)} />
                 <MapOverviewStat label={t('statistics.weapons.kad')} value={stats.kda} color={getKadColor(stats.kda)} />
                 <MapOverviewStat label={t('statistics.maps.avgDamage')} value={stats.avgDamage} color={getAvgDamageColor(stats.avgDamage)} />
-            </div>
+            </OverviewStatStrip>
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', padding: '20px 24px 24px', alignItems: 'stretch' }}>
                 <OverviewRankSection title={t('statistics.maps.topLegends')}>
@@ -2486,7 +2571,7 @@ const LegendOverviewPanel = ({
                 </div>
             ) : stats ? (
                 <>
-                    <div style={overviewStatStripStyle('20px 24px')}>
+                    <OverviewStatStrip padding="20px 24px">
                         <MapOverviewStat label={t('statistics.legends.matches')} value={stats.matches} />
                         <MapOverviewStat label={t('statistics.legends.winRate')} value={`${stats.winRate}%`} color={getWinRateColor(stats.winRate)} />
                         <MapOverviewStat label={t('statistics.common.avgPlacementShort')} value={`#${stats.avgPlacement}`} color={getAvgPlacementColor(stats.avgPlacement)} />
@@ -2494,7 +2579,7 @@ const LegendOverviewPanel = ({
                         <MapOverviewStat label={t('statistics.legends.kd')} value={stats.kd} color={getKdColor(stats.kd)} />
                         <MapOverviewStat label={t('statistics.weapons.kad')} value={stats.kda} color={getKadColor(stats.kda)} />
                         <MapOverviewStat label={t('statistics.legends.avgDamage')} value={stats.avgDamage} color={getAvgDamageColor(stats.avgDamage)} />
-                    </div>
+                    </OverviewStatStrip>
 
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', padding: '20px 24px 24px', alignItems: 'stretch' }}>
                         <OverviewRankSection title={t('statistics.legends.topWeapons')}>
@@ -2596,7 +2681,11 @@ const LegendsView = ({ data, profileUid, profileName }: { data: MatchHistory[]; 
         })),
         [],
     );
-    const [selectedLegend, setSelectedLegend] = useState<string | null>(null);
+    const [selectedLegend, setSelectedLegendState] = useState<string | null>(() => getSessionCatalogId('legend'));
+    const setSelectedLegend = (id: string) => {
+        setSessionCatalogId('legend', id);
+        setSelectedLegendState(id);
+    };
 
     const legendMatches = useMemo(
         () => selectedLegend
@@ -2641,7 +2730,11 @@ const WeaponsView = ({ data }: { data: MatchHistory[] }) => {
     const threatWeapons = useMemo(() => aggregateThreatWeaponStatsForMatches(data).slice(0, 3), [data]);
     const topWeapons = useMemo(() => weaponStats.slice(0, 3), [weaponStats]);
 
-    const [selectedWeaponId, setSelectedWeaponId] = useState<string | null>(null);
+    const [selectedWeaponId, setSelectedWeaponIdState] = useState<string | null>(() => getSessionCatalogId('weapon'));
+    const setSelectedWeaponId = (id: string) => {
+        setSessionCatalogId('weapon', id);
+        setSelectedWeaponIdState(id);
+    };
 
     const selectedStat = useMemo(
         () => selectedWeaponId ? (weaponStats.find(w => w.id === selectedWeaponId) ?? null) : null,
@@ -2820,13 +2913,13 @@ const WeaponsView = ({ data }: { data: MatchHistory[] }) => {
                             </div>
                         </div>
 
-                        <div style={overviewStatStripStyle('20px 24px')}>
+                        <OverviewStatStrip padding="20px 24px">
                             <MapOverviewStat label={t('statistics.weapons.matches')} value={selectedStat.usageLabel} />
                             <MapOverviewStat label={t('statistics.weapons.winRate')} value={formatWeaponWinRate(selectedStat.winRate, selectedStat.hasWinRate)} color={getWinRateColor(selectedStat.winRate, { hasValue: selectedStat.hasWinRate })} />
                             <MapOverviewStat label={t('statistics.common.avgPlacementShort')} value={selectedStat.hasWinRate ? `#${selectedStat.avgPlacement}` : '-'} color={selectedStat.hasWinRate ? getAvgPlacementColor(selectedStat.avgPlacement) : undefined} />
                             <MapOverviewStat label={t('statistics.weapons.kd')} value={formatWeaponKd(selectedStat.kd, selectedStat.hasKd, t('statistics.common.na'))} color={getKdColor(selectedStat.hasKd ? selectedStat.kd : null)} />
                             <MapOverviewStat label={t('statistics.weapons.kad')} value={formatWeaponKd(selectedStat.kda, selectedStat.hasKd, t('statistics.common.na'))} color={getKadColor(selectedStat.hasKd ? selectedStat.kda : null)} />
-                        </div>
+                        </OverviewStatStrip>
 
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', padding: '20px 24px 24px', alignItems: 'stretch' }}>
                             <OverviewRankSection title={t('statistics.weapons.pairedWeapons')}>
@@ -3645,8 +3738,26 @@ const StatisticsTab: React.FC<StatisticsTabProps> = ({
     const [serverMatches, setServerMatches] = useState<MatchHistory[]>([]);
     const [serverMatchCount, setServerMatchCount] = useState(0);
     const [serverStatsLoading, setServerStatsLoading] = useState(false);
+    const statsRootRef = useRef<HTMLDivElement>(null);
+    const [compactStats, setCompactStats] = useState(false);
 
-    // ✅ 객체 맵으로 정리
+    useLayoutEffect(() => {
+        const el = statsRootRef.current;
+        if (!el || typeof ResizeObserver === 'undefined') return;
+
+        const update = (width: number) => {
+            setCompactStats((prev) => (prev ? width < STATS_COMPACT_EXIT : width < STATS_COMPACT_ENTER));
+        };
+        update(el.clientWidth);
+
+        const observer = new ResizeObserver((entries) => {
+            const box = entries[0]?.borderBoxSize?.[0];
+            update(box ? box.inlineSize : el.clientWidth);
+        });
+        observer.observe(el);
+        return () => observer.disconnect();
+    }, []);
+
     const TAB_LABELS: Record<string, string> = {
         OVERVIEW: t('statistics.tabs.overview'),
         MAPS: t('statistics.tabs.maps'),
@@ -3756,7 +3867,8 @@ const StatisticsTab: React.FC<StatisticsTabProps> = ({
     };
 
     return (
-        <div style={{ paddingBottom: '40px', color: 'var(--color-text-primary)' }}>
+        <StatsCompactContext.Provider value={compactStats}>
+        <div ref={statsRootRef} data-catalog-bounds="content" style={{ paddingBottom: '40px', color: 'var(--color-text-primary)' }}>
             {/* Tabs stay one scrollable row; mode filters wrap to a clean 2nd row when narrow. */}
             <div
                 style={{
@@ -3866,6 +3978,7 @@ const StatisticsTab: React.FC<StatisticsTabProps> = ({
 
             {renderContent()}
         </div>
+        </StatsCompactContext.Provider>
     );
 };
 

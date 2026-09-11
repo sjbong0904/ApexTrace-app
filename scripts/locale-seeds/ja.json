@@ -311,6 +311,7 @@
     "winRate": "勝率",
     "avgPlacement": "平均#",
     "avgKills": "平均キル",
+    "avgKnocks": "平均ノックダウン",
     "avgDamage": "平均ダメージ",
     "avgAssists": "平均アシスト",
     "mostPlayed": "最多ピック"
@@ -628,6 +629,7 @@
       "premiumHint": "プレミアムでマップ・レジェンド・武器・チームメイト別の詳細分析、ランク/トリオ/デュオフィルター、直近20試合のトレンドチャートが利用できます。",
       "chartDamage": "ダメージ",
       "chartKills": "キル",
+      "chartAssists": "アシスト",
       "chartPlacement": "順位",
       "tooltipMatch": "マッチ {{n}}",
       "chartHoverHint": "チャートにカーソルを合わせるとマッチ情報を表示",

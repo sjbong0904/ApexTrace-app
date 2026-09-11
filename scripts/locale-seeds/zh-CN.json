@@ -311,6 +311,7 @@
     "winRate": "胜率",
     "avgPlacement": "平均#",
     "avgKills": "平均击杀",
+    "avgKnocks": "平均击倒",
     "avgDamage": "平均伤害",
     "avgAssists": "平均助攻",
     "mostPlayed": "最常使用"
@@ -628,6 +629,7 @@
       "premiumHint": "Premium 可查看地图、传奇、武器、队友细分分析，以及排位/三人/双人筛选和最近 20 场趋势图。",
       "chartDamage": "伤害",
       "chartKills": "击杀",
+      "chartAssists": "助攻",
       "chartPlacement": "名次",
       "tooltipMatch": "第 {{n}} 场",
       "chartHoverHint": "悬停图表查看对局详情",

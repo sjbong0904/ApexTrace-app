@@ -1,5 +1,3 @@
-// src/utils/LocalDB.ts
-
 const DB_NAME = 'ApexTraceDB';
 const STORE_NAME = 'match_history';
 const DB_VERSION = 2; 
@@ -11,7 +9,7 @@ export const LocalDB = {
             
             request.onupgradeneeded = (event: any) => {
                 const db = event.target.result;
-                
+                // Version bumps recreate the store (wipes local cache). Cloud history is the source of truth.
                 if (db.objectStoreNames.contains(STORE_NAME)) {
                     db.deleteObjectStore(STORE_NAME);
                 }

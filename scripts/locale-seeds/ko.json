@@ -311,6 +311,7 @@
     "winRate": "승률",
     "avgPlacement": "평균 #",
     "avgKills": "평균 킬",
+    "avgKnocks": "평균 녹다운",
     "avgDamage": "평균 대미지",
     "avgAssists": "평균 어시스트",
     "mostPlayed": "최다 픽"
@@ -639,6 +640,7 @@
       "premiumHint": "프리미엄에서 맵·레전드·무기·팀원별 상세 분석, 랭크/트리오/듀오 필터, 최근 20경기 트렌드 차트를 확인할 수 있습니다.",
       "chartDamage": "대미지",
       "chartKills": "킬",
+      "chartAssists": "어시스트",
       "chartPlacement": "등수",
       "tooltipMatch": "매치 {{n}}",
       "chartHoverHint": "차트에 마우스를 올려 매치 정보를 확인하세요",

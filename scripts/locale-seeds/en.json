@@ -311,6 +311,7 @@
     "winRate": "Win Rate",
     "avgPlacement": "Avg #",
     "avgKills": "Avg Kills",
+    "avgKnocks": "Avg Knocks",
     "avgDamage": "Avg Damage",
     "avgAssists": "Avg Assists",
     "mostPlayed": "Most Played"
@@ -639,6 +640,7 @@
       "premiumHint": "Premium unlocks map, legend, weapon, and teammate breakdowns — plus ranked/trio/duo filters and performance trends.",
       "chartDamage": "Damage",
       "chartKills": "Kills",
+      "chartAssists": "Assists",
       "chartPlacement": "Placement",
       "tooltipMatch": "Match {{n}}",
       "chartHoverHint": "Hover a chart to inspect each match",

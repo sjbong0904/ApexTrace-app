@@ -1,4 +1,3 @@
-// src/constants.js
 window.EVENTS = {
     MATCH_START: 'match_start',
     MATCH_END: 'match_end',

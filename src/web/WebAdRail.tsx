@@ -44,7 +44,6 @@ const WebAdRail = ({ side }: WebAdRailProps) => {
                 background: 'var(--color-bg-main)',
             }}
         >
-            {/* Primary skyscraper slot */}
             <div
                 data-ad-slot={`${side}-skyscraper`}
                 style={{

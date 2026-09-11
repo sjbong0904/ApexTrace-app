@@ -1,4 +1,3 @@
-// src/hooks/useWindowAutoResize.ts
 import { useCallback, useEffect } from 'react';
 
 type BackgroundWindow = Window & {

@@ -1,8 +1,6 @@
-// src/background/services/matchService.js
-
-// 🌟 [추가됨] 클랜 태그([ ])와 공백, 대소문자를 모두 무시하고 동일 인물인지 판별하는 스마트 비교 함수
 const isSamePlayer = (name1, name2) => {
     if (!name1 || !name2) return false;
+    // Ignore clan tags, spaces, and case so GEP/roster names still match.
     const clean1 = name1.replace(/\[.*?\]/g, '').replace(/\s+/g, '').toLowerCase();
     const clean2 = name2.replace(/\[.*?\]/g, '').replace(/\s+/g, '').toLowerCase();
     return clean1 === clean2;
@@ -695,7 +693,7 @@ class MatchService {
         delete match._rosterCache; delete match._squadNames; delete match._unknownKillers;
         MatchService.stripRuntimeFields(match);
 
-        // ✅ teamStats uid 사후 보정
+        // Fill teammate uids from the address book when GEP omitted them.
         if (window.CloudRepository) {
             const unresolvedTeammates = match.teamStats.filter(tm => !tm.uid && tm.name);
 

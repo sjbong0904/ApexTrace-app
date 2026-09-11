@@ -1,5 +1,3 @@
-// src/utils/gameData.ts
-
 export const COLORS = {
     CHART: ['#db4545', '#ff9f43', '#54a0ff', '#5f27cd', '#1dd1a1', '#c8d6e5'],
     NEON_RED: "#ff4757",
@@ -32,17 +30,16 @@ export const SHORT_WEAPON_NAMES = (rawName: string | null): string | null => {
     if (!rawName) return null;
     const lower = rawName.toLowerCase();
 
-    // 아킴보 우선
+    // Akimbo names include the base pistol token — match those first.
     if (lower.includes('mozam') && lower.includes('akimbo')) return "MOZAMBIQUE AKIMBO";
     if (lower.includes('p2020') && lower.includes('akimbo')) return "P2020 AKIMBO";
 
-    // 충돌 위험군 우선
+    // Ambiguous substrings (R-301 vs R-99, C.A.R., G7) before the generic scan.
     if (lower.includes('r301') || lower.includes('r-301') || lower.includes('rspn101')) return "R-301";
     if (lower.includes('c.a.r') || lower.includes('_car') || lower.includes('car_') || lower === 'car') return "C.A.R.";
     if (lower.includes('g7') || lower.includes('scout') || lower.includes('g2')) return "G7 SCOUT";
     if (lower.includes('hemlok') || lower.includes('hemlock')) return "HEMLOK";
 
-    // 일반 스캔
     if (lower.includes('r99') || lower.includes('r-99') || lower.includes('r97')) return "R-99";
     if (lower.includes('flatline') || lower.includes('vinson')) return "FLATLINE";
     if (lower.includes('nemesis')) return "NEMESIS";

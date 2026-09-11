@@ -1,4 +1,3 @@
-// src/types.ts
 export interface MatchEvent {
     type: 'kill' | 'death' | 'knockdown' | 'assist' | 'damage' | 'ring_damage' | 'kill_leader' | 'ability_used' | 'item_dibs' | 'team_revive_attempt' | 'team_respawn_success' | 'revive' | 'respawn';
     attacker?: string;

@@ -1,4 +1,3 @@
-// src/components/AdUnit.tsx
 import React, { useEffect, useRef } from 'react';
 
 declare global {

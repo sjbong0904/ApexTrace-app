@@ -75,7 +75,6 @@ const CATEGORY_IMG_SCALE: Record<string, number> = {
     'SNIPER': 1.4, 'SHOTGUN': 1.5, 'PISTOL': 0.9, 'CARE_PACKAGE': 1.0
 };
 
-// ✅ t: any → TFunction
 const getTranslatedAttachment = (part: string, t: TFunction): string => {
     const map: Record<string, string> = {
         'Barrel':       t('weaponDb.attachments.barrel'),
@@ -250,7 +249,6 @@ interface ModeOption {
     label: string;
 }
 
-// ✅ 타입 정의
 interface StatBoxProps {
     label: string;
     value: string | number;
@@ -309,12 +307,11 @@ const WeaponsTab = () => {
 
     const isCarCP = currentVariant?.id === 'car_cp';
 
-    // ✅ internalMode 의존성 제거 → 무한루프 방지
+    // Shield is the default CARE C.A.R. mode. Do not depend on internalMode here or the effect loops.
     useEffect(() => {
         if (isCarCP) setInternalMode('Shield');
     }, [isCarCP]);
 
-    // ✅ useMemo로 상단 이동
     const filteredWeapons = useMemo(() =>
         WEAPONS_DB.filter(w => w.category === selectedCategory && w.variant === 'STANDARD'),
     [selectedCategory]);
@@ -465,7 +462,6 @@ const WeaponsTab = () => {
                     </button>
 
                     <div style={{ display: 'flex', gap: '30px', flexWrap: 'wrap' }}>
-                        {/* 왼쪽 — 무기 이미지 & 변형 선택 */}
                         <div style={{ flex: 1, minWidth: '240px' }}>
                             <div style={{
                                 background: theme.detailCardBg, borderRadius: '12px', padding: '30px',
@@ -507,7 +503,6 @@ const WeaponsTab = () => {
                                 </div>
                             </div>
 
-                            {/* 아킴보 토글 */}
                             {akimboVariant && standardVariant && currentVariant.variant !== 'CARE_PACKAGE' && (
                                 <div style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
                                     <button
@@ -525,7 +520,6 @@ const WeaponsTab = () => {
                                 </div>
                             )}
 
-                            {/* 내부 모드 토글 */}
                             {internalModes.length > 1 && (
                                 <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', flexWrap: 'wrap' }}>
                                     {internalModes.map((m) => {
@@ -549,13 +543,11 @@ const WeaponsTab = () => {
                                 </div>
                             )}
 
-                            {/* ✅ borderLeft → borderTop */}
                             <p style={{ fontSize: '15px', color: 'var(--color-text-dim)', fontStyle: 'italic', background: 'var(--color-bg-card)', padding: '15px', borderRadius: '8px', borderTop: `3px solid ${themeColor}` }}>
                                 "{currentVariant.description() || t('weapons.noDescription')}"
                             </p>
                         </div>
 
-                        {/* 오른쪽 — 스탯 & 부착물 */}
                         <div style={{ flex: 1.5, minWidth: '240px' }}>
                                     <h3 style={{ borderBottom: `1px solid ${themeColor}66`, paddingBottom: '8px', marginBottom: '20px', color: themeColor, fontSize: '18px' }}>
                                 {t('weapons.weaponStatistics')}
@@ -624,7 +616,6 @@ const WeaponsTab = () => {
                                 style={{
                                     '--hover-color': theme.borderColor,
                                     '--hover-scale': 1.1,
-                                    // ✅ borderLeft → borderTop
                                     background: theme.listCardBg,
                                     height: '140px',
                                     display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',

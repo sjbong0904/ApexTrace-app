@@ -360,7 +360,7 @@ async function seedTestData() {
 
     if (upsertError) throw upsertError;
 
-    console.log(`✅ Upserted ${rows.length} test matches for uid ${TARGET_UID}`);
+    console.log(`Upserted ${rows.length} test matches for uid ${TARGET_UID}`);
 
     const teammateCounts = new Map<string, number>();
     for (const match of matches) {

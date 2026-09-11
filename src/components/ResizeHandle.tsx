@@ -1,4 +1,3 @@
-//ResizeHandle.tsx
 import React from 'react';
 
 type ResizeHandlesProps = {

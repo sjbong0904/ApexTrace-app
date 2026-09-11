@@ -1,4 +1,3 @@
-// src/background/services/apiService.js
 const getApiBaseUrl = () => window.PROXY_BASE_URL ?? "https://trace-proxy-server.vercel.app/api";
 
 const parseJsonArrayHistory = (text) => {
