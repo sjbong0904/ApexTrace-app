@@ -486,7 +486,9 @@
       "resetTitle": "앱 초기화",
       "resetDesc": "저장된 모든 캐시를 삭제하고 앱을 재시작합니다. 고정된 프로필과 즐겨찾기 목록이 삭제됩니다.",
       "versionTitle": "앱 버전",
-      "versionDesc": "현재 설치 버전"
+      "versionDesc": "현재 설치 버전",
+      "licensesTitle": "오픈소스 라이선스",
+      "licensesDesc": "앱에 사용된 아이콘과 라이브러리"
     },
     "hotkeys": {
       "change": "변경",
@@ -512,6 +514,10 @@
     "externalLink": {
       "title": "브라우저에서 열까요?",
       "message": "게임 밖에서 웹 브라우저가 열립니다."
+    },
+    "licenses": {
+      "icons": "아이콘",
+      "libraries": "라이브러리"
     }
   },
   "playstyles": {

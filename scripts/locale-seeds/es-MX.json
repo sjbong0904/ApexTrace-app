@@ -436,7 +436,9 @@
       "resetTitle": "Restablecer la app",
       "resetDesc": "Elimina toda la caché guardada y reinicia la app. Se eliminarán el perfil fijado y los favoritos.",
       "versionTitle": "Versión de la app",
-      "versionDesc": "Versión instalada actualmente"
+      "versionDesc": "Versión instalada actualmente",
+      "licensesTitle": "Licencias de código abierto",
+      "licensesDesc": "Íconos y bibliotecas usados en la app"
     },
     "reset": {
       "button": "Restablecer",
@@ -451,6 +453,10 @@
     "externalLink": {
       "title": "¿Abrir en tu navegador?",
       "message": "Esto abrirá tu navegador web fuera del juego."
+    },
+    "licenses": {
+      "icons": "Íconos",
+      "libraries": "Bibliotecas"
     }
   },
   "playstyles": {

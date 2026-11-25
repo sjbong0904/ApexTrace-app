@@ -52,6 +52,7 @@
 - [ ] [RELEASE_NOTES.md](./RELEASE_NOTES.md)의 진행 중 버전 섹션에 기록: 새 기능 / 개선 / 수정 / 서버·DB(적용 상태 + 라이브 빌드 영향) / 측정(2단계 수치).
   - "무엇이 문제였고 → 어떻게 바꿨고 → 수치나 확인 방법"이 보이게.
 - [ ] 큰 변경 묶음(릴리스)은 파일 단위 전수조사 문서(`CHANGES-<버전>.md`)를 만들고 [docs/README.md](./README.md)에 링크.
+- [ ] 새 아이콘 세트·라이브러리·외부 에셋을 넣었으면 `src/utils/credits.ts`(설정 > 앱 정보 > 오픈소스 라이선스)와 `THIRD_PARTY_NOTICES.md`에 추가. CC BY는 작가·출처·라이선스·수정 여부까지(`credits.test.ts`가 react-icons 세트와 Game Icons 아이콘 표기를 검사).
 - [ ] 관련 문서 갱신: QA 항목이면 [QA.md](./QA.md), GEP 이상 동작은 [GEP-BUGS.md](./GEP-BUGS.md), 계획 변경은 [ROADMAP.md](./ROADMAP.md), 측정 방법은 [METRICS.md](./METRICS.md).
 - [ ] 배포·적용한 것은 커밋 해시·배포 id·확인 결과까지 적는다(예: v1.0.0 "배포 검증").
 - [ ] 아직 못 한 것(OW 실기 확인, 미실행 SQL, `isPremium` 등)은 "배포 전 확인"에 남긴다.

@@ -436,7 +436,9 @@
       "resetTitle": "Réinitialiser l'app",
       "resetDesc": "Supprime toutes les données en cache et redémarre l'app. Le profil épinglé et les favoris seront supprimés.",
       "versionTitle": "Version de l'app",
-      "versionDesc": "Version actuellement installée"
+      "versionDesc": "Version actuellement installée",
+      "licensesTitle": "Licences open source",
+      "licensesDesc": "Icônes et bibliothèques utilisées dans l'app"
     },
     "reset": {
       "button": "Réinitialiser",
@@ -451,6 +453,10 @@
     "externalLink": {
       "title": "Ouvrir dans votre navigateur ?",
       "message": "Cela ouvre votre navigateur web en dehors du jeu."
+    },
+    "licenses": {
+      "icons": "Icônes",
+      "libraries": "Bibliothèques"
     }
   },
   "playstyles": {

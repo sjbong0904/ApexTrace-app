@@ -436,7 +436,9 @@
       "resetTitle": "重置应用",
       "resetDesc": "清除所有已保存的缓存并重启应用。固定的个人资料和收藏列表将被删除。",
       "versionTitle": "应用版本",
-      "versionDesc": "当前安装的版本"
+      "versionDesc": "当前安装的版本",
+      "licensesTitle": "开源许可",
+      "licensesDesc": "本应用使用的图标和库"
     },
     "reset": {
       "button": "重置",
@@ -451,6 +453,10 @@
     "externalLink": {
       "title": "在浏览器中打开？",
       "message": "这将在游戏外打开你的网页浏览器。"
+    },
+    "licenses": {
+      "icons": "图标",
+      "libraries": "库"
     }
   },
   "playstyles": {

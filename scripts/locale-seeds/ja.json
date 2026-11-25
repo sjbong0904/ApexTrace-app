@@ -436,7 +436,9 @@
       "resetTitle": "アプリを初期化",
       "resetDesc": "保存されたキャッシュをすべて削除してアプリを再起動します。ピン留めしたプロフィールとお気に入りリストが削除されます。",
       "versionTitle": "アプリバージョン",
-      "versionDesc": "現在インストール済みのバージョン"
+      "versionDesc": "現在インストール済みのバージョン",
+      "licensesTitle": "オープンソースライセンス",
+      "licensesDesc": "このアプリで使用しているアイコンとライブラリ"
     },
     "reset": {
       "button": "初期化",
@@ -451,6 +453,10 @@
     "externalLink": {
       "title": "ブラウザで開きますか？",
       "message": "ゲームの外でウェブブラウザが開きます。"
+    },
+    "licenses": {
+      "icons": "アイコン",
+      "libraries": "ライブラリ"
     }
   },
   "playstyles": {

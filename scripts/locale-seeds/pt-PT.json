@@ -436,7 +436,9 @@
       "resetTitle": "Repor app",
       "resetDesc": "Elimina toda a cache guardada e reinicia a app. O perfil fixado e os favoritos serão removidos.",
       "versionTitle": "Versão do app",
-      "versionDesc": "Versão instalada atualmente"
+      "versionDesc": "Versão instalada atualmente",
+      "licensesTitle": "Licenças de código aberto",
+      "licensesDesc": "Ícones e bibliotecas usados na aplicação"
     },
     "reset": {
       "button": "Repor",
@@ -451,6 +453,10 @@
     "externalLink": {
       "title": "Abrir no seu browser?",
       "message": "Isto abre o seu browser fora do jogo."
+    },
+    "licenses": {
+      "icons": "Ícones",
+      "libraries": "Bibliotecas"
     }
   },
   "playstyles": {

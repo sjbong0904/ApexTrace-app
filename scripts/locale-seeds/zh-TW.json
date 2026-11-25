@@ -436,7 +436,9 @@
       "resetTitle": "重置應用",
       "resetDesc": "清除所有已儲存的快取並重新啟動應用。固定的個人資料和收藏列表將被刪除。",
       "versionTitle": "應用版本",
-      "versionDesc": "當前安裝的版本"
+      "versionDesc": "當前安裝的版本",
+      "licensesTitle": "開源授權",
+      "licensesDesc": "本應用程式使用的圖示與函式庫"
     },
     "reset": {
       "button": "重置",
@@ -451,6 +453,10 @@
     "externalLink": {
       "title": "在瀏覽器中開啟？",
       "message": "這會在遊戲外開啟你的網頁瀏覽器。"
+    },
+    "licenses": {
+      "icons": "圖示",
+      "libraries": "函式庫"
     }
   },
   "playstyles": {

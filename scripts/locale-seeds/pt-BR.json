@@ -436,7 +436,9 @@
       "resetTitle": "Redefinir app",
       "resetDesc": "Apaga todo o cache salvo e reinicia o app. O perfil fixado e os favoritos serão removidos.",
       "versionTitle": "Versão do app",
-      "versionDesc": "Versão instalada atualmente"
+      "versionDesc": "Versão instalada atualmente",
+      "licensesTitle": "Licenças de código aberto",
+      "licensesDesc": "Ícones e bibliotecas usados no app"
     },
     "reset": {
       "button": "Redefinir",
@@ -451,6 +453,10 @@
     "externalLink": {
       "title": "Abrir no seu navegador?",
       "message": "Isso abrirá seu navegador fora do jogo."
+    },
+    "licenses": {
+      "icons": "Ícones",
+      "libraries": "Bibliotecas"
     }
   },
   "playstyles": {

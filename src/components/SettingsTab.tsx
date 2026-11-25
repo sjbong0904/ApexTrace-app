@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { FaDiscord, FaInfoCircle, FaFolderOpen, FaQuestionCircle, FaChevronRight, FaKeyboard, FaPalette, FaRedo } from 'react-icons/fa';
+import { FaDiscord, FaInfoCircle, FaFolderOpen, FaQuestionCircle, FaChevronRight, FaKeyboard, FaPalette, FaRedo, FaFileAlt } from 'react-icons/fa';
+import { ICON_CREDITS, LIBRARY_CREDITS, type CreditEntry } from '../utils/credits';
 import { startTutorial } from '../utils/tutorial';
 import { resetAppCache } from '../utils/resetApp';
 import { useTranslation } from 'react-i18next';
@@ -189,6 +190,39 @@ const ActionRow = ({ icon, title, desc, onClick, actionElement, showArrow = fals
             <div>
                 {actionElement ?? (showArrow ? <FaChevronRight color={c.textFaint} /> : null)}
             </div>
+        </div>
+    );
+};
+
+// ── Open-source licenses ─────────────────────────────────────────────────────
+const linkStyle: React.CSSProperties = {
+    background: 'none', border: 'none', padding: 0, cursor: 'pointer', font: 'inherit', color: c.textSecondary, textDecoration: 'underline', textUnderlineOffset: '2px',
+};
+
+const CreditRow = ({ entry, onOpen }: { entry: CreditEntry; onOpen: (url: string) => void }) => (
+    <li style={{ padding: '8px 0', borderTop: `1px solid ${c.border}`, listStyle: 'none' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: '12px', fontSize: '13px' }}>
+            <button type="button" style={{ ...linkStyle, fontWeight: 'bold' }} onClick={() => onOpen(entry.url)}>{entry.name}</button>
+            <button type="button" style={{ ...linkStyle, color: c.textMuted, flexShrink: 0 }} onClick={() => onOpen(entry.licenseUrl)}>{entry.license}</button>
+        </div>
+        {entry.note && <div style={{ fontSize: '12px', color: c.textMuted, marginTop: '2px' }}>{entry.note}</div>}
+    </li>
+);
+
+const LicenseList = ({ onOpen }: { onOpen: (url: string) => void }) => {
+    const { t } = useTranslation();
+    const group = (title: string, entries: CreditEntry[]) => (
+        <div style={{ marginBottom: '12px' }}>
+            <div style={{ fontSize: '12px', fontWeight: 'bold', color: c.textSecondary, marginBottom: '4px' }}>{title}</div>
+            <ul style={{ margin: 0, padding: 0 }}>
+                {entries.map((e) => <CreditRow key={e.name} entry={e} onOpen={onOpen} />)}
+            </ul>
+        </div>
+    );
+    return (
+        <div style={{ padding: '4px 20px 12px 75px' }}>
+            {group(t('settings.licenses.icons', { defaultValue: 'Icons' }), ICON_CREDITS)}
+            {group(t('settings.licenses.libraries', { defaultValue: 'Libraries' }), LIBRARY_CREDITS)}
         </div>
     );
 };
@@ -453,6 +487,7 @@ const SettingsTab = () => {
     const [appVersion, setAppVersion] = useState('...');
     const [isResetting, setIsResetting] = useState(false);
     const [dialog, setDialog] = useState<SettingsDialog | null>(null);
+    const [showLicenses, setShowLicenses] = useState(false);
 
     useEffect(() => {
         overwolf.extensions.current.getManifest((manifest: { meta?: { version?: string } }) => {
@@ -678,13 +713,21 @@ const SettingsTab = () => {
                         icon={<FaInfoCircle color="var(--color-text-muted)" />}
                         title={t('settings.items.versionTitle')}
                         desc={t('settings.items.versionDesc')}
-                        isLast
                         actionElement={
                             <div style={{ color: c.textMuted, fontWeight: 'bold', fontSize: '13px' }}>
                                 v{appVersion} Beta
                             </div>
                         }
                     />
+                    <ActionRow
+                        icon={<FaFileAlt color="var(--color-text-muted)" />}
+                        title={t('settings.items.licensesTitle', { defaultValue: 'Open-source licenses' })}
+                        desc={t('settings.items.licensesDesc', { defaultValue: 'Icons and libraries used in this app' })}
+                        onClick={() => setShowLicenses((v) => !v)}
+                        isLast={!showLicenses}
+                        actionElement={<FaChevronRight color={c.textFaint} style={{ transform: showLicenses ? 'rotate(90deg)' : 'none', transition: 'transform 0.2s' }} />}
+                    />
+                    {showLicenses && <LicenseList onOpen={openExternal} />}
                 </div>
             </div>
 

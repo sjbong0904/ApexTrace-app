@@ -74,7 +74,7 @@ async function main() {
     const packs = LANGUAGE_PACKS.map((meta) => ({
         ...meta,
         strings: loadSeed(meta.lang),
-        version: 24,
+        version: 25,
         is_default: meta.is_default ?? false,
     }));
 

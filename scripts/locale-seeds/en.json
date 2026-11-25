@@ -486,7 +486,9 @@
       "resetTitle": "Reset App Data",
       "resetDesc": "Clears all cached data and restarts the app. Pinned profile and favorites will be deleted.",
       "versionTitle": "App Version",
-      "versionDesc": "Currently installed version"
+      "versionDesc": "Currently installed version",
+      "licensesTitle": "Open-source licenses",
+      "licensesDesc": "Icons and libraries used in this app"
     },
     "hotkeys": {
       "change": "Change",
@@ -512,6 +514,10 @@
     "externalLink": {
       "title": "Open in your browser?",
       "message": "This opens your web browser outside the game."
+    },
+    "licenses": {
+      "icons": "Icons",
+      "libraries": "Libraries"
     }
   },
   "playstyles": {
