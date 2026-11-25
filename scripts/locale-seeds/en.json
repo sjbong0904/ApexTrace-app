@@ -618,6 +618,58 @@
     "npc": {
       "name": "NPC",
       "sub": "Just Existing"
+    },
+    "phoenix": {
+      "name": "Phoenix",
+      "sub": "From Ashes to Champion"
+    },
+    "reborn": {
+      "name": "Reborn",
+      "sub": "Back from the Dead"
+    },
+    "ace": {
+      "name": "Ace",
+      "sub": "Three Down in a Flash"
+    },
+    "blitz": {
+      "name": "Blitz",
+      "sub": "Knock, Knock, Knock"
+    },
+    "tumbler": {
+      "name": "Tumbler",
+      "sub": "Knocked Down, Never Out"
+    },
+    "ringSurfer": {
+      "name": "Ring Surfer",
+      "sub": "Riding the Storm"
+    },
+    "oneTrick": {
+      "name": "One-Trick",
+      "sub": "One Gun Is Enough"
+    },
+    "finisher": {
+      "name": "Finisher",
+      "sub": "Every Knock Confirmed"
+    },
+    "collector": {
+      "name": "Collector",
+      "sub": "Gun Museum Curator"
+    },
+    "support": {
+      "name": "Support",
+      "sub": "Assists Over Kills"
+    },
+    "survivor": {
+      "name": "Survivor",
+      "sub": "Lived to See the Top 5"
+    },
+    "vanguard": {
+      "name": "Vanguard",
+      "sub": "First Into the Fight"
+    },
+    "skirmisher": {
+      "name": "Skirmisher",
+      "sub": "Took a Few Fights"
     }
   },
   "matchStats": {

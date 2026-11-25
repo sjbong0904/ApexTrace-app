@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { getMapConfig, formatMatchTime, toGameElapsedMs } from '../utils/helpers';
 import type { Match } from '../types';
 import { FaInfoCircle } from 'react-icons/fa';
-import type { TFunction } from 'i18next';
 import { useTranslation } from 'react-i18next';
 import { c } from '../theme';
 import { resolveWeaponCombatForMatch } from '../utils/weaponMatchStats';
@@ -17,6 +16,7 @@ import {
     getTimesKnocked,
     getUltimatesUsed,
 } from '../utils/matchDetailStats';
+import { classifyPlaystyle, extractPlaystyleSignals, PLAYSTYLE_VISUALS } from '../utils/playstyle';
 
 interface AutoResizingTextProps {
     text: string | number;
@@ -91,86 +91,6 @@ const calculateTotalDistance = (path: Match['path'], mapName: string) => {
         if (dist <= RAW_JUMP_THRESHOLD) totalDist += dist;
     }
     return Math.round(totalDist);
-};
-
-const determinePlaystyle = (t: TFunction, timeMin: number, dpm: number, speed: number, dist: number, dpk: number, kills: number, damage: number, KillConversionRate: number, Assists: number, placement: number, KPP: number, squadKills: number) => {
-
-    if (timeMin < 3 && damage < 150)
-        return { name: t('playstyles.deathbox.name'), sub: t('playstyles.deathbox.sub'), bgGradient: "linear-gradient(135deg, #4b4340 0%, #24201e 100%)" };
-
-    if (kills >= 7 && damage >= (150 * kills) && damage <= (250 * kills))
-        return { name: t('playstyles.aimbot.name'), sub: t('playstyles.aimbot.sub'), bgGradient: "linear-gradient(135deg, #008ea0 0%, #3dffb5 100%)", isPrimary: true };
-
-    if (kills >= 10 && KillConversionRate > 85)
-        return { name: t('playstyles.dominator.name'), sub: t('playstyles.dominator.sub'), bgGradient: "linear-gradient(135deg, #b224ef 0%, #ff8b50 100%)", isPrimary: true };
-
-    if (kills >= 7 && damage >= 2500)
-        return { name: t('playstyles.warlord.name'), sub: t('playstyles.warlord.sub'), bgGradient: "linear-gradient(135deg, #ff0844 0%, #635198 100%)", isPrimary: true };
-
-    if (squadKills >= 6 && KPP >= 70)
-        return { name: t('playstyles.atlas.name'), sub: t('playstyles.atlas.sub'), bgGradient: "linear-gradient(135deg, #f7903c 0%, #00c7aa 100%)", isPrimary: true };
-
-    if (squadKills >= 6 && KPP === 90)
-        return { name: t('playstyles.protagonist.name'), sub: t('playstyles.protagonist.sub'), bgGradient: "linear-gradient(135deg, #8871ed 0%, #00107b 100%)", isPrimary: true };
-
-    if (squadKills >= 6 && KPP <= 10 && timeMin > 5)
-        return { name: t('playstyles.observer.name'), sub: t('playstyles.observer.sub'), bgGradient: "linear-gradient(135deg, #304352 0%, #171d24 100%)" };
-
-    if (placement === 1 && kills === 0 && Assists === 0 && damage < 300)
-        return { name: t('playstyles.pacifist.name'), sub: t('playstyles.pacifist.sub'), bgGradient: "linear-gradient(135deg, #e7f6d1 0%, #a8e063 100%)" };
-
-    if (placement === 1 && kills <= 2 && damage < 500 && Assists <= 2)
-        return { name: t('playstyles.backpack.name'), sub: t('playstyles.backpack.sub'), bgGradient: "linear-gradient(135deg, #fa8d75 0%, #B5AB87 100%)" };
-
-    if (placement === 1)
-        return { name: t('playstyles.champion.name'), sub: t('playstyles.champion.sub'), bgGradient: "linear-gradient(135deg, #FDC830 0%, #F37335 100%)", isPrimary: true };
-
-    if (placement > 10 && kills >= 5)
-        return { name: t('playstyles.unluckyAce.name'), sub: t('playstyles.unluckyAce.sub'), bgGradient: "linear-gradient(135deg, #5a2e2e 0%, #2a1616 100%)", isPrimary: true };
-
-    if (kills >= 4 && dpk < 140)
-        return { name: t('playstyles.assassin.name'), sub: t('playstyles.assassin.sub'), bgGradient: "linear-gradient(135deg, #141517 0%, #2c2f33 100%)" };
-
-    if (damage >= 2000 && (kills <= 3 || dpk > 600))
-        return { name: t('playstyles.sniper.name'), sub: t('playstyles.sniper.sub'), bgGradient: "linear-gradient(135deg, #1a2a6c 0%, #11998e 100%)" };
-
-    if (Assists >= 5 && Assists > (kills * 3))
-        return { name: t('playstyles.sidekick.name'), sub: t('playstyles.sidekick.sub'), bgGradient: "linear-gradient(135deg, #d4a373 0%, #a07a58 100%)" };
-
-    if (timeMin < 5 && (dpm > 180 || kills >= 3))
-        return { name: t('playstyles.berserker.name'), sub: t('playstyles.berserker.sub'), bgGradient: "linear-gradient(135deg, #cb2d3e 0%, #c63900 100%)" };
-
-    if (kills >= 5 && dpk < 100)
-        return { name: t('playstyles.janitor.name'), sub: t('playstyles.janitor.sub'), bgGradient: "linear-gradient(135deg, #6c5b4e 0%, #3e332a 100%)" };
-
-    if (kills >= 5)
-        return { name: t('playstyles.sweeper.name'), sub: t('playstyles.sweeper.sub'), bgGradient: "linear-gradient(135deg, #e65c00 0%, #F9D423 100%)" };
-
-    if (kills >= 1 && damage >= 300)
-        return { name: t('playstyles.soldier.name'), sub: t('playstyles.soldier.sub'), bgGradient: "linear-gradient(135deg, #515e63 0%, #2f383d 100%)" };
-
-    if (kills === 0 && damage >= 600)
-        return { name: t('playstyles.chihuahua.name'), sub: t('playstyles.chihuahua.sub'), bgGradient: "linear-gradient(135deg, #a67c8e 0%, #6b4d5a 100%)" };
-
-    if (speed > 120 && dist > 3000)
-        return { name: t('playstyles.runner.name'), sub: t('playstyles.runner.sub'), bgGradient: "linear-gradient(135deg, #4f745e 0%, #2d4536 100%)" };
-
-    if (timeMin > 15 && dist > 2000 && damage < 300)
-        return { name: t('playstyles.ghost.name'), sub: t('playstyles.ghost.sub'), bgGradient: "linear-gradient(135deg, #4f5b66 0%, #2a3137 100%)" };
-
-    if (timeMin > 12 && speed < 45)
-        return { name: t('playstyles.rat.name'), sub: t('playstyles.rat.sub'), bgGradient: "linear-gradient(135deg, #2b302c 0%, #151a17 100%)" };
-
-    if (placement === 2)
-        return { name: t('playstyles.heartbreaker.name'), sub: t('playstyles.heartbreaker.sub'), bgGradient: "linear-gradient(135deg, #604561 0%, #362436 100%)" };
-
-    if (dist > 1500 && damage < 200)
-        return { name: t('playstyles.delivery.name'), sub: t('playstyles.delivery.sub'), bgGradient: "linear-gradient(135deg, #705e49 0%, #453727 100%)" };
-
-    if (kills === 0 && damage < 100)
-        return { name: t('playstyles.tourist.name'), sub: t('playstyles.tourist.sub'), bgGradient: "linear-gradient(135deg, #6c6675 0%, #3f3a47 100%)" };
-
-    return { name: t('playstyles.npc.name'), sub: t('playstyles.npc.sub'), bgGradient: "linear-gradient(135deg, #424242 0%, #222222 100%)" };
 };
 
 const boxStyle: React.CSSProperties = {
@@ -599,9 +519,35 @@ const MatchStats = ({ match, onUserSelect, view = 'full', comparison = null }: M
     if (squadKills === 0) KPP = 0;
     else if (KPP > 100) KPP = 100;
 
-    const style = determinePlaystyle(t, durationMin, dpm, avgSpeed, distance, dmgPerKill, totalKills, totalDamage, KillConversionRate, totalAssists, placement, KPP, squadKills);
-
     const outsideRingMs = useMemo(() => getTimeOutsideRingMs(match), [match]);
+    const playstyleSignals = useMemo(
+        () => extractPlaystyleSignals(match, outsideRingMs),
+        [match, outsideRingMs],
+    );
+    const playstyleKey = classifyPlaystyle(
+        {
+            timeMin: durationMin,
+            dpm,
+            speed: avgSpeed,
+            dist: distance,
+            dpk: dmgPerKill,
+            kills: totalKills,
+            damage: totalDamage,
+            kcr: KillConversionRate,
+            assists: totalAssists,
+            placement,
+            kpp: KPP,
+            squadKills,
+        },
+        playstyleSignals,
+    );
+    const style = {
+        // Names stay English in every language (they read as gamer terms); the tooltip sub is localized.
+        name: t(`playstyles.${playstyleKey}.name`, { lng: 'en' }),
+        sub: t(`playstyles.${playstyleKey}.sub`),
+        bgGradient: PLAYSTYLE_VISUALS[playstyleKey].gradient,
+        isPrimary: PLAYSTYLE_VISUALS[playstyleKey].isPrimary,
+    };
     const detailCards = useMemo(() => {
         const headshotRate = getHeadshotRate(match);
         const dmgPerKnock = getDamagePerKnock(match);

@@ -14,7 +14,7 @@
 | [ARCHITECTURE.md](./ARCHITECTURE.md) | 매치 데이터 V3 (summary/detail, seasons, `payload.matches` 클라 집계, 로스터 트래픽) |
 | [SEASON-ROLLOVER.md](./SEASON-ROLLOVER.md) | 시즌·스플릿 전환마다 할 일 (`seasons` 행·게임 데이터 추출·맵/레전드/무기·검증·수동 재배정) |
 | [WEAPON-STATS.md](./WEAPON-STATS.md) | Weapons 탭 지표·킬/데스 귀속·Top Threats |
-| [PLAYSTYLE.md](./PLAYSTYLE.md) | 매치 플레이스타일 서사·키 설계 (초기본, QA 후 구현) |
+| [PLAYSTYLE.md](./PLAYSTYLE.md) | 매치 플레이스타일 서사·키 설계 (v2 초안, 분포 시뮬레이션 포함) |
 | [NICKNAME-SEARCH.md](./NICKNAME-SEARCH.md) | 닉변·alias·exact 검색·keep-alive / ALS 예산 |
 | [DB-OPTIMIZATION.md](./DB-OPTIMIZATION.md) | Supabase 테이블·인덱스 실측과 단계별 최적화 계획 (미구현) |
 | [RING-HEATMAP.md](./RING-HEATMAP.md) | 전체 사용자 링 중심 히트맵: 격자 집계·같은 경기 중복 제거 설계 (미구현) |

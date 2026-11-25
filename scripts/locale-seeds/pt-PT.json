@@ -557,6 +557,58 @@
     "npc": {
       "name": "NPC",
       "sub": "Só existindo"
+    },
+    "phoenix": {
+      "name": "Fénix",
+      "sub": "Das cinzas ao título"
+    },
+    "reborn": {
+      "name": "Renascido",
+      "sub": "De volta dos mortos"
+    },
+    "ace": {
+      "name": "Ás",
+      "sub": "Três abatidos num piscar"
+    },
+    "blitz": {
+      "name": "Blitz",
+      "sub": "Toc, toc, toc"
+    },
+    "tumbler": {
+      "name": "Resistente",
+      "sub": "Derrubado, nunca vencido"
+    },
+    "ringSurfer": {
+      "name": "Surfista",
+      "sub": "A surfar a tempestade"
+    },
+    "oneTrick": {
+      "name": "Fiel",
+      "sub": "Uma arma basta"
+    },
+    "finisher": {
+      "name": "Finalizador",
+      "sub": "Cada knock confirmado"
+    },
+    "collector": {
+      "name": "Armeiro",
+      "sub": "Curador do museu de armas"
+    },
+    "support": {
+      "name": "Suporte",
+      "sub": "Mais assistências que abates"
+    },
+    "survivor": {
+      "name": "Sobrevivente",
+      "sub": "Chegou ao top 5"
+    },
+    "vanguard": {
+      "name": "Vanguarda",
+      "sub": "Primeiro na luta"
+    },
+    "skirmisher": {
+      "name": "Brigão",
+      "sub": "Algumas lutas"
     }
   },
   "matchStats": {

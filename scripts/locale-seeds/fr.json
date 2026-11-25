@@ -557,6 +557,58 @@
     "npc": {
       "name": "PNJ",
       "sub": "Existe, c'est tout"
+    },
+    "phoenix": {
+      "name": "Phénix",
+      "sub": "Des cendres à la victoire"
+    },
+    "reborn": {
+      "name": "Revenant",
+      "sub": "De retour d'entre les morts"
+    },
+    "ace": {
+      "name": "As",
+      "sub": "Trois au tapis en un éclair"
+    },
+    "blitz": {
+      "name": "Blitz",
+      "sub": "Toc, toc, toc"
+    },
+    "tumbler": {
+      "name": "Culbuto",
+      "sub": "À terre, jamais vaincu"
+    },
+    "ringSurfer": {
+      "name": "Surfeur",
+      "sub": "Surfer sur la tempête"
+    },
+    "oneTrick": {
+      "name": "Fidèle",
+      "sub": "Une seule arme suffit"
+    },
+    "finisher": {
+      "name": "Finisseur",
+      "sub": "Chaque knock confirmé"
+    },
+    "collector": {
+      "name": "Armurier",
+      "sub": "Conservateur du musée des armes"
+    },
+    "support": {
+      "name": "Soutien",
+      "sub": "Plus d'assists que de kills"
+    },
+    "survivor": {
+      "name": "Survivant",
+      "sub": "A vu le top 5"
+    },
+    "vanguard": {
+      "name": "Éclaireur",
+      "sub": "Premier au combat"
+    },
+    "skirmisher": {
+      "name": "Bagarreur",
+      "sub": "Quelques combats"
     }
   },
   "matchStats": {

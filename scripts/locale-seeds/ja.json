@@ -557,6 +557,58 @@
     "npc": {
       "name": "NPC",
       "sub": "ただ存在しているだけ"
+    },
+    "phoenix": {
+      "name": "不死鳥",
+      "sub": "灰からチャンピオンへ"
+    },
+    "reborn": {
+      "name": "復活",
+      "sub": "戻ってきて上位入り"
+    },
+    "ace": {
+      "name": "エース",
+      "sub": "一瞬で3キル"
+    },
+    "blitz": {
+      "name": "電撃",
+      "sub": "一瞬で3ダウン"
+    },
+    "tumbler": {
+      "name": "不屈",
+      "sub": "倒れても立ち上がる"
+    },
+    "ringSurfer": {
+      "name": "リング外",
+      "sub": "リング外で粘って上位"
+    },
+    "oneTrick": {
+      "name": "一本槍",
+      "sub": "この銃だけで十分"
+    },
+    "finisher": {
+      "name": "仕留め屋",
+      "sub": "ダウンは必ずキルに"
+    },
+    "collector": {
+      "name": "収集家",
+      "sub": "銃の博物館を開館"
+    },
+    "support": {
+      "name": "サポーター",
+      "sub": "キルよりアシスト"
+    },
+    "survivor": {
+      "name": "生存王",
+      "sub": "戦いより生存"
+    },
+    "vanguard": {
+      "name": "先鋒",
+      "sub": "真っ先に戦いへ"
+    },
+    "skirmisher": {
+      "name": "交戦家",
+      "sub": "ほどほどに戦った"
     }
   },
   "matchStats": {

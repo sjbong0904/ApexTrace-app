@@ -618,6 +618,58 @@
     "npc": {
       "name": "NPC",
       "sub": "그냥 존재하는 중"
+    },
+    "phoenix": {
+      "name": "불사조",
+      "sub": "잿더미에서 챔피언까지"
+    },
+    "reborn": {
+      "name": "부활",
+      "sub": "돌아와서 상위권"
+    },
+    "ace": {
+      "name": "에이스",
+      "sub": "순식간에 3킬"
+    },
+    "blitz": {
+      "name": "폭풍",
+      "sub": "순식간에 3다운"
+    },
+    "tumbler": {
+      "name": "오뚝이",
+      "sub": "쓰러져도 다시 일어남"
+    },
+    "ringSurfer": {
+      "name": "링 서퍼",
+      "sub": "링 밖에서 버티고 상위권"
+    },
+    "oneTrick": {
+      "name": "원툴",
+      "sub": "이 총 하나면 충분"
+    },
+    "finisher": {
+      "name": "마무리",
+      "sub": "넉은 반드시 킬로"
+    },
+    "collector": {
+      "name": "수집가",
+      "sub": "총기 박물관 개장"
+    },
+    "support": {
+      "name": "서포터",
+      "sub": "킬보다 어시"
+    },
+    "survivor": {
+      "name": "생존왕",
+      "sub": "싸움보다 생존"
+    },
+    "vanguard": {
+      "name": "선봉대",
+      "sub": "가장 먼저 싸우러 간 사람"
+    },
+    "skirmisher": {
+      "name": "교전꾼",
+      "sub": "적당히 싸우고 적당히 넣음"
     }
   },
   "matchStats": {

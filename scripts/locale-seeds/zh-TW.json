@@ -557,6 +557,58 @@
     "npc": {
       "name": "NPC",
       "sub": "只是存在"
+    },
+    "phoenix": {
+      "name": "不死鳥",
+      "sub": "從灰燼到冠軍"
+    },
+    "reborn": {
+      "name": "復活",
+      "sub": "復活歸來，衝進前五"
+    },
+    "ace": {
+      "name": "王牌",
+      "sub": "轉眼三殺"
+    },
+    "blitz": {
+      "name": "閃電戰",
+      "sub": "轉眼三倒"
+    },
+    "tumbler": {
+      "name": "不倒翁",
+      "sub": "倒下也能再起"
+    },
+    "ringSurfer": {
+      "name": "圈外衝浪",
+      "sub": "頂著毒圈進前五"
+    },
+    "oneTrick": {
+      "name": "一槍流",
+      "sub": "一把槍就夠了"
+    },
+    "finisher": {
+      "name": "收割者",
+      "sub": "擊倒必補殺"
+    },
+    "collector": {
+      "name": "收藏家",
+      "sub": "槍械博物館開張"
+    },
+    "support": {
+      "name": "輔助",
+      "sub": "助攻多過擊殺"
+    },
+    "survivor": {
+      "name": "生存王",
+      "sub": "活著比打架重要"
+    },
+    "vanguard": {
+      "name": "先鋒",
+      "sub": "第一個衝上去"
+    },
+    "skirmisher": {
+      "name": "交戰者",
+      "sub": "打了幾場小架"
     }
   },
   "matchStats": {
