@@ -567,3 +567,23 @@ button.btn-tab:active {
   padding: 8px 18px;
   font-size: 12px;
 }
+
+/* Playstyle card tiers (MatchStats). Effects run once on mount / on hover only — no infinite animations (Overwolf repaint flicker, see RELEASE_NOTES). */
+.ps-card { border: none; }
+.ps-deco { position: absolute; inset: 0; border-radius: inherit; overflow: hidden; pointer-events: none; z-index: 0; }
+.ps-icon { position: absolute; right: -8px; top: 50%; width: 58px; height: 58px; transform: translateY(-50%) rotate(-12deg); color: #fff; opacity: .16; }
+.ps-tier-s .ps-icon { opacity: .26; }
+.ps-tier-a .ps-icon { opacity: .22; }
+.ps-tier-e .ps-icon { opacity: .12; }
+.ps-tier-s { box-shadow: 0 0 0 1px rgba(255,255,255,.35) inset, 0 4px 18px var(--ps-glow); }
+.ps-tier-a { box-shadow: 0 0 0 1px rgba(255,255,255,.18) inset, 0 4px 14px var(--ps-glow); }
+.ps-tier-b, .ps-tier-c { box-shadow: 0 4px 12px rgba(0,0,0,.22); }
+.ps-tier-d, .ps-tier-e { box-shadow: none; }
+.ps-tier-d .ps-deco { box-shadow: inset 3px 0 0 rgba(255,255,255,.35); }
+.ps-tier-e .ps-deco { background: repeating-linear-gradient(135deg, rgba(255,255,255,.045) 0 6px, transparent 6px 12px); }
+.ps-tier-s .ps-deco::after, .ps-tier-a .ps-deco::after { content: ""; position: absolute; inset: 0; background: linear-gradient(105deg, transparent 35%, rgba(255,255,255,.38) 50%, transparent 65%); transform: translateX(-120%); }
+.ps-tier-s .ps-deco::after { animation: ps-sweep 900ms ease-out 1; }
+.ps-tier-s:hover .ps-deco::after, .ps-tier-a:hover .ps-deco::after { animation: ps-sweep-hover 900ms ease-out 1; }
+@keyframes ps-sweep { to { transform: translateX(120%); } }
+@keyframes ps-sweep-hover { to { transform: translateX(120%); } }
+@media (prefers-reduced-motion: reduce) { .ps-deco::after { animation: none !important; } }

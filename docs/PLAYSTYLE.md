@@ -219,9 +219,28 @@ P1 108판의 v2 분배: champion 48 · phoenix 14 · dominator 13 · aimbot 11 �
 src/utils/playstyle.ts
   extractPlaystyleInputs(match) → { x, f }   // 신호 없으면 f.* = null
   classifyPlaystyle(inputs)     → key        // 순수 함수, 규칙 표 = 이 문서 §5
-  PLAYSTYLE_VISUALS[key]        → { gradient, isPrimary }
-MatchStats.tsx                  → key → t('playstyles.<key>.name/sub') + visuals
+  PLAYSTYLE_VISUALS[key]        → { tier, background, glow }
+src/assets/playstyleIcons.ts    → 키별 워터마크 아이콘 path (지연 로드 청크)
+src/components/PlaystyleIcon.tsx→ 첫 사용 때 위 모듈을 import, 로드 전엔 아이콘 없이 표시
+MatchStats.tsx                  → key → t('playstyles.<key>.name', {lng:'en'}) / sub + .ps-card.ps-tier-* (index.css)
 ```
+
+### 8.1 카드 스타일 등급 (2026-11-25)
+
+| 등급 | 키 | 처리 |
+|---|---|---|
+| S 전설 | dominator, aimbot, warlord, protagonist | 그라데이션 + 안쪽 흰 테두리 + 색 글로우 + 마운트 시 1회 광택, 아이콘 진하게 |
+| A 하이라이트 | phoenix, reborn, ace, blitz, champion, unluckyAce | 그라데이션 + 약한 글로우, hover 때 광택 |
+| B 이야기 | tumbler, ringSurfer, heartbreaker, pacifist, backpack | 그라데이션 |
+| C 스탯 | atlas, assassin, sniper, berserker, sweeper, oneTrick, finisher, collector, support | 차분한 2톤 그라데이션 |
+| D 중립 | soldier, survivor, vanguard, skirmisher, npc | 단색 + 왼쪽 강조선 |
+| E 가벼운 부정 | deathbox, observer, sidekick, chihuahua, rat, delivery, tourist | 채도 낮은 단색 + 옅은 사선 무늬 |
+
+- **색:** OKLCH에서 자동 배치 — 흰 글자 대비 ≥ 3.5(테스트로 고정), 키별 기준 색상 ±25°(Champion 금색, Deathbox 거의 검정, NPC 회색은 고정), 등급별 채도·명도 범위 안에서 가장 가까운 카드와의 거리를 최대화. 이전 수동안 대비 거리 8 미만 짝 27 → 4, 최근접 거리 중앙값 7.7 → 9.0.
+- **아이콘:** 키마다 다른 Game Icons(game-icons.net, CC BY 3.0) 36개, 카드 오른쪽에 크게·옅게·기울여 배치. 이름 칸 폭은 그대로.
+- **효과 제한:** 무한 애니메이션 금지(Overwolf 재페인트 흰 깜박임 이력). 광택은 마운트 1회(S) / hover(S·A)만, `prefers-reduced-motion`이면 끔.
+- **카드 자체엔 overflow를 걸지 않음** — 정보 툴팁이 카드 아래로 넘쳐야 해서, 아이콘·무늬·광택은 안쪽 `.ps-deco` 레이어에서만 잘림.
+- 새 키를 추가하면: `PLAYSTYLE_VISUALS`에 등급·색, `playstyleIcons.ts`에 path 추가(테스트가 36→N개 고유·대비를 검사).
 
 - **저장 안 함 (v2 결정):** 키는 지금처럼 렌더 시 계산. DB 스키마 변경·백필이 없고, 임계값을 바꾸면 과거 매치에도 바로 반영됨. 단점: 규칙을 바꾸면 과거 매치 문구도 바뀜 → 기억 장치로서는 감수. (v1 설계의 `playstyleKey` 저장은 보류)
 - 단위 테스트: 규칙마다 경계값 1쌍(걸림/안 걸림) + 신호 null 시 건너뛰기 + 우선순위 충돌 예시(P1+리스폰 → `phoenix`, P1+ace → `ace` 등).

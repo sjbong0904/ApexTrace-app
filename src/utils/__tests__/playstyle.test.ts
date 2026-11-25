@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import type { Match } from '../../types';
+import { PLAYSTYLE_ICON_PATHS } from '../../assets/playstyleIcons';
 import {
     classifyPlaystyle,
     extractPlaystyleSignals,
+    PLAYSTYLE_VISUALS,
     type PlaystyleBase,
     type PlaystyleKey,
     type PlaystyleSignals,
@@ -214,5 +216,85 @@ describe('extractPlaystyleSignals', () => {
         expect(f.revivesRecv).toBe(1);
         expect(f.timesKnocked).toBe(1);
         expect(f.outsideRingSec).toBe(90);
+    });
+});
+
+const ALL_PLAYSTYLE_KEYS: PlaystyleKey[] = [
+    'deathbox',
+    'dominator',
+    'aimbot',
+    'warlord',
+    'protagonist',
+    'phoenix',
+    'reborn',
+    'ace',
+    'blitz',
+    'pacifist',
+    'backpack',
+    'champion',
+    'unluckyAce',
+    'heartbreaker',
+    'tumbler',
+    'ringSurfer',
+    'observer',
+    'sidekick',
+    'atlas',
+    'assassin',
+    'sniper',
+    'berserker',
+    'sweeper',
+    'oneTrick',
+    'finisher',
+    'collector',
+    'support',
+    'soldier',
+    'survivor',
+    'vanguard',
+    'chihuahua',
+    'rat',
+    'delivery',
+    'tourist',
+    'skirmisher',
+    'npc',
+];
+
+const relativeLuminance = (hex: string): number => {
+    const r = parseInt(hex.slice(1, 3), 16) / 255;
+    const g = parseInt(hex.slice(3, 5), 16) / 255;
+    const b = parseInt(hex.slice(5, 7), 16) / 255;
+    const lin = (c: number) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
+    return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
+};
+
+const contrastAgainstWhite = (hex: string): number => {
+    const L = relativeLuminance(hex);
+    return 1.05 / (L + 0.05);
+};
+
+describe('PLAYSTYLE_VISUALS', () => {
+    it('covers every classifyPlaystyle key with valid visual fields', () => {
+        for (const key of ALL_PLAYSTYLE_KEYS) {
+            const visual = PLAYSTYLE_VISUALS[key];
+            expect(visual).toBeDefined();
+            expect(['s', 'a', 'b', 'c', 'd', 'e']).toContain(visual.tier);
+            expect(visual.background.length).toBeGreaterThan(0);
+            expect(PLAYSTYLE_ICON_PATHS[key]?.length).toBeGreaterThan(0);
+        }
+    });
+
+    it('keeps white text contrast >= 3.5 against every background hex', () => {
+        for (const key of ALL_PLAYSTYLE_KEYS) {
+            const hexes = PLAYSTYLE_VISUALS[key].background.match(/#[0-9a-fA-F]{6}/g) ?? [];
+            expect(hexes.length).toBeGreaterThan(0);
+            for (const hex of hexes) {
+                expect(contrastAgainstWhite(hex)).toBeGreaterThanOrEqual(3.5);
+            }
+        }
+    });
+
+    it('uses 36 distinct icons across 36 keys', () => {
+        expect(ALL_PLAYSTYLE_KEYS).toHaveLength(36);
+        const icons = new Set(ALL_PLAYSTYLE_KEYS.map((key) => PLAYSTYLE_ICON_PATHS[key].join(' ')));
+        expect(icons.size).toBe(36);
     });
 });

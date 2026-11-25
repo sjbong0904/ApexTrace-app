@@ -17,6 +17,7 @@ import {
     getUltimatesUsed,
 } from '../utils/matchDetailStats';
 import { classifyPlaystyle, extractPlaystyleSignals, PLAYSTYLE_VISUALS } from '../utils/playstyle';
+import PlaystyleIcon from './PlaystyleIcon';
 
 interface AutoResizingTextProps {
     text: string | number;
@@ -545,9 +546,8 @@ const MatchStats = ({ match, onUserSelect, view = 'full', comparison = null }: M
         // Names stay English in every language (they read as gamer terms); the tooltip sub is localized.
         name: t(`playstyles.${playstyleKey}.name`, { lng: 'en' }),
         sub: t(`playstyles.${playstyleKey}.sub`),
-        bgGradient: PLAYSTYLE_VISUALS[playstyleKey].gradient,
-        isPrimary: PLAYSTYLE_VISUALS[playstyleKey].isPrimary,
-    };
+        visual: PLAYSTYLE_VISUALS[playstyleKey],
+    };
     const detailCards = useMemo(() => {
         const headshotRate = getHeadshotRate(match);
         const dmgPerKnock = getDamagePerKnock(match);
@@ -646,23 +646,29 @@ const MatchStats = ({ match, onUserSelect, view = 'full', comparison = null }: M
                 flex: 1,
                 minHeight: 0
             }}>
-                <div style={{
-                    ...boxStyle,
-                    background: style.bgGradient,
-                    border: 'none',
-                    color: c.playstyleText,
-                    position: 'relative',
-                    textShadow: style.isPrimary ? c.playstyleTextShadow : 'none',
-                    boxShadow: '0 4px 15px rgba(0, 0, 0, 0.25)',
-                }}>
+                <div
+                    className={`ps-card ps-tier-${style.visual.tier}`}
+                    style={{
+                        ...boxStyle,
+                        background: style.visual.background,
+                        border: 'none',
+                        color: c.playstyleText,
+                        position: 'relative',
+                        textShadow: 'sab'.includes(style.visual.tier) ? c.playstyleTextShadow : 'none',
+                        ['--ps-glow' as string]: style.visual.glow,
+                    } as React.CSSProperties}
+                >
+                    <span className="ps-deco" aria-hidden="true"><PlaystyleIcon playstyle={playstyleKey} className="ps-icon" /></span>
                     <MarqueeLabel style={{
                         color: c.playstyleLabel,
                         fontWeight: '600',
-                        letterSpacing: '0.5px'
+                        letterSpacing: '0.5px',
+                        position: 'relative',
+                        zIndex: 1,
                     }}>
                         {t('matchStats.playedLike')}
                     </MarqueeLabel>
-                    <div style={valContainerStyle}>
+                    <div style={{ ...valContainerStyle, position: 'relative', zIndex: 1 }}>
                         <AutoResizingText
                             text={style.name}
                             color={c.playstyleText}
@@ -763,23 +769,29 @@ const MatchStats = ({ match, onUserSelect, view = 'full', comparison = null }: M
                 flex: 1,
                 minHeight: 0
             }}>
-                <div style={{
-                    ...boxStyle,
-                    background: style.bgGradient,
-                    border: 'none',
-                    color: c.playstyleText,
-                    position: 'relative',
-                    textShadow: style.isPrimary ? c.playstyleTextShadow : 'none',
-                    boxShadow: '0 4px 15px rgba(0, 0, 0, 0.25)',
-                }}>
+                <div
+                    className={`ps-card ps-tier-${style.visual.tier}`}
+                    style={{
+                        ...boxStyle,
+                        background: style.visual.background,
+                        border: 'none',
+                        color: c.playstyleText,
+                        position: 'relative',
+                        textShadow: 'sab'.includes(style.visual.tier) ? c.playstyleTextShadow : 'none',
+                        ['--ps-glow' as string]: style.visual.glow,
+                    } as React.CSSProperties}
+                >
+                    <span className="ps-deco" aria-hidden="true"><PlaystyleIcon playstyle={playstyleKey} className="ps-icon" /></span>
                     <MarqueeLabel style={{
                         color: c.playstyleLabel,
                         fontWeight: '600',
-                        letterSpacing: '0.5px'
+                        letterSpacing: '0.5px',
+                        position: 'relative',
+                        zIndex: 1,
                     }}>
                         {t('matchStats.playedLike')}
                     </MarqueeLabel>
-                    <div style={valContainerStyle}>
+                    <div style={{ ...valContainerStyle, position: 'relative', zIndex: 1 }}>
                         <AutoResizingText
                             text={style.name}
                             color={c.playstyleText}
