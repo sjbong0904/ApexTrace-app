@@ -4,7 +4,7 @@
 
 v0.0.15(Overwolf QA 제출본) 이후 전체 변경. 0.0.16은 태그·배포 없이 이 버전에 합쳐졌고, 변경량(87개 파일 수정 + 새 파일 70여 개)이 커서 1.0.0으로 올림. 파일 단위 전수조사: [CHANGES-1.0.0.md](./CHANGES-1.0.0.md). 브랜치 `update`.
 
-> **배포 전 확인:** `src/App.tsx`의 `isPremium`은 로컬 미리보기 값(`true`)으로 커밋됨 — 스토어 빌드 전 `false`. 언어 팩 v21 시딩, 아래 [서버·DB](#서버db-적용-순서) 적용, OW 실기 확인(최소 높이 720·부트 셸·하드웨어 가속 끈 상태의 캔버스) 필요.
+> **배포 전 확인:** `src/App.tsx`의 `isPremium`은 로컬 미리보기 값(`true`)으로 커밋됨 — 스토어 빌드 전 `false`. 프록시 `damageHits` 매핑 배포, 레벨·닉네임 복구 SQL([서버·DB](#서버db-2026-11-25-상태)), OW 실기 확인(최소 높이 720·부트 셸·하드웨어 가속 끈 상태의 캔버스·고정한 supabase-js 2.91.1) 남음.
 
 ### 새 기능
 
@@ -42,6 +42,8 @@ v0.0.15(Overwolf QA 제출본) 이후 전체 변경. 0.0.16은 태그·배포 �
 - **인게임 창 외부 링크 확인** — 인게임 오버레이의 설정에서 Discord·로그 폴더(브라우저 대체 경로)를 열 때 "브라우저에서 열까요?" 확인 후 기본 브라우저로 염(Overwolf QA: 인게임 링크는 OW 브라우저 또는 사용자 확인 후 기본 브라우저). 데스크톱 창은 기존처럼 바로 열림.
 - **디버그 로그** — 매치·GEP 원본(`[GEP]`·`[Ring]`·`[PlayerStats]`)은 기본 켜짐, 위치(`[Location]`, ~2Hz)는 기본 꺼짐. 백그라운드 DevTools에서 `__APEX_DEBUG__` / `__APEX_DEBUG_MATCH__` / `__APEX_DEBUG_LOCATION__`로 전환. 구독에서 빠진 GEP 기능은 플래그와 무관하게 WARN.
 
+- **스토어 QA 하위 항목 정리** — manifest `externally_connectable`에서 개발용 `localhost:3000`·`127.0.0.1:3000` 제거. `background.html`·`worker.html`의 jsDelivr `@supabase/supabase-js@2`(현재 2.119.2로 풀림)를 앱 번들과 같은 **2.91.1**로 고정. 어디서도 쓰지 않던 `tesseract.js@5` 로드 제거. 튜토리얼·데모 투어는 버튼으로만 시작하고 닫기 가능(자동 코치마크 없음) 확인.
+
 ### 수정
 
 - **GEP 구독 누락 (ring / player_stats / match_summary / damage)** — Supabase `game_constants.gep_features`가 코드의 구독 목록을 통째로 대체해, 앱을 게임보다 먼저 켠 경우 원격 목록(14개, `ring` 없음)으로 구독되어 링·플레이어 스탯이 저장되지 않던 문제. 구독 목록은 이제 코드(`GEP_BASE_FEATURES`)가 소유하고, 원격 설정은 `gep_features_disabled`로 **끄기만** 가능(전체 또는 `minVersion`/`maxVersion` 범위). 구독 후 설정이 바뀌면 재구독하고, 누락·차단된 기능은 항상 `[GEP] subscription incomplete` WARN으로 남김. `gep_features`는 v0.0.15 이하 호환용으로만 남김.
@@ -64,18 +66,25 @@ v0.0.15(Overwolf QA 제출본) 이후 전체 변경. 0.0.16은 태그·배포 �
 - **프로필 태그 아이콘 깜박임** — 아이콘 id가 바뀌면 effect(페인트 후)에서 초기화해 이전 아이콘이 한 프레임 보이던 것을 렌더 중 초기화로 변경.
 - **린트 오류 120 → 0** (`npm run lint`: src 115 + admin 5, admin 경고 1건 남음) — `any` 93건을 실제 타입으로 교체: 백그라운드 창 API(`vite-env.d.ts`의 `BgProfile`·`BgSearchResult`·`SelectableProfile` 등), 검색 후보 `PlayerCandidate`, 기록 동기화·LocalDB 제네릭, `MapConfig`. React 훅 규칙 17건은 "props 변경 시 effect에서 state 초기화" 패턴을 렌더 중 조정으로 바꾸는 식으로 정리(검색창·랭크 차트·이미지 훅·통계 탭·무기 탭 등). `useApexRunning`은 `src/hooks/`, `useTheme`는 `src/theme/useTheme.ts`로 분리(Fast Refresh). ESLint에 `ignoreRestSiblings` 허용. 동작 변경 없음은 골든 스냅샷·시작 벤치마크·헤드리스 화면 순회로 확인.
 
-### 서버·DB (적용 순서)
+### 서버·DB (2026-11-25 상태)
 
-프록시(`trace-proxy-server`)는 별도 레포. 이 레포의 마이그레이션은 아래 순서로 적용.
+공용 Supabase·프록시(`trace-proxy-server`, 별도 레포)는 v0.0.15 클라이언트도 함께 쓴다. 모든 변경은 **추가형**(nullable 컬럼·새 엔드포인트·새 언어 키)이라 0.0.15 동작은 그대로다.
 
-1. **보안** `20261020090000_fix_global_profiles_write_rls.sql` + `20261020090100_revoke_global_profiles_extra_client_grants.sql` — `global_profiles` 쓰기 정책이 PUBLIC(anon 포함)에 열려 있던 것을 막고 불필요 권한 회수. 쓰기는 프록시(service_role)만.
-2. `20261114184658_player_account_stats.sql` → 프록시 `/account-stats` 배포.
-3. `20261117090000_global_profiles_als_synced_at.sql` → 프록시 `/apex-stats` DB 캐시 배포.
-4. `20261116130000_add_matches_damage_hits.sql` → 프록시 `damageHits` 매핑.
-5. `20261116120000_drop_matches_is_kill_leader.sql` — 프록시 `9462a69` 배포 **후**.
-6. 수동(`supabase/manual/`): `fix_seasons_from_game_data.sql`(시즌 표를 게임 일정에 맞춤), `repair_double_counted_levels.sql`, `repair_mangled_profile_names.sql` — 각 파일의 미리보기 쿼리로 확인 후 실행.
+| 항목 | 상태 | 0.0.15 영향 |
+| --- | --- | --- |
+| `20261020090000_fix_global_profiles_write_rls.sql` + `…090100_revoke_global_profiles_extra_client_grants.sql` — `global_profiles` 쓰기가 PUBLIC(anon)에 열려 있던 것 차단 | 적용됨 | 없음 — 0.0.15도 프록시로만 씀 |
+| `20261114184658_player_account_stats.sql` + 프록시 `/account-stats`(`45a72bf`) | 적용·배포됨 | 없음 — 0.0.15는 호출 안 함 |
+| `20261117090000_global_profiles_als_synced_at.sql` + 프록시 DB 캐시(`9462a69`) | 적용·배포됨 | ALS 호출만 줄어듦 |
+| `20261116120000_drop_matches_is_kill_leader.sql` | 적용됨(프록시가 먼저 필드 무시) | 없음 |
+| `20261116130000_add_matches_damage_hits.sql` | **2026-11-25 적용** | 없음 — nullable |
+| 프록시 `damageHits` ↔ `damage_hits` 매핑 | **커밋·배포 대기** (`trace-proxy-server/lib/matchHistory.js`, 작업 트리에 수정됨) | 없음 — 0.0.15 행은 null |
+| `manual/fix_seasons_from_game_data.sql` | 적용됨(S30 Split 2 ~ S31 Split 2 일치 확인) | — |
+| `manual/repair_double_counted_levels.sql` | **미실행** — `level > 500` 92행 | 복구해도 0.0.15가 다시 쓸 수 있음 → 1.0.0 보급 후 실행 권장 |
+| `manual/repair_mangled_profile_names.sql` | **미실행** — 이름에 제어문자 621행 | 프록시가 깨진 이름 쓰기를 이미 차단(`9462a69`). 미리보기로 확인 후 실행 |
 
-언어 팩: version 17(QA 제출본) → **21**(공유·첫 실행·데모·Premium·시즌 선택·리플레이·DETAILS 지표·`controls.first`·`settings.externalLink.*` 등, 기존 키·보간 변수 유지). **`npm run seed:languages` 필요**(미실행 시 영어 기본 문구). 클라이언트 언어 캐시 키 `languages_cache_v5`로 올려 새 팩을 다시 받음.
+프록시 매핑이 배포되기 전까지 1.0.0이 보내는 `damageHits`는 저장되지 않는다(헤드샷 비율은 `-`로 표시). 배포: `trace-proxy-server`에서 `lib/matchHistory.js` 커밋 후 `main` 푸시(Vercel 프로덕션).
+
+**언어 팩 version 22 (2026-11-25 시딩 완료)** — v17(QA 제출본) → 22. 0.0.15가 쓰는 739개 키는 모두 유지하고 보간 변수도 바뀌지 않았다(10개 언어 비교). v21에서 1.0.0 탭 이름 때문에 `combatLog.title`이 "Combat Log" → "Combat"으로 바뀌어 0.0.15 전투 로그 제목까지 짧아졌던 것을 되돌렸다. 짧은 이름은 새 키 `combatLog.tabTitle`로 분리. 클라이언트 언어 캐시 키는 `languages_cache_v5`.
 
 ### 테스트·측정 도입
 

@@ -171,7 +171,7 @@ const MatchDetailTabs = ({ match, onUserSelect, forceSplit = false, includeComba
                 </button>
                 {includeCombatLog && (
                     <button type="button" onClick={() => setActiveTab('combat')} style={matchPanelTabStyle(activeTab === 'combat')}>
-                        {t('combatLog.title')}
+                        {t('combatLog.tabTitle')}
                     </button>
                 )}
                 <button type="button" onClick={() => setActiveTab('loadout')} style={{ ...matchPanelTabStyle(activeTab === 'loadout'), borderRight: 'none' }}>

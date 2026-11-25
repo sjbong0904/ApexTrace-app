@@ -319,7 +319,8 @@
   },
   "combatLog": {
     "noEvents": "暫無戰鬥事件記錄。",
-    "title": "戰鬥",
+    "title": "戰鬥日誌",
+    "tabTitle": "戰鬥",
     "eventsCount": "{{count}} 個事件",
     "me": "我",
     "unknown": "未知"

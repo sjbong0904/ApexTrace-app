@@ -368,7 +368,8 @@
   },
   "combatLog": {
     "noEvents": "기록된 전투가 없습니다",
-    "title": "전투",
+    "title": "전투 로그",
+    "tabTitle": "전투",
     "eventsCount": "이벤트 {{count}}개",
     "me": "나",
     "unknown": "알 수 없음",

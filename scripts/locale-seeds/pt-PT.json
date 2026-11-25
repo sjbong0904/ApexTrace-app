@@ -319,7 +319,8 @@
   },
   "combatLog": {
     "noEvents": "Nenhum evento de combate registrado.",
-    "title": "Combate",
+    "title": "Registro de combate",
+    "tabTitle": "Combate",
     "eventsCount": "{{count}} eventos",
     "me": "Eu",
     "unknown": "Desconhecido"

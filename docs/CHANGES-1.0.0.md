@@ -13,9 +13,10 @@
 
 | 파일 | 변경 |
 | --- | --- |
-| `manifest.json` | 버전 0.0.15 → **1.0.0**. 데스크톱 창 `disable_hardware_acceleration: true`, `min_size` 1080×780 → **1080×720** |
+| `manifest.json` | 버전 0.0.15 → **1.0.0**. 데스크톱 창 `disable_hardware_acceleration: true`, `min_size` 1080×780 → **1080×720**. `externally_connectable`에서 `localhost:3000`·`127.0.0.1:3000` 제거 |
 | `package.json` / `package-lock.json` | 버전 1.0.0. 스크립트 `test`·`test:watch`·`test:update`·`test:coverage`·`metrics`. devDeps `vitest`·`@vitest/coverage-v8`·`playwright-core`(측정용, 브라우저 다운로드 없음) |
 | `index.html` | JS 없이 그려지는 부트 셸(타이틀바·최소화·닫기·로딩 표시) |
+| `background.html`·`worker.html` | jsDelivr supabase-js `@2` → `@2.91.1` 고정, 미사용 `tesseract.js@5` 제거(worker) |
 | `eslint.config.js` | `no-unused-vars`에 `ignoreRestSiblings`, `^_` 무시 패턴 |
 | `.gitignore` | `coverage/`, `scripts/loadbench/fixtures/`(녹화 네트워크·개인 uid), `__pycache__/`·`*.pyc` |
 | `vitest.config.ts` (새) | node 환경, `src/**/*.test.ts`, `src/utils` 커버리지(v8) |
@@ -55,7 +56,7 @@
 | `MapVisualizer.tsx` | 보기 순환(경로 → 경로+정적 링 → 리플레이). Free 정적 링 오버레이, Premium 리플레이(이동 마커·실시간 링·배속·재생 바, Free 하루 1회), 전투 로그·로드아웃 행에서 시점 이동, 지도 로딩 표시, 링 클립, 30fps 리드로우 |
 | `MatchAccordion.tsx` (새) | 접힌 행은 상세를 마운트하지 않음, 열림 애니메이션 후 무거운 지도 마운트 |
 | `MatchDetailBody.tsx` (새) | 지도 중심 상세 레이아웃(넓으면 옆, 좁으면 위) |
-| `MatchDetailTabs.tsx` | 데스크톱 4탭(Overview/Details/Combat log/Loadout), 탭 바 오른쪽 공유 버튼, 리플레이 시점 이동 전달 |
+| `MatchDetailTabs.tsx` | 전투 로그 탭 이름은 `combatLog.tabTitle`, 데스크톱 4탭(Overview/Details/Combat log/Loadout), 탭 바 오른쪽 공유 버튼, 리플레이 시점 이동 전달 |
 | `MatchStats.tsx` | overview/detail 분리, DETAILS 지표 5줄 재구성(미수집은 `-`), 최근 경기 대비 막대(중앙 = 평균, 양끝 = 최저·최고), 최다 킬 무기 |
 | `CombatLog.tsx` | 킬피드형 고정 열(공격자·무기 실루엣·아이콘·피해자), 행 클릭 시 리플레이 이동·강조 |
 | `LoadoutTimeline.tsx` | 행 클릭 시 리플레이 이동 |
@@ -110,19 +111,19 @@
 
 ## 7. 서버·DB (Supabase, 프록시는 별도 레포)
 
-| 파일 | 내용 | 적용 |
+| 파일 | 내용 | 적용 (상태는 RELEASE_NOTES 서버·DB 표) |
 | --- | --- | --- |
 | `migrations/20261020090000_fix_global_profiles_write_rls.sql` | `global_profiles` 쓰기 RLS가 PUBLIC에 열려 있던 것 수정 | 보안 — 우선 |
 | `migrations/20261020090100_revoke_global_profiles_extra_client_grants.sql` | 클라이언트 불필요 권한 회수 | 위와 함께 |
 | `migrations/20261114184658_player_account_stats.sql` | XP·`gep_synced_at` 컬럼, 계정 스냅샷 | 프록시 `/account-stats` 배포 전 |
 | `migrations/20261116120000_drop_matches_is_kill_leader.sql` | 킬리더 컬럼 삭제 | 프록시 배포 후 |
-| `migrations/20261116130000_add_matches_damage_hits.sql` | `damage_hits` | 프록시 매핑 추가 필요 |
+| `migrations/20261116130000_add_matches_damage_hits.sql` | `damage_hits` | 2026-11-25 적용. 프록시 매핑은 배포 대기 |
 | `migrations/20261117090000_global_profiles_als_synced_at.sql` | ALS 동기 시각(캐시 판단) | 프록시 배포 전 |
 | `manual/fix_seasons_from_game_data.sql` | 시즌 표를 게임 일정에 맞춤 | 수동 |
 | `manual/repair_double_counted_levels.sql` | 레벨 이중 합산 행 복구 | 수동(미리보기 쿼리 포함) |
 | `manual/repair_mangled_profile_names.sql` | base64 오디코딩 닉네임 복구 | 수동 |
 
-언어 팩: `scripts/locale-seeds/*.json` 10개 언어(영어·한국어는 약 200줄, 나머지 25줄 내외 추가) → **version 21**, `npm run seed:languages` 필요. `seed-teammate-test-data.ts`는 `is_kill_leader` 제거.
+언어 팩: `scripts/locale-seeds/*.json` 10개 언어(영어·한국어는 약 200줄, 나머지 25줄 내외 추가) → **version 22**(2026-11-25 시딩 완료). 0.0.15가 쓰는 키 739개 전부 유지·보간 변수 동일, `combatLog.title`은 0.0.15 문구 그대로 두고 1.0.0 탭용 `combatLog.tabTitle` 추가. `seed-teammate-test-data.ts`는 `is_kill_leader` 제거.
 
 ## 8. 개발 도구 스크립트 (새)
 

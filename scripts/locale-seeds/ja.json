@@ -319,7 +319,8 @@
   },
   "combatLog": {
     "noEvents": "記録された戦闘がありません。",
-    "title": "戦闘",
+    "title": "戦闘ログ",
+    "tabTitle": "戦闘",
     "eventsCount": "{{count}}件のイベント",
     "me": "自分",
     "unknown": "不明"

@@ -368,7 +368,8 @@
   },
   "combatLog": {
     "noEvents": "No combat events recorded.",
-    "title": "Combat",
+    "title": "Combat Log",
+    "tabTitle": "Combat",
     "eventsCount": "{{count}} Events",
     "me": "Me",
     "unknown": "Unknown",
