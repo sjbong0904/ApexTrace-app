@@ -18,6 +18,8 @@
 
 ## 릴리스 루틴
 
+변경마다 하는 전체 순서(호환 검사·문서화 포함)는 [CHANGE-ROUTINE.md](./CHANGE-ROUTINE.md). 여기서는 측정 부분만.
+
 1. `npm test` 통과 확인. 스냅샷이 깨졌다면 diff가 **의도한 변경**인지 검토 후 `npm run test:update`.
 2. 버전 올린 뒤 `npm run metrics` → `metrics/diffs/v<버전>.md`에서 ⚠️ 항목 확인.
 3. `metrics/` 폴더를 릴리스 커밋에 포함.

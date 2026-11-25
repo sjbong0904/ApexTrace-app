@@ -12,6 +12,8 @@
     "test:update": "vitest run -u",
     "test:coverage": "vitest run --coverage",
     "metrics": "node scripts/metrics.mjs",
+    "check": "npm test && npx tsc -b && npx eslint src && npx vite build && node scripts/check-compat.mjs",
+    "check:compat": "node scripts/check-compat.mjs",
     "preview": "vite preview",
     "seed:languages": "npx tsx scripts/seed-languages.ts",
     "seed:weapons": "npx tsx scripts/seed-weapons.ts",

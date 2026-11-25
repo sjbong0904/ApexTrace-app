@@ -770,7 +770,7 @@
       "legendMatches": "매치",
       "legendKd": "K/D",
       "legendKad": "KA/D",
-      "legendWinPercent": "승률",
+      "legendWinPercent": "승률%",
       "legendWinRate": "승률",
       "legendAvgDamage": "평균 대미지",
       "legendAvgDamageShort": "DMG",

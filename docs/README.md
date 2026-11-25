@@ -7,6 +7,7 @@
 | 문서 | 용도 |
 |------|------|
 | [RELEASE_NOTES.md](./RELEASE_NOTES.md) | 버전 변경 이력 (v0.0.13+는 버전별 테스트·성능 측정 포함) |
+| [CHANGE-ROUTINE.md](./CHANGE-ROUTINE.md) | **변경할 때마다** 하는 순서: 테스트 · 지표 기록 · 성능 비교 · 라이브 빌드 호환 · 문서화 · 커밋 |
 | [CHANGES-1.0.0.md](./CHANGES-1.0.0.md) | v0.0.15 → v1.0.0 파일 단위 변경 전수조사 |
 | [METRICS.md](./METRICS.md) | 테스트·버전 지표·시작 벤치마크 사용법 (`npm test`, `npm run metrics`) |
 | [ROADMAP.md](./ROADMAP.md) | 제품 향후 계획 + Overwolf API 후보 (**Free QA 후 Premium 출시 체크리스트** 포함) |

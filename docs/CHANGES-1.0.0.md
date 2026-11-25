@@ -105,9 +105,10 @@
 | 파일 | 변경 |
 | --- | --- |
 | `src/utils/__tests__/*` (새) | 84개 테스트: helpers·scoring·seasons·matchMode·replay·appState + 골든 스냅샷(데모 23경기) |
+| `scripts/check-compat.mjs` (새), `npm run check`·`check:compat` | 라이브 빌드(`c68b2ce`) 대비 언어 키·문구·보간 변수, 새 마이그레이션 위험 문 표시. 변경 루틴: [CHANGE-ROUTINE.md](./CHANGE-ROUTINE.md) |
 | `scripts/metrics.mjs` (새) | 버전 지표 측정·기록(`--ref`, `--skip`, `--compare`, `--record-load`) |
 | `scripts/loadbench/run.mjs`·`overwolf-stub.js` (새) | 헤드리스 Edge 시작 벤치마크(녹화 네트워크 재생) |
-| `metrics/` (새) | `HISTORY.md`, `history/v0.0.13~16.json`, `diffs/*` |
+| `metrics/` (새) | `HISTORY.md`, `history/v0.0.13~16.json`·`v1.0.0.json`, `diffs/*` |
 
 ## 7. 서버·DB (Supabase, 프록시는 별도 레포)
 
@@ -123,7 +124,7 @@
 | `manual/repair_double_counted_levels.sql` | 레벨 이중 합산 행 복구 | 수동(미리보기 쿼리 포함) |
 | `manual/repair_mangled_profile_names.sql` | base64 오디코딩 닉네임 복구 | 수동 |
 
-언어 팩: `scripts/locale-seeds/*.json` 10개 언어(영어·한국어는 약 200줄, 나머지 25줄 내외 추가) → **version 22**(2026-11-25 시딩 완료). 0.0.15가 쓰는 키 739개 전부 유지·보간 변수 동일, `combatLog.title`은 0.0.15 문구 그대로 두고 1.0.0 탭용 `combatLog.tabTitle` 추가. `seed-teammate-test-data.ts`는 `is_kill_leader` 제거.
+언어 팩: `scripts/locale-seeds/*.json` 10개 언어(영어·한국어는 약 200줄, 나머지 25줄 내외 추가) → **version 23**(2026-11-25 시딩 완료, v23에서 한국어 `legendWinPercent` "승률%" 복구). 0.0.15가 쓰는 키 739개 전부 유지·보간 변수 동일, `combatLog.title`은 0.0.15 문구 그대로 두고 1.0.0 탭용 `combatLog.tabTitle` 추가. `seed-teammate-test-data.ts`는 `is_kill_leader` 제거.
 
 ## 8. 개발 도구 스크립트 (새)
 

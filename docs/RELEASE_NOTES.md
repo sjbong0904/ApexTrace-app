@@ -92,7 +92,9 @@ v0.0.15(Overwolf QA 제출본) 이후 전체 변경. 0.0.16은 태그·배포 �
 - 배포 후 실제 사용자 1명 `/api/history`(summary): HTTP 200, 20경기, 기존 필드(kills 등) 그대로, 기존 행 `damageHits` = null.
 - 0.0.15 클라이언트 관점: 보내는 데이터 변화 없음, 응답에 읽지 않는 필드 하나 추가뿐 → 영향 없음.
 
-**언어 팩 version 22 (2026-11-25 시딩 완료)** — v17(QA 제출본) → 22. 0.0.15가 쓰는 739개 키는 모두 유지하고 보간 변수도 바뀌지 않았다(10개 언어 비교). v21에서 1.0.0 탭 이름 때문에 `combatLog.title`이 "Combat Log" → "Combat"으로 바뀌어 0.0.15 전투 로그 제목까지 짧아졌던 것을 되돌렸다. 짧은 이름은 새 키 `combatLog.tabTitle`로 분리. 클라이언트 언어 캐시 키는 `languages_cache_v5`.
+**언어 팩 version 23 (2026-11-25 시딩 완료)** — v23: 호환 검사(`npm run check:compat`)에서 한국어 `statistics.maps.legendWinPercent`가 "승률%" → "승률"로 바뀐 것이 발견되어(0.0.15 통계 헤더에도 반영되던 변경) "승률%"로 복구. 이제 0.0.15 대비 문구 변경 0건.
+
+**언어 팩 version 22** — v17(QA 제출본) → 22. 0.0.15가 쓰는 739개 키는 모두 유지하고 보간 변수도 바뀌지 않았다(10개 언어 비교). v21에서 1.0.0 탭 이름 때문에 `combatLog.title`이 "Combat Log" → "Combat"으로 바뀌어 0.0.15 전투 로그 제목까지 짧아졌던 것을 되돌렸다. 짧은 이름은 새 키 `combatLog.tabTitle`로 분리. 클라이언트 언어 캐시 키는 `languages_cache_v5`.
 
 ### 테스트·측정 도입
 
@@ -102,8 +104,32 @@ v0.0.15(Overwolf QA 제출본) 이후 전체 변경. 0.0.16은 태그·배포 �
 
 ### 개발 도구·문서
 
+- **변경 루틴** — [CHANGE-ROUTINE.md](./CHANGE-ROUTINE.md): 변경마다 테스트 → 지표 기록·성능 비교 → 라이브 빌드 호환 → 문서화 → 커밋. `npm run check`(테스트·타입체크·린트·빌드·호환 검사 한 번에), `npm run check:compat`(`scripts/check-compat.mjs`: 라이브 빌드 `c68b2ce` 대비 언어 키 누락·보간 변수·문구 변경, 새 마이그레이션의 drop/rename/revoke 표시).
+
 - 스크립트: `build-demo-matches.mjs`(데모 데이터 생성·익명화), `game-icons/*.py`(설치된 게임에서 아이콘·시즌 일정 추출 → Supabase), `fetch-local-images.mjs`·`make-image-previews.py`(로컬 이미지).
 - 새 문서: [METRICS.md](./METRICS.md), [SEASON-ROLLOVER.md](./SEASON-ROLLOVER.md), [GEP-REQUESTS.md](./GEP-REQUESTS.md), [DB-OPTIMIZATION.md](./DB-OPTIMIZATION.md)·[RING-HEATMAP.md](./RING-HEATMAP.md)(미구현 설계), [CHANGES-1.0.0.md](./CHANGES-1.0.0.md). GEP-BUGS(링)·ROADMAP·NICKNAME-SEARCH·ARCHITECTURE·QA 갱신.
+
+### 측정 (2026-11-25, v1.0.0 기록 — `metrics/history/v1.0.0.json`)
+
+변경 루틴([CHANGE-ROUTINE.md](./CHANGE-ROUTINE.md))으로 처음 남긴 v1.0.0 기록. `npm run metrics -- --compare v0.0.15`, 시작 수치 7회 중앙값, 녹화 네트워크 재생(80ms).
+
+| 항목 | v0.0.15 | v1.0.0 | |
+| --- | ---: | ---: | --- |
+| 테스트 / 실패 / 스냅샷 불일치 | 47 / 2 / 1 | **84 / 0 / 0** | |
+| 커버리지 줄 · 분기 · 함수 | 46.5 · 71.8 · 53.2% | 46.9 · **76.1** · 50.5% | 함수 비율은 새 UI 헬퍼(미테스트)로 하락 |
+| TS / 린트 오류 · 경고 | 0 / 113 · 3 | 0 / **0 · 0** | |
+| JS gzip (전체) | 481KB | 630KB | +149KB 중 106KB는 데모 데이터(지연 청크, 첫 실행 샘플만 로드) |
+| 데스크톱 초기 로드 gzip | 384KB | 415KB | +8% |
+| 첫 화면 FCP | 396ms | **48ms** | 부트 셸 |
+| 첫 화면 90% 렌더링 / 안정화 | 331 / 476ms | 369 / 530ms | +11.5% — 아래 |
+| 첫 화면 롱태스크 | 51ms | **0ms** | |
+| 첫 화면 네트워크 | 9건 / 882KB | 10건 / **812KB** | |
+| 프로필(새 기기) 안정화 / JS / 바이트 | 846ms / 214ms / 5.2MB | **773ms / 150ms / 1.6MB** | 이미지 디스크 캐시 |
+| 프로필(재방문) 안정화 / 요청 / 바이트 | 685ms / 42 / 4.8MB | **574ms / 17 / 0.37MB** | |
+| 데모 화면 90% / 안정화 | (없음) | 487 / 628ms | v0.0.15는 빈 화면이라 비교 불가 |
+
+- **첫 화면 +11.5% (감수)**: 첫 실행 화면이 빈 상자에서 설치 진행·첫 매치 미리보기 패널로 바뀌어 DOM 120 → 168, 초기 JS +8%. 사용자가 보는 첫 페인트는 396 → 48ms로 오히려 빨라졌고 롱태스크가 없어짐. 전날 작업 트리 기록(v0.0.16 표기, 347 / 508ms) 대비로는 +6%(잡음 범위 경계).
+- 상세: [metrics/diffs/v1.0.0.md](../metrics/diffs/v1.0.0.md), 전 버전 표 [metrics/HISTORY.md](../metrics/HISTORY.md).
 
 ### 측정 (2026-11-24, 커밋 전 작업 트리 — 버전 1.0.0으로 올리기 직전)
 
