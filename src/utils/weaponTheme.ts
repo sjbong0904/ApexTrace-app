@@ -200,6 +200,36 @@ const getWeaponAmmoColor = (rawName?: string | null): string => {
     return AMMO_COLORS[ammo] ?? AMMO_COLORS.Light;
 };
 
+/**
+ * Card shades per ammo type, for cards with white text (match detail "Best weapon").
+ * Same hue as {@link AMMO_COLORS}, lightness matched to the playstyle cards next to it
+ * (OKLab L 0.50 → 0.42, the playstyle gradients' average start/end), chroma reduced only
+ * as far as needed to keep white text ≥ 4.5:1 (it has 11px text).
+ */
+export const AMMO_CARD_SHADES: Record<string, readonly [string, string]> = {
+    Light: ['#8b5504', '#6d4201'],
+    Heavy: ['#037652', '#055c3f'],
+    Energy: ['#596d03', '#455501'],
+    Sniper: ['#2260b8', '#03489e'],
+    Shotgun: ['#bc0214', '#94040f'],
+    Mythic: ['#b8063f', '#910530'],
+    Arrows: ['#786005', '#5e4b00'],
+};
+
+/** Ammo-colored card background. Two-ammo weapons blend from the first ammo to the second. */
+export function getWeaponCardBackground(rawName?: string | null): string {
+    const weapon = rawName ? findWeaponByLoadoutId(rawName) : undefined;
+    const variant = weapon?.variant ?? 'STANDARD';
+    const ammo = weapon?.ammoType?.length ? weapon.ammoType : ['Light'];
+    const shadeOf = (type: string) => AMMO_CARD_SHADES[type] ?? AMMO_CARD_SHADES.Light;
+    let start: string, end: string;
+    if (variant === 'CARE_PACKAGE') [start, end] = AMMO_CARD_SHADES.Mythic;
+    else if (variant === 'ELITE') [start, end] = AMMO_CARD_SHADES.Arrows;
+    else if (ammo.length > 1) { start = shadeOf(ammo[0])[0]; end = shadeOf(ammo[1])[1]; }
+    else [start, end] = shadeOf(ammo[0]);
+    return `linear-gradient(135deg, ${start} 0%, ${end} 100%)`;
+}
+
 /** Primary ammo / variant color for silhouettes and accents. */
 export function getWeaponAmmoTint(rawName?: string | null): string {
     return getWeaponAmmoColor(rawName);

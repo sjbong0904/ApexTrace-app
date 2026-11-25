@@ -5,7 +5,7 @@ import { FaInfoCircle } from 'react-icons/fa';
 import { useTranslation } from 'react-i18next';
 import { c } from '../theme';
 import { resolveWeaponCombatForMatch } from '../utils/weaponMatchStats';
-import { getWeaponDisplayName, getWeaponSilhouetteScale, getWeaponSilhouetteUrl, getWeaponAmmoTint, WHITE_SILHOUETTE_FILTER, PROFILE_IMAGE_BASE } from '../utils/weaponTheme';
+import { getWeaponDisplayName, getWeaponSilhouetteScale, getWeaponSilhouetteUrl, getWeaponCardBackground, WHITE_SILHOUETTE_FILTER, PROFILE_IMAGE_BASE } from '../utils/weaponTheme';
 import { COMPARISON_MIN_SAMPLE, type RecentComparison } from '../utils/matchComparison';
 import {
     getDamagePerKnock,
@@ -208,19 +208,22 @@ const BestWeaponCard = ({ match }: { match: Match }) => {
         );
     }
 
-    const tint = getWeaponAmmoTint(best.id);
     const scale = getWeaponSilhouetteScale(best.id);
     const holdMin = best.holdMs > 0 ? Math.max(1, Math.round(best.holdMs / 60000)) : null;
 
     return (
+        // Ammo-colored like the playstyle card beside it (same lightness range, white text).
         <div style={{
             ...boxStyle,
             position: 'relative',
             overflow: 'hidden',
             justifyContent: 'space-between',
-            background: `linear-gradient(135deg, color-mix(in srgb, ${tint} 22%, var(--color-bg-card)) 0%, var(--color-bg-card) 70%)`,
+            background: getWeaponCardBackground(best.id),
+            border: 'none',
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.22)',
+            textShadow: c.playstyleTextShadow,
         }}>
-            <MarqueeLabel>{t('matchStats.bestWeapon', { defaultValue: 'Best weapon' })}</MarqueeLabel>
+            <MarqueeLabel style={{ color: c.playstyleLabel, fontWeight: '600', letterSpacing: '0.5px' }}>{t('matchStats.bestWeapon', { defaultValue: 'Best weapon' })}</MarqueeLabel>
             {!imgFailed && (
                 <img
                     src={getWeaponSilhouetteUrl(best.id)}
@@ -242,10 +245,10 @@ const BestWeaponCard = ({ match }: { match: Match }) => {
                 />
             )}
             <div style={{ position: 'relative', minWidth: 0, maxWidth: '55%' }}>
-                <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--color-text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                <div style={{ fontSize: 14, fontWeight: 800, color: c.playstyleText, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                     {getWeaponDisplayName(best.id)}
                 </div>
-                <div style={{ fontSize: 11, color: 'var(--color-text-dim)', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>
+                <div style={{ fontSize: 11, color: c.playstyleLabel, whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>
                     {t('matchStats.bestWeaponLine', { kills: best.kills, assists: best.assists || 0, defaultValue: '{{kills}} K · {{assists}} A' })}
                     {holdMin ? ` · ${t('matchStats.heldMinutes', { count: holdMin, defaultValue: '{{count}} min held' })}` : ''}
                 </div>
@@ -547,7 +550,7 @@ const MatchStats = ({ match, onUserSelect, view = 'full', comparison = null }: M
         name: t(`playstyles.${playstyleKey}.name`, { lng: 'en' }),
         sub: t(`playstyles.${playstyleKey}.sub`),
         visual: PLAYSTYLE_VISUALS[playstyleKey],
-    };
+    };
     const detailCards = useMemo(() => {
         const headshotRate = getHeadshotRate(match);
         const dmgPerKnock = getDamagePerKnock(match);
