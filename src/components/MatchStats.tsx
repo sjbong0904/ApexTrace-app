@@ -5,7 +5,7 @@ import { FaInfoCircle } from 'react-icons/fa';
 import { useTranslation } from 'react-i18next';
 import { c } from '../theme';
 import { resolveWeaponCombatForMatch } from '../utils/weaponMatchStats';
-import { getWeaponDisplayName, getWeaponSilhouetteScale, getWeaponSilhouetteUrl, getWeaponCardBackground, WHITE_SILHOUETTE_FILTER, PROFILE_IMAGE_BASE } from '../utils/weaponTheme';
+import { getWeaponDisplayName, getWeaponSilhouetteScale, getWeaponSilhouetteUrl, getWeaponCardBackground, WHITE_SILHOUETTE_FILTER, PROFILE_IMAGE_BASE, WEAPON_CARD_TEXT_WIDTH } from '../utils/weaponTheme';
 import { COMPARISON_MIN_SAMPLE, type RecentComparison } from '../utils/matchComparison';
 import {
     getDamagePerKnock,
@@ -106,6 +106,15 @@ const boxStyle: React.CSSProperties = {
     minWidth: 0
 };
 
+/** Shared overview surface: no border, same drop shadow as the colored cards. */
+const OVERVIEW_CARD_SHADOW = '0 4px 12px rgba(0, 0, 0, 0.22)';
+
+/** Picture on the card's right (weapon silhouette / legend portrait); text stays left of it. */
+const overviewTextStyle: React.CSSProperties = { position: 'relative', minWidth: 0, maxWidth: WEAPON_CARD_TEXT_WIDTH };
+const overviewValueStyle: React.CSSProperties = { fontSize: 14, fontWeight: 800, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' };
+const overviewSubStyle: React.CSSProperties = { fontSize: 11, whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' };
+const overviewLabelStyle: React.CSSProperties = { fontWeight: '600', letterSpacing: '0.5px', position: 'relative' };
+
 const labelStyle: React.CSSProperties = {
     fontSize: '10px',
     color: 'var(--color-text-muted)',
@@ -201,9 +210,9 @@ const BestWeaponCard = ({ match }: { match: Match }) => {
 
     if (!best) {
         return (
-            <div style={boxStyle}>
-                <MarqueeLabel>{t('matchStats.bestWeapon', { defaultValue: 'Best weapon' })}</MarqueeLabel>
-                <div style={{ fontSize: 12, color: 'var(--color-text-faint)' }}>—</div>
+            <div style={{ ...boxStyle, justifyContent: 'space-between', border: 'none', boxShadow: `inset 0 0 0 1px var(--color-border), ${OVERVIEW_CARD_SHADOW}` }}>
+                <MarqueeLabel style={overviewLabelStyle}>{t('matchStats.bestWeapon', { defaultValue: 'Best weapon' })}</MarqueeLabel>
+                <div style={{ ...overviewValueStyle, color: 'var(--color-text-faint)' }}>—</div>
             </div>
         );
     }
@@ -212,7 +221,7 @@ const BestWeaponCard = ({ match }: { match: Match }) => {
     const holdMin = best.holdMs > 0 ? Math.max(1, Math.round(best.holdMs / 60000)) : null;
 
     return (
-        // Ammo-colored like the playstyle card beside it (same lightness range, white text).
+        // In-game ammo icon colour under the silhouette, darkening toward the white text on the left.
         <div style={{
             ...boxStyle,
             position: 'relative',
@@ -220,10 +229,10 @@ const BestWeaponCard = ({ match }: { match: Match }) => {
             justifyContent: 'space-between',
             background: getWeaponCardBackground(best.id),
             border: 'none',
-            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.22)',
+            boxShadow: OVERVIEW_CARD_SHADOW,
             textShadow: c.playstyleTextShadow,
         }}>
-            <MarqueeLabel style={{ color: c.playstyleLabel, fontWeight: '600', letterSpacing: '0.5px' }}>{t('matchStats.bestWeapon', { defaultValue: 'Best weapon' })}</MarqueeLabel>
+            <MarqueeLabel style={{ ...overviewLabelStyle, color: c.playstyleLabel, maxWidth: WEAPON_CARD_TEXT_WIDTH }}>{t('matchStats.bestWeapon', { defaultValue: 'Best weapon' })}</MarqueeLabel>
             {!imgFailed && (
                 <img
                     src={getWeaponSilhouetteUrl(best.id)}
@@ -244,11 +253,11 @@ const BestWeaponCard = ({ match }: { match: Match }) => {
                     }}
                 />
             )}
-            <div style={{ position: 'relative', minWidth: 0, maxWidth: '55%' }}>
-                <div style={{ fontSize: 14, fontWeight: 800, color: c.playstyleText, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            <div style={overviewTextStyle}>
+                <div style={{ ...overviewValueStyle, color: c.playstyleText }}>
                     {getWeaponDisplayName(best.id)}
                 </div>
-                <div style={{ fontSize: 11, color: c.playstyleLabel, whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>
+                <div style={{ ...overviewSubStyle, color: c.playstyleLabel }}>
                     {t('matchStats.bestWeaponLine', { kills: best.kills, assists: best.assists || 0, defaultValue: '{{kills}} K · {{assists}} A' })}
                     {holdMin ? ` · ${t('matchStats.heldMinutes', { count: holdMin, defaultValue: '{{count}} min held' })}` : ''}
                 </div>
@@ -271,15 +280,19 @@ const TeammateSlot = ({ teammate, hovered, onClick, onHover }: TeammateSlotProps
 
     if (!teammate) {
         return (
-            <div style={{ ...boxStyle, flexDirection: 'row', alignItems: 'center', gap: 10, border: '1px dashed var(--color-border)', background: 'transparent' }}>
-                <div style={{ width: 32, height: 32, borderRadius: 8, flexShrink: 0, border: '1px dashed var(--color-border-light)' }} />
-                <div style={{ fontSize: 11, color: 'var(--color-text-faint)' }}>{t('matchStats.noTeammate', { defaultValue: 'No teammate' })}</div>
+            <div style={{ ...boxStyle, justifyContent: 'space-between', border: '1px dashed var(--color-border)', background: 'transparent' }}>
+                <MarqueeLabel style={{ ...overviewLabelStyle, color: 'var(--color-text-faint)' }}>
+                    {t('matchStats.teammate', { defaultValue: 'Teammate' })}
+                </MarqueeLabel>
+                <div style={{ ...overviewSubStyle, color: 'var(--color-text-faint)' }}>{t('matchStats.noTeammate', { defaultValue: 'No teammate' })}</div>
             </div>
         );
     }
 
     const legendFile = (teammate.legend || 'unknown').toLowerCase();
 
+    // Same skeleton as the best-weapon card: label top-left, value + sub line bottom-left,
+    // picture on the right (legend portrait fading into the card like the weapon silhouette).
     return (
         <div
             onClick={onClick}
@@ -288,35 +301,54 @@ const TeammateSlot = ({ teammate, hovered, onClick, onHover }: TeammateSlotProps
             title={onClick ? t('matchStats.clickToViewProfile') : t('matchStats.profileNotAvailable')}
             style={{
                 ...boxStyle,
-                flexDirection: 'row',
-                alignItems: 'center',
-                gap: 10,
+                position: 'relative',
+                overflow: 'hidden',
+                justifyContent: 'space-between',
+                border: 'none',
                 background: hovered ? 'var(--color-bg-card-hover)' : 'var(--color-bg-card)',
+                boxShadow: `inset 0 0 0 1px var(--color-border), ${OVERVIEW_CARD_SHADOW}`,
                 cursor: onClick ? 'pointer' : 'default',
                 transition: 'background 0.2s',
             }}
         >
-            {imgFailed ? (
-                <div style={{ width: 32, height: 32, borderRadius: 8, flexShrink: 0, background: 'var(--color-bg-sub-header)' }} />
-            ) : (
+            {!imgFailed && (
                 <img
                     src={`${PROFILE_IMAGE_BASE}/${legendFile}.png`}
                     alt=""
+                    aria-hidden
                     onError={() => setImgFailed(true)}
-                    style={{ width: 32, height: 32, borderRadius: 8, flexShrink: 0, objectFit: 'cover', background: 'var(--color-bg-sub-header)' }}
+                    style={{
+                        // Sized like the weapon silhouette (≤ 58% of card height) and the playstyle icon.
+                        position: 'absolute',
+                        right: 8,
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        height: '60%',
+                        maxHeight: 44,
+                        aspectRatio: '1',
+                        borderRadius: 8,
+                        objectFit: 'cover',
+                        objectPosition: 'center top',
+                        WebkitMaskImage: 'linear-gradient(to left, #000 65%, transparent)',
+                        maskImage: 'linear-gradient(to left, #000 65%, transparent)',
+                        opacity: hovered ? 1 : 0.85,
+                        transition: 'opacity 0.2s',
+                        pointerEvents: 'none',
+                    }}
                 />
             )}
-            <div style={{ minWidth: 0, flex: 1 }}>
-                <div style={{ fontSize: 10, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                    {t('matchStats.teammate', { defaultValue: 'Teammate' })}
-                </div>
-                <div title={teammate.name} style={{ fontSize: 12, fontWeight: 700, color: 'var(--color-text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            <MarqueeLabel style={{ ...overviewLabelStyle, maxWidth: WEAPON_CARD_TEXT_WIDTH }}>
+                {t('matchStats.teammate', { defaultValue: 'Teammate' })}
+            </MarqueeLabel>
+            {/* No contrast limit here (neutral card), so the name may run into the portrait's faded
+                left edge; the glow keeps it legible where it overlaps. */}
+            <div style={{ ...overviewTextStyle, maxWidth: 'calc(100% - 30px)', textShadow: '0 0 4px var(--color-bg-card), 0 0 8px var(--color-bg-card)' }}>
+                <div title={teammate.name} style={{ ...overviewValueStyle, color: 'var(--color-text-primary)' }}>
                     {teammate.name}
                 </div>
-            </div>
-            <div style={{ flexShrink: 0, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
-                <span style={{ fontSize: 16, fontWeight: 800, color: 'var(--color-text-primary)' }}>{teammate.kills}</span>
-                <span style={{ fontSize: 10, color: 'var(--color-text-muted)', marginLeft: 3 }}>{t('matchStats.killsSuffix')}</span>
+                <div style={{ ...overviewSubStyle, color: 'var(--color-text-muted)' }}>
+                    {teammate.kills}{t('matchStats.killsSuffix')}
+                </div>
             </div>
         </div>
     );
@@ -644,7 +676,7 @@ const MatchStats = ({ match, onUserSelect, view = 'full', comparison = null }: M
             <div style={{
                 display: 'grid',
                 gridTemplateColumns: '1fr 1fr',
-                gridTemplateRows: 'minmax(64px, 1fr) minmax(56px, 1fr) auto',
+                gridTemplateRows: 'minmax(64px, 1fr) minmax(64px, 1fr) auto',
                 gap: '12px',
                 flex: 1,
                 minHeight: 0

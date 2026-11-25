@@ -57,7 +57,7 @@
 | `MatchAccordion.tsx` (새) | 접힌 행은 상세를 마운트하지 않음, 열림 애니메이션 후 무거운 지도 마운트 |
 | `MatchDetailBody.tsx` (새) | 지도 중심 상세 레이아웃(넓으면 옆, 좁으면 위) |
 | `MatchDetailTabs.tsx` | 전투 로그 탭 이름은 `combatLog.tabTitle`, 데스크톱 4탭(Overview/Details/Combat log/Loadout), 탭 바 오른쪽 공유 버튼, 리플레이 시점 이동 전달 |
-| `MatchStats.tsx` | overview/detail 분리, DETAILS 지표 5줄 재구성(미수집은 `-`), 최근 경기 대비 막대(중앙 = 평균, 양끝 = 최저·최고), 최다 킬 무기 |
+| `MatchStats.tsx` | overview/detail 분리, DETAILS 지표 5줄 재구성(미수집은 `-`), 최근 경기 대비 막대(중앙 = 평균, 양끝 = 최저·최고), 최다 킬 무기(게임 탄종 아이콘 색 → 어두운 그라데이션), OVERVIEW 2×2 카드 뼈대·표면 통일(팀원 칸: 라벨·이름·킬 + 오른쪽 작은 레전드 초상화) |
 | `CombatLog.tsx` | 킬피드형 고정 열(공격자·무기 실루엣·아이콘·피해자), 행 클릭 시 리플레이 이동·강조 |
 | `LoadoutTimeline.tsx` | 행 클릭 시 리플레이 이동 |
 | `MatchShareActions.tsx`·`MatchShareCard.tsx` (새), `hooks/useMatchShare.tsx` (새) | 매치 공유 이미지: 화면 밖 카드 렌더 → PNG(워터마크) → 클립보드 복사(실패 시 저장). 팀원 이름 제외 |
@@ -96,7 +96,7 @@
 | `historySync.ts` | 상세 버전 우선, 랭크 RP 이월, 폴링 결과 객체 재사용 |
 | `statsAggregation.ts`·`statsScoring.ts` | 넉 지표(`avgKnocks`·`knockToKillRate`), squadKills 없는 경기 제외(킬 관여율 100% 고정 수정) |
 | `helpers.ts` | 랭크 티어 하한 RP(S28–S31)·티어 이름·색, 타입 확장 |
-| `tierTableData.ts`·`weaponTheme.ts`·`weaponFallbackRows.ts` | 게임 HUD 흰색 무기 실루엣 + 탄약색 타일, 크기 배율 1× |
+| `tierTableData.ts`·`weaponTheme.ts`·`weaponFallbackRows.ts` | 게임 HUD 흰색 무기 실루엣 + 탄약색 타일, 크기 배율 1×. `weaponTheme.ts`: 게임 탄종 아이콘 테두리 색 `AMMO_ICON_COLORS`, 흰 글자 대비 4.5/8로 어둡게 한 카드 그라데이션(`AMMO_CARD_SHADES`, `getWeaponCardBackground`, 2탄종은 탄종 순서대로 왼쪽 → 오른쪽), 테스트 `weaponCard.test.ts` |
 | `constants.ts`·`match.ts`·`matchNormalizer.ts`·`eventIcons.ts`·`gameData.ts`·`statsCatalogSelection.ts`·`tierTableScreenshot.ts`·`tutorial.ts` | `MapConfig` 타입, nullable 필드, 데모 투어(tutorial), 소소한 정리 |
 | `assets/worlds-edge-decor.webp` (새) | 1024px 장식 지도(76KB) |
 

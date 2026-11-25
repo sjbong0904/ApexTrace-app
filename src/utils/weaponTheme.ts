@@ -201,33 +201,75 @@ const getWeaponAmmoColor = (rawName?: string | null): string => {
 };
 
 /**
- * Card shades per ammo type, for cards with white text (match detail "Best weapon").
- * Same hue as {@link AMMO_COLORS}, lightness matched to the playstyle cards next to it
- * (OKLab L 0.50 → 0.42, the playstyle gradients' average start/end), chroma reduced only
- * as far as needed to keep white text ≥ 4.5:1 (it has 11px text).
+ * Frame colour of each in-game ammo icon (rui/hud/gametype_icons/survival/sur_ammo_*.png,
+ * build R5pc_r5-310): median of the icon's saturated rim pixels. Mythic = care-package icons
+ * (kraber / bocek share the same red frame).
  */
-export const AMMO_CARD_SHADES: Record<string, readonly [string, string]> = {
-    Light: ['#8b5504', '#6d4201'],
-    Heavy: ['#037652', '#055c3f'],
-    Energy: ['#596d03', '#455501'],
-    Sniper: ['#2260b8', '#03489e'],
-    Shotgun: ['#bc0214', '#94040f'],
-    Mythic: ['#b8063f', '#910530'],
-    Arrows: ['#786005', '#5e4b00'],
+export const AMMO_ICON_COLORS: Record<string, string> = {
+    Light: '#f59a4a',   // sur_ammo_bullet
+    Heavy: '#6acea9',   // sur_ammo_bullet_large
+    Energy: '#c6dd3a',  // sur_ammo_special
+    Sniper: '#7d84ff',  // sur_ammo_sniper
+    Shotgun: '#ff2c01', // sur_ammo_shotgun
+    Mythic: '#ec0048',  // sur_ammo_kraber / sur_ammo_bocek
+    Arrows: '#e8c25a',  // sur_ammo_arrows
 };
 
-/** Ammo-colored card background. Two-ammo weapons blend from the first ammo to the second. */
+const srgbToLinear = (v: number) => (v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4);
+
+/** WCAG contrast of white text on `hex`. */
+export function whiteTextContrast(hex: string): number {
+    const n = parseInt(hex.replace('#', ''), 16);
+    const [r, g, b] = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map((c) => srgbToLinear(c / 255));
+    return 1.05 / (0.2126 * r + 0.7152 * g + 0.0722 * b + 0.05);
+}
+
+/** Same hue, darkened (RGB scaled) just enough for white text to reach `target` contrast. */
+const darkenForWhiteText = (hex: string, target: number): string => {
+    let lo = 0, hi = 1;
+    for (let i = 0; i < 24; i++) {
+        const mid = (lo + hi) / 2;
+        if (whiteTextContrast(darkenHex(hex, mid)) >= target) lo = mid; else hi = mid;
+    }
+    let out = darkenHex(hex, lo);
+    // Rounding to 8-bit can land a hair under the target; step down until it holds.
+    for (let f = lo; whiteTextContrast(out) < target && f > 0; f -= 0.005) out = darkenHex(hex, f);
+    return out;
+};
+
+/** Text side of the card (white 11px text) must keep ≥ 4.5:1; the far left goes deeper. */
+const CARD_TEXT_CONTRAST = 4.5;
+const CARD_DEEP_CONTRAST = 8;
+
+/**
+ * Best-weapon card stops: [deep, text, icon]. The icon colour sits on the right under the
+ * weapon silhouette and darkens toward the left, where the white text is.
+ */
+export const AMMO_CARD_SHADES: Record<string, readonly [string, string, string]> = Object.fromEntries(
+    Object.entries(AMMO_ICON_COLORS).map(([ammo, hex]) => [
+        ammo,
+        [darkenForWhiteText(hex, CARD_DEEP_CONTRAST), darkenForWhiteText(hex, CARD_TEXT_CONTRAST), hex] as const,
+    ]),
+);
+
+/** Where the text-safe stop sits; card text is capped to this width. */
+export const WEAPON_CARD_TEXT_WIDTH = '58%';
+
+/**
+ * Ammo-icon-colored card background: real icon colour on the right, darkening to the left.
+ * Two-ammo weapons read left → right in ammo order: dark side of the first ammo, icon colour of
+ * the second (C.A.R. = Heavy → Light).
+ */
 export function getWeaponCardBackground(rawName?: string | null): string {
     const weapon = rawName ? findWeaponByLoadoutId(rawName) : undefined;
     const variant = weapon?.variant ?? 'STANDARD';
     const ammo = weapon?.ammoType?.length ? weapon.ammoType : ['Light'];
     const shadeOf = (type: string) => AMMO_CARD_SHADES[type] ?? AMMO_CARD_SHADES.Light;
-    let start: string, end: string;
-    if (variant === 'CARE_PACKAGE') [start, end] = AMMO_CARD_SHADES.Mythic;
-    else if (variant === 'ELITE') [start, end] = AMMO_CARD_SHADES.Arrows;
-    else if (ammo.length > 1) { start = shadeOf(ammo[0])[0]; end = shadeOf(ammo[1])[1]; }
-    else [start, end] = shadeOf(ammo[0]);
-    return `linear-gradient(135deg, ${start} 0%, ${end} 100%)`;
+    let dark: readonly [string, string, string], bright: readonly [string, string, string];
+    if (variant === 'CARE_PACKAGE') dark = bright = AMMO_CARD_SHADES.Mythic;
+    else if (variant === 'ELITE') dark = bright = AMMO_CARD_SHADES.Arrows;
+    else { dark = shadeOf(ammo[0]); bright = shadeOf(ammo[1] ?? ammo[0]); }
+    return `linear-gradient(90deg, ${dark[0]} 0%, ${dark[1]} ${WEAPON_CARD_TEXT_WIDTH}, ${bright[2]} 100%)`;
 }
 
 /** Primary ammo / variant color for silhouettes and accents. */
