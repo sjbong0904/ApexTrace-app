@@ -117,7 +117,7 @@
 | `migrations/20261020090100_revoke_global_profiles_extra_client_grants.sql` | 클라이언트 불필요 권한 회수 | 위와 함께 |
 | `migrations/20261114184658_player_account_stats.sql` | XP·`gep_synced_at` 컬럼, 계정 스냅샷 | 프록시 `/account-stats` 배포 전 |
 | `migrations/20261116120000_drop_matches_is_kill_leader.sql` | 킬리더 컬럼 삭제 | 프록시 배포 후 |
-| `migrations/20261116130000_add_matches_damage_hits.sql` | `damage_hits` | 2026-11-25 적용. 프록시 매핑은 배포 대기 |
+| `migrations/20261116130000_add_matches_damage_hits.sql` | `damage_hits` | 2026-11-25 적용. 프록시 매핑 `6f89fb6` 배포 |
 | `migrations/20261117090000_global_profiles_als_synced_at.sql` | ALS 동기 시각(캐시 판단) | 프록시 배포 전 |
 | `manual/fix_seasons_from_game_data.sql` | 시즌 표를 게임 일정에 맞춤 | 수동 |
 | `manual/repair_double_counted_levels.sql` | 레벨 이중 합산 행 복구 | 수동(미리보기 쿼리 포함) |
