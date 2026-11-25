@@ -3,18 +3,28 @@ import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import type { Match } from '../types';
 import { normalizeMapDisplayName } from '../utils/helpers';
-import { buildMatchShareFilename, captureShareCard, copyPngToClipboard, saveMatchSharePng } from '../utils/matchShare';
+import {
+    buildMatchShareFilename,
+    buildShareTargetUrl,
+    captureShareCard,
+    copyPngToClipboard,
+    saveMatchSharePng,
+    type ShareSocialTarget,
+} from '../utils/matchShare';
 import { TierScreenshotCancelledError } from '../utils/tierTableScreenshot';
 import MatchShareCard from '../components/MatchShareCard';
 
-export type ShareAction = 'copy' | 'save';
+export type ShareAction = 'copy' | 'save' | ShareSocialTarget;
 export type ShareStatus = { kind: 'ok' | 'error'; text: string } | null;
+
+const isSocial = (action: ShareAction): action is ShareSocialTarget => action === 'x' || action === 'facebook';
 
 /**
  * Share-as-image for one match: renders the share card off-screen while busy, captures it,
- * then copies (falls back to save) or saves. Render `portal` somewhere in the caller.
+ * then copies (falls back to save) or saves. Social targets copy (or save) the image, then call
+ * `openUrl` with the site to paste it into. Render `portal` somewhere in the caller.
  */
-export const useMatchShare = (match: Match, modeLabel: string, modeColor: string) => {
+export const useMatchShare = (match: Match, modeLabel: string, modeColor: string, openUrl?: (url: string) => void) => {
     const { t } = useTranslation();
     const [busy, setBusy] = useState<ShareAction | null>(null);
     const [status, setStatus] = useState<ShareStatus>(null);
@@ -35,13 +45,20 @@ export const useMatchShare = (match: Match, modeLabel: string, modeColor: string
             const el = cardRef.current;
             if (!el) throw new Error('share card not mounted');
             const blob = await captureShareCard(el);
-            if (action === 'copy' && await copyPngToClipboard(blob)) {
+            const social = isSocial(action);
+            if ((action === 'copy' || social) && await copyPngToClipboard(blob)) {
                 setStatus({ kind: 'ok', text: t('share.copied', { defaultValue: 'Image copied — paste it anywhere' }) });
-                return;
+            } else {
+                // Save (or copy unsupported → save instead).
+                await saveMatchSharePng(blob, buildMatchShareFilename(normalizeMapDisplayName(match.map)));
+                setStatus({
+                    kind: 'ok',
+                    text: social
+                        ? t('share.savedAttach', { defaultValue: 'Image saved — attach it to your post' })
+                        : t('share.saved', { defaultValue: 'Image saved' }),
+                });
             }
-            // Save (or copy unsupported → save instead).
-            await saveMatchSharePng(blob, buildMatchShareFilename(normalizeMapDisplayName(match.map)));
-            setStatus({ kind: 'ok', text: t('share.saved', { defaultValue: 'Image saved' }) });
+            if (social) openUrl?.(buildShareTargetUrl(action));
         } catch (err) {
             if (err instanceof TierScreenshotCancelledError) return;
             console.error('[share] capture failed', err);

@@ -7,8 +7,10 @@ import MatchShareActions from './MatchShareActions';
 
 /** Below this detail width the map stacks above the tabs instead of beside them. */
 const STACK_BELOW_PX = 900;
-/** Side-by-side height (map + tabs). */
-const ROW_HEIGHT_PX = 440;
+/** Share bar under the tabs (copy / save / X / Facebook). */
+const SHARE_BAR_PX = 40;
+/** Side-by-side height (map + tabs): the old 440px plus the share bar. */
+const ROW_HEIGHT_PX = 440 + SHARE_BAR_PX;
 /** Stacked: map height follows width, clamped. Tabs keep their own fixed height. */
 const STACKED_MAP_MIN_PX = 300;
 const STACKED_MAP_MAX_PX = 400;
@@ -28,7 +30,7 @@ interface MatchDetailBodyProps {
 
 /**
  * Expanded match: the map is the main view at every size; Overview / Details / Combat log /
- * Loadout tabs sit beside it (wide) or under it (narrow). Measured on the detail itself, so the
+ * Loadout tabs sit beside it (wide) or under it (narrow), with the share bar under the tabs. Measured on the detail itself, so the
  * ad rail (free) vs no rail (Premium) picks the right layout in the same window.
  */
 const MatchDetailBody = ({ match, isPremium, isExpanded, mapReady = true, modeLabel, modeColor, comparison, onUserSelect }: MatchDetailBodyProps) => {
@@ -80,21 +82,27 @@ const MatchDetailBody = ({ match, isPremium, isExpanded, mapReady = true, modeLa
             </div>
             <div style={{
                 flex: stacked ? '0 0 auto' : '1 1 0',
-                height: stacked ? STACKED_TABS_PX : undefined,
+                height: stacked ? STACKED_TABS_PX + SHARE_BAR_PX : undefined,
                 minWidth: 0,
                 display: 'flex',
                 flexDirection: 'column',
                 overflow: 'hidden',
             }}>
-                <MatchDetailTabs
-                    match={match}
-                    onUserSelect={onUserSelect}
-                    includeCombatLog
-                    comparison={comparison}
-                    onSeek={handleSeek}
-                    seekTimestamp={seek?.t ?? null}
-                    trailing={isExpanded ? <MatchShareActions match={match} modeLabel={modeLabel} modeColor={modeColor} /> : null}
-                />
+                <div style={{ flex: 1, minHeight: 0 }}>
+                    <MatchDetailTabs
+                        match={match}
+                        onUserSelect={onUserSelect}
+                        includeCombatLog
+                        comparison={comparison}
+                        onSeek={handleSeek}
+                        seekTimestamp={seek?.t ?? null}
+                    />
+                </div>
+                {isExpanded && (
+                    <div style={{ flex: `0 0 ${SHARE_BAR_PX}px`, minHeight: 0 }}>
+                        <MatchShareActions match={match} modeLabel={modeLabel} modeColor={modeColor} />
+                    </div>
+                )}
             </div>
         </div>
     );

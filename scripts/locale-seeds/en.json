@@ -1140,7 +1140,10 @@
     "saved": "Image saved",
     "failed": "Could not create the image",
     "copyHint": "Copy a summary image to paste into Discord or chat",
-    "legend": "Legend"
+    "legend": "Legend",
+    "shareX": "Copy the image and open X",
+    "shareFacebook": "Copy the image and open Facebook",
+    "savedAttach": "Image saved — attach it to your post"
   },
   "firstRun": {
     "progressLabel": "Setup progress",

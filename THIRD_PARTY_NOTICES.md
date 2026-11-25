@@ -32,6 +32,12 @@ Icons by Fonticons, Inc. — https://fontawesome.com
 License: Creative Commons Attribution 4.0 International — https://creativecommons.org/licenses/by/4.0/
 Used through `react-icons/fa`.
 
+### Font Awesome Free 6 — CC BY 4.0
+
+Icons by Fonticons, Inc. — https://fontawesome.com
+License: Creative Commons Attribution 4.0 International — https://creativecommons.org/licenses/by/4.0/
+Used through `react-icons/fa6` (X and Facebook share buttons). Brand icons are trademarks of their owners.
+
 ### Bootstrap Icons — MIT
 
 https://icons.getbootstrap.com — Copyright (c) 2019-2024 The Bootstrap Authors. Used through `react-icons/bs`.

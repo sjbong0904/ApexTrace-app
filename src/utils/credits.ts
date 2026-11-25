@@ -41,6 +41,13 @@ export const ICON_CREDITS: CreditEntry[] = [
         note: 'Icons by Fonticons, Inc.',
     },
     {
+        name: 'Font Awesome Free 6',
+        url: 'https://fontawesome.com',
+        license: 'CC BY 4.0',
+        licenseUrl: 'https://creativecommons.org/licenses/by/4.0/',
+        note: 'Icons by Fonticons, Inc. Brand icons (X, Facebook) are trademarks of their owners.',
+    },
+    {
         name: 'Bootstrap Icons',
         url: 'https://icons.getbootstrap.com',
         license: 'MIT',

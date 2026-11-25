@@ -13,7 +13,7 @@ const walk = (dir: string): string[] =>
 const sources = walk(SRC).map((p) => readFileSync(p, 'utf8'));
 
 /** react-icons sets that need attribution, and the credit entry that covers each. */
-const SET_CREDIT: Record<string, string> = { gi: 'Game Icons', fa: 'Font Awesome Free 5', bs: 'Bootstrap Icons', ci: 'Circum Icons', cg: 'css.gg' };
+const SET_CREDIT: Record<string, string> = { gi: 'Game Icons', fa: 'Font Awesome Free 5', fa6: 'Font Awesome Free 6', bs: 'Bootstrap Icons', ci: 'Circum Icons', cg: 'css.gg' };
 
 describe('credits', () => {
     it('lists every react-icons set imported in src', () => {

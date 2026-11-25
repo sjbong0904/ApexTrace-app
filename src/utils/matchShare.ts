@@ -47,3 +47,18 @@ export const buildMatchShareFilename = (map: string, date = new Date()): string 
 };
 
 export const saveMatchSharePng = (blob: Blob, filename: string) => promptSavePngScreenshot(blob, filename);
+
+/** Social targets for the share bar. Each copies the card image, then opens the site to paste it. */
+export type ShareSocialTarget = 'x' | 'facebook';
+
+/** Language-neutral post text (hashtags only), so no translation is needed. */
+export const SHARE_POST_TEXT = '#ApexLegends #ApexTrace';
+
+/**
+ * Page to open after the image is on the clipboard. X's intent prefills text (it cannot attach
+ * an image); Facebook's sharer needs a public URL we do not have yet, so it opens the feed composer.
+ */
+export const buildShareTargetUrl = (target: ShareSocialTarget, text = SHARE_POST_TEXT): string => {
+    if (target === 'x') return `https://x.com/intent/tweet?text=${encodeURIComponent(text)}`;
+    return 'https://www.facebook.com/';
+};
