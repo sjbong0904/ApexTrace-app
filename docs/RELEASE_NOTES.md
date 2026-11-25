@@ -84,6 +84,14 @@ v0.0.15(Overwolf QA 제출본) 이후 전체 변경. 0.0.16은 태그·배포 �
 
 1.0.0이 보내는 `damageHits`는 이 배포 이후 업로드부터 저장된다(이전 행은 null → 헤드샷 비율 `-`).
 
+**배포 검증 (2026-11-25)**
+
+- 배포 전: 로컬에서 `rowFromMatch`/`matchFromRow` 왕복 — 0.0.15 형태(필드 없음) → `damage_hits` null, 1.0.0 형태(`damageHits: 7`) → 7 저장·조회. `SUMMARY_SELECT`에 `damage_hits` 포함(컬럼을 먼저 추가해 두어 조회 실패 없음).
+- Vercel: 커밋 `6f89fb6` 프로덕션 배포 `dpl_5rdonjd9roazwEfu9Jy672UtrKfD` BUILDING → **READY**.
+- 배포 중·후 `/api/history` 3분간 10초 간격 18회 호출 — 전부 HTTP 200(중단 없음).
+- 배포 후 실제 사용자 1명 `/api/history`(summary): HTTP 200, 20경기, 기존 필드(kills 등) 그대로, 기존 행 `damageHits` = null.
+- 0.0.15 클라이언트 관점: 보내는 데이터 변화 없음, 응답에 읽지 않는 필드 하나 추가뿐 → 영향 없음.
+
 **언어 팩 version 22 (2026-11-25 시딩 완료)** — v17(QA 제출본) → 22. 0.0.15가 쓰는 739개 키는 모두 유지하고 보간 변수도 바뀌지 않았다(10개 언어 비교). v21에서 1.0.0 탭 이름 때문에 `combatLog.title`이 "Combat Log" → "Combat"으로 바뀌어 0.0.15 전투 로그 제목까지 짧아졌던 것을 되돌렸다. 짧은 이름은 새 키 `combatLog.tabTitle`로 분리. 클라이언트 언어 캐시 키는 `languages_cache_v5`.
 
 ### 테스트·측정 도입
