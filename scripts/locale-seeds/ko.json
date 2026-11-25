@@ -26,12 +26,14 @@
     "statistics": "통계",
     "weapons": "무기 데이터베이스",
     "tierTable": "티어 테이블",
-    "settings": "설정"
+    "settings": "설정",
+    "records": "전적"
   },
   "controls": {
     "waitSec": "{{sec}}초 대기",
     "refresh": "새로고침",
     "collapseAll": "모두 접기",
+    "first": "« 처음",
     "prev": "◀ 이전",
     "page": "페이지",
     "of": "/",
@@ -62,7 +64,8 @@
     "empty": "즐겨찾기한 플레이어가 없습니다",
     "unranked": "Unranked",
     "predator": "Predator",
-    "level": "Lv."
+    "level": "Lv.",
+    "xpProgress": "{{current}} / {{needed}} XP"
   },
   "match": {
     "emptyTitle": "기록된 전적이 없습니다.",
@@ -87,7 +90,14 @@
       "legend_from_prev_match": "이전 매치 레전드 재사용",
       "tabs_combat_mismatch": "스코어보드 통계 누락"
     },
-    "dataQualityIncomplete": "일부 데이터"
+    "dataQualityIncomplete": "일부 데이터",
+    "vsRecent": "최근 {{count}}판 대비",
+    "vsRecentTitle": "최근 판 대비",
+    "vsRecentEmpty": "이 모드에서 {{count}}판 이상 기록되면 비교가 표시돼요.",
+    "vsRecentThis": "이번 판",
+    "vsRecentAvg": "평균",
+    "vsRecentLow": "최저",
+    "vsRecentHigh": "최고"
   },
   "matchDetails": {
     "stats": "통계",
@@ -98,7 +108,9 @@
     "time": "시간",
     "before": "변경 전",
     "after": "변경 후",
-    "actionLoadoutChange": "로드아웃 변경"
+    "actionLoadoutChange": "로드아웃 변경",
+    "overview": "개요",
+    "detailStats": "세부 스탯"
   },
   "hotkeyReminder": {
     "label": "인게임 단축키",
@@ -113,7 +125,36 @@
     "archiveDescBold": "아카이브",
     "subscribe": "구독하여 잠금 해제",
     "redirecting": "구독 페이지로 이동 중...",
-    "comingSoon": "프리미엄은 곧 출시 예정입니다. 관심 가져 주셔서 감사합니다!"
+    "comingSoon": "프리미엄은 곧 출시 예정입니다. 관심 가져 주셔서 감사합니다!",
+    "nav": "프리미엄",
+    "removeAds": "프리미엄으로 광고 없이 보기",
+    "compare": {
+      "title": "왜 졌는지, 늘고 있는지까지",
+      "subtitle": "무료는 매 판의 기록을, 프리미엄은 판과 판 사이의 패턴을 보여줘요.",
+      "feature": "기능",
+      "free": "무료",
+      "later": "나중에",
+      "rowMatch": "매치 기록 · 딜 · 킬 · 장비 · 전투 로그",
+      "rowMap": "맵 위 이동 경로 · 사망 위치",
+      "rowShare": "공유 카드",
+      "rowReplay": "매치 리플레이 (링 · 이동 재생)",
+      "rowOverview": "통계 개요 · 최근 20판 추세",
+      "rowBreakdown": "맵 · 레전드 · 무기 · 팀원별 분석",
+      "rowHistory": "시즌 · 커리어 누적 기록, 지난 시즌 랭크",
+      "rowAds": "광고",
+      "oncePerDay": "하루 1회",
+      "unlimited": "무제한",
+      "previewOnly": "1위만 공개",
+      "full": "전체",
+      "adsOn": "있음",
+      "adsOff": "없음"
+    },
+    "notify": {
+      "hint": "프리미엄은 출시 준비 중이에요. 출시되면 앱에서 알려드려요.",
+      "on": "알림 신청 완료 — 출시되면 앱에서 알려드릴게요.",
+      "cta": "출시 알림 받기",
+      "done": "출시 알림 신청됨"
+    }
   },
   "tutorial": {
     "dashboardTitle": "대시보드",
@@ -314,14 +355,24 @@
     "avgKnocks": "평균 녹다운",
     "avgDamage": "평균 대미지",
     "avgAssists": "평균 어시스트",
-    "mostPlayed": "최다 픽"
+    "mostPlayed": "최다 픽",
+    "scopeRecent": "최근 20",
+    "scopeSeason": "시즌",
+    "scopeCareer": "전체",
+    "accountSeasonGames": "랭크 시즌 · {{count}}게임",
+    "accountCareerGames": "BR 전체 · {{count}}게임",
+    "top5Rate": "Top 5",
+    "rpNoRanked": "RP가 기록된 랭크 게임이 없습니다",
+    "placementBlockTip": "{{n}}판 전 · {{place}}등 · {{kills}}킬 · 대미지 {{damage}}",
+    "rpTrendTitle": "RP 추이 · 최근 랭크 {{count}}판"
   },
   "combatLog": {
     "noEvents": "기록된 전투가 없습니다",
-    "title": "전투 로그",
+    "title": "전투",
     "eventsCount": "이벤트 {{count}}개",
     "me": "나",
-    "unknown": "알 수 없음"
+    "unknown": "알 수 없음",
+    "seekHint": "리플레이에서 이 시점 보기"
   },
   "gameStatus": {
     "good": "상태: 정상\n모든 게임 이벤트가 정상 작동 중입니다.",
@@ -456,6 +507,10 @@
     "footer": {
       "copyright": "© 2026 ApexTrace. All rights reserved.",
       "poweredBy": "Powered by Overwolf"
+    },
+    "externalLink": {
+      "title": "브라우저에서 열까요?",
+      "message": "게임 밖에서 웹 브라우저가 열립니다."
     }
   },
   "playstyles": {
@@ -586,7 +641,25 @@
     "totalKnocks": "총 녹다운",
     "knocksSuffix": " 녹다운",
     "totalAssists": "총 어시스트",
-    "assistsSuffix": " 어시스트"
+    "assistsSuffix": " 어시스트",
+    "teammate": "팀원",
+    "bestWeapon": "베스트 무기",
+    "bestWeaponLine": "{{kills}}킬 · {{assists}}어시",
+    "heldMinutes": "{{count}}분 사용",
+    "noTeammate": "팀원 없음",
+    "headshotHits": "헤드샷 적중",
+    "notCollected": "이 매치에서는 기록되지 않았습니다",
+    "damagePerKnock": "녹다운당 대미지",
+    "dmgKnockSuffix": " dmg/녹다운",
+    "headshotRate": "헤드샷 비율",
+    "headshotRateHint": "적중 {{hits}}회 중 헤드샷 {{headshots}}회",
+    "grenadeDamage": "수류탄 대미지",
+    "timesKnocked": "기절 횟수",
+    "timesSuffix": "회",
+    "revivesRespawns": "부활 · 리스폰",
+    "revivesRespawnsHint": "부활 {{revives}}회 · 리스폰 {{respawns}}회",
+    "ultimatesUsed": "궁극기 사용",
+    "timeOutsideRing": "링 밖 체류 시간"
   },
   "statistics": {
     "tabs": {
@@ -666,7 +739,16 @@
       "radarHoverModeVertex": "스탯 꼭짓점",
       "radarHoverModeLabel": "카테고리",
       "radarHoverHintVertex": "차트 위 스탯 꼭짓점에 마우스를 올리세요",
-      "radarHoverHintLabel": "차트 주변 카테고리 라벨에 마우스를 올리세요"
+      "radarHoverHintLabel": "차트 주변 카테고리 라벨에 마우스를 올리세요",
+      "accountSeasonTitle": "계정 · 랭크 시즌 {{season}}",
+      "accountSeasonHint": "ApexTrace 없이 플레이한 판을 포함한 이번 시즌 계정 전체 랭크 기록입니다.",
+      "accountTop5": "Top 5",
+      "accountCoverage": "ApexTrace 기록",
+      "accountCoverageValue": "{{tracked}} / {{total}}게임 ({{pct}}%)",
+      "accountSeasonHistory": "이전 랭크 시즌",
+      "accountSeasonCol": "시즌",
+      "groupMatchResults": "매치 결과",
+      "groupPersonalStats": "개인 스탯"
     },
     "maps": {
       "statistics": "통계",
@@ -687,7 +769,7 @@
       "legendMatches": "매치",
       "legendKd": "K/D",
       "legendKad": "KA/D",
-      "legendWinPercent": "승률%",
+      "legendWinPercent": "승률",
       "legendWinRate": "승률",
       "legendAvgDamage": "평균 대미지",
       "legendAvgDamageShort": "DMG",
@@ -798,11 +880,31 @@
       "getDetailedInsights": "상세 인사이트 확인하기",
       "performance": "퍼포먼스.",
       "upgradeToPremium": "프리미엄으로 업그레이드",
-      "comingSoonCta": "프리미엄 — 출시 예정"
+      "comingSoonCta": "프리미엄 — 출시 예정",
+      "freePreview": "무료 미리보기",
+      "compare": "무료와 프리미엄 비교하기",
+      "mapsHeadline": "어느 맵에서 이기고 지는지 확인하세요",
+      "mapsB1": "맵별 평균 딜 · 순위 · K/D",
+      "mapsB2": "맵별 내 상위 레전드 · 무기 · 팀원 픽",
+      "legendsHeadline": "나한테 맞는 레전드를 찾아보세요",
+      "legendsB1": "레전드별 승률 · 딜 · 평균 순위",
+      "legendsB2": "픽률이 아니라 내 성적 기준 순위",
+      "weaponsHeadline": "어떤 무기가 내 판을 캐리하는지 확인하세요",
+      "weaponsB1": "무기 · 무기 조합별 킬 · K/D · 승률",
+      "weaponsB2": "가장 많이 당한 상대 무기",
+      "teammatesHeadline": "누구와 할 때 가장 잘하는지 확인하세요",
+      "teammatesB1": "팀원별 평균 순위와 승률",
+      "teammatesB2": "팀원별 내 K/D · 딜, 내 평균과 비교",
+      "bestMap": "가장 잘 맞는 맵",
+      "bestLegend": "가장 잘 맞는 레전드",
+      "avgDamage": "평균 딜",
+      "avgPlace": "평균 순위",
+      "games": "{{count}}판"
     },
     "emptyState": {
       "title": "∅ 데이터를 찾을 수 없음"
-    }
+    },
+    "wholeSeasonName": "시즌 {{season}} · 전체 스플릿"
   },
   "networkStatus": {
     "disconnected": "네트워크 연결 끊김",
@@ -959,5 +1061,88 @@
   "overlayHealth": {
     "title": "인게임 오버레이 입력 훅 실패",
     "message": "PC를 재시작한 뒤 Apex와 Overwolf를 다시 실행하세요. 데스크톱 매치 기록은 계속 동작합니다."
+  },
+  "records": {
+    "matches": "매치 기록"
+  },
+  "map": {
+    "loading": "맵 불러오는 중…",
+    "replayPremium": "매치 리플레이",
+    "replayPremiumHint": "프리미엄에서 이동 경로와 링이 줄어드는 과정을 재생할 수 있어요.",
+    "replayFreeCta": "리플레이 보기",
+    "replayFreeLeft": "오늘 무료 1회 남음",
+    "replayFreeUsed": "오늘 무료 리플레이를 사용했어요 · 내일 다시 채워져요",
+    "replayUnlimited": "프리미엄은 무제한"
+  },
+  "share": {
+    "copy": "이미지 복사",
+    "save": "이미지 저장",
+    "copied": "이미지를 복사했어요. 원하는 곳에 붙여넣으세요",
+    "saved": "이미지를 저장했어요",
+    "failed": "이미지를 만들지 못했어요",
+    "copyHint": "디스코드나 채팅에 붙여넣을 요약 이미지를 복사해요",
+    "legend": "레전드"
+  },
+  "firstRun": {
+    "progressLabel": "설정 진행 상황",
+    "stepInstalled": "앱 설치",
+    "stepGameOn": "게임 감지됨",
+    "stepGameOff": "에이펙스 레전드 실행하기",
+    "stepFirstMatch": "첫 매치 기록 대기 중",
+    "previewTitle": "첫 판이 끝나면 이렇게 보여요",
+    "sampleNote": "샘플 매치",
+    "featureMap": "어디서, 누구에게 쓰러졌는지 맵에 표시",
+    "featureLog": "전투 로그와 장비 변화",
+    "featureShare": "한 장짜리 공유 카드",
+    "recordedTitle": "첫 매치가 기록됐어요!",
+    "recordedDesc": "이제부터 모든 판이 여기에 자동으로 쌓여요. 공유 버튼으로 바로 올려보세요."
+  },
+  "demo": {
+    "label": "샘플 프로필",
+    "badge": "샘플",
+    "proUnlocked": "프리미엄 체험",
+    "title": "첫 매치를 기다리는 동안 샘플 프로필을 둘러보세요",
+    "titleDone": "둘러보기 끝! 이제 내 경기가 쌓일 차례예요.",
+    "waitingAccount": "에이펙스 감지됨 — 계정이 인식되면 내 전적으로 바뀌어요.",
+    "launchHint": "에이펙스 레전드를 실행하면 자동으로 내 계정 화면으로 바뀌어요.",
+    "taskOpen": "매치 펼쳐보기",
+    "taskReplay": "맵 리플레이 재생",
+    "taskStats": "통계 확인하기",
+    "startTour": "가이드 투어",
+    "dismiss": "샘플 프로필 숨기기",
+    "tryAgain": "샘플 프로필 둘러보기",
+    "handoff": "계정이 인식되어 내 전적으로 전환했어요.",
+    "tour": {
+      "introTitle": "샘플 프로필이에요",
+      "introDesc": "실제 경기 기록에 이름만 바꿔 넣었어요. 첫 판 전에 모든 화면을 미리 볼 수 있고, 둘러보는 동안 프리미엄 기능이 열려 있어요.",
+      "profileTitle": "프로필과 최근 흐름",
+      "profileDesc": "랭크, 레벨, 최근 20게임 성적을 한눈에. 순위 추이로 오늘 컨디션을 확인하세요.",
+      "matchTitle": "모든 매치가 기록돼요",
+      "matchDesc": "매치를 클릭하면 맵 동선, 전투 로그, 장비 변화, 스쿼드 스탯이 열려요. 맵에서 리플레이도 재생해 보세요.",
+      "statsTitle": "시즌 통계",
+      "statsDesc": "맵·레전드·무기·팀원별 성적을 기록된 모든 경기로 계산해요.",
+      "searchTitle": "누구든 검색",
+      "searchDesc": "닉네임이나 UID로 다른 플레이어의 전적을 볼 수 있어요.",
+      "doneTitle": "이제 한 판 해볼까요",
+      "doneDesc": "에이펙스 레전드를 실행하세요. 계정이 인식되는 순간 이 화면이 내 프로필로 바뀌어요."
+    }
+  },
+  "profileRecord": {
+    "switchLabel": "프로필 카드 보기",
+    "tabProfile": "프로필",
+    "tabRecord": "전적",
+    "hint": "앱 없이 플레이한 게임까지 포함한 계정 전체 기록입니다. 필터가 적용되지 않습니다.",
+    "careerTitle": "통산 BR",
+    "seasonTitle": "랭크 시즌 {{season}}",
+    "games": "{{formatted}}판",
+    "wins": "승리",
+    "kills": "킬"
+  },
+  "seasonPicker": {
+    "season": "시즌 {{season}}",
+    "split": "스플릿 {{split}}",
+    "wholeSeason": "시즌",
+    "splitGroup": "스플릿",
+    "splitUnavailable": "아직 시작되지 않음"
   }
 }

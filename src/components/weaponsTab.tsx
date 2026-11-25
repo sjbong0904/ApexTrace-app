@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { FaArrowLeft } from 'react-icons/fa';
 import { CiMedicalCross } from "react-icons/ci";
 import { CgSmartphoneChip } from "react-icons/cg";
@@ -11,63 +11,63 @@ import { useTranslation } from 'react-i18next';
 const CATEGORIES: WeaponCategory[] = ['AR', 'SMG', 'LMG', 'MARKSMAN', 'SNIPER', 'SHOTGUN', 'PISTOL'];
 
 const ATTACHMENT_ICONS: Record<string, string> = {
-    'Barrel':        'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/attachments/Barrel_Stabilizer.svg',
-    'Suppressor':    'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/attachments/Barrel_Stabilizer.svg',
-    'Mag':           'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/attachments/Extended_Heavy_Mag.svg',
-    'Light-Mag':     'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/attachments/Extended_Light_Mag.svg',
-    'Heavy-Mag':     'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/attachments/Extended_Heavy_Mag.svg',
-    'Energy-Mag':    'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/attachments/Extended_Energy_Mag.svg',
-    'Sniper-Mag':    'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/attachments/Extended_Sniper_Mag.svg',
-    'Shotgun-Bolt':  'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/attachments/Shotgun_Bolt.svg',
-    'Optic':         'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/attachments/2x_HCOG_Bruiser.svg',
-    'Stock':         'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/attachments/Standard_Stock.svg',
-    'Sniper-Stock':  'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/attachments/Sniper_Stock.svg',
-    'Laser-Sight':   'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/attachments/Laser_Sight.svg',
-    'Razer-Sight':   'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/attachments/Laser_Sight.svg',
+    'Barrel':        '/images/attachments/Barrel_Stabilizer.svg',
+    'Suppressor':    '/images/attachments/Barrel_Stabilizer.svg',
+    'Mag':           '/images/attachments/Extended_Heavy_Mag.svg',
+    'Light-Mag':     '/images/attachments/Extended_Light_Mag.svg',
+    'Heavy-Mag':     '/images/attachments/Extended_Heavy_Mag.svg',
+    'Energy-Mag':    '/images/attachments/Extended_Energy_Mag.svg',
+    'Sniper-Mag':    '/images/attachments/Extended_Sniper_Mag.svg',
+    'Shotgun-Bolt':  '/images/attachments/Shotgun_Bolt.svg',
+    'Optic':         '/images/attachments/2x_HCOG_Bruiser.svg',
+    'Stock':         '/images/attachments/Standard_Stock.svg',
+    'Sniper-Stock':  '/images/attachments/Sniper_Stock.svg',
+    'Laser-Sight':   '/images/attachments/Laser_Sight.svg',
+    'Razer-Sight':   '/images/attachments/Laser_Sight.svg',
 };
 
 const HOPUP_ICONS: Record<string, string> = {
-    'Turbocharger':          'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/attachments/Turbocharger.svg',
-    'Hammerpoint Rounds':    'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/attachments/Hammerpoint_Rounds.svg',
-    'Disruptor Rounds':      'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/attachments/Disruptor_Rounds.svg',
-    'Kinetic Feeder':        'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/attachments/Kinetic_Feeder.svg',
-    'Gun Shield Generator':  'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/attachments/Gun_Shield_Generator.svg',
-    'Double Tap Trigger':    'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/attachments/Double_Tap_Trigger.svg',
-    'Selectfire Receiver':   'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/attachments/Selectfire_Receiver.svg',
-    'Graffiti Mod':          'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/attachments/Splatter_Rounds.svg',
-    'Elite':                 'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/attachments/elite.svg',
-    'Boosted Loader':        'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/attachments/Boosted_Loader.svg',
-    'Shatter Caps':          'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/attachments/Shatter_Caps.svg',
-    'Dual Shell':            'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/attachments/Dual_Shell.svg',
-    'Executioner':           'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/attachments/executioner.png',
+    'Turbocharger':          '/images/attachments/Turbocharger.svg',
+    'Hammerpoint Rounds':    '/images/attachments/Hammerpoint_Rounds.svg',
+    'Disruptor Rounds':      '/images/attachments/Disruptor_Rounds.svg',
+    'Kinetic Feeder':        '/images/attachments/Kinetic_Feeder.svg',
+    'Gun Shield Generator':  '/images/attachments/Gun_Shield_Generator.svg',
+    'Double Tap Trigger':    '/images/attachments/Double_Tap_Trigger.svg',
+    'Selectfire Receiver':   '/images/attachments/Selectfire_Receiver.svg',
+    'Graffiti Mod':          '/images/attachments/Splatter_Rounds.svg',
+    'Elite':                 '/images/attachments/elite.svg',
+    'Boosted Loader':        '/images/attachments/Boosted_Loader.svg',
+    'Shatter Caps':          '/images/attachments/Shatter_Caps.svg',
+    'Dual Shell':            '/images/attachments/Dual_Shell.svg',
+    'Executioner':           '/images/attachments/executioner.png',
 };
 
 const CHARGED_ICONS: Record<string, string> = {
-    'Thermite': 'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/attachments/Thermite_Grenade_white.svg',
-    'Amped':    'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/attachments/Shield_Cell_white.svg',
-    'Frag':     'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/attachments/Frag_Grenade_White.svg',
+    'Thermite': '/images/attachments/Thermite_Grenade_white.svg',
+    'Amped':    '/images/attachments/Shield_Cell_white.svg',
+    'Frag':     '/images/attachments/Frag_Grenade_White.svg',
 };
 
 const MODE_ICONS: Record<string, string> = {
-    'CarePackage': 'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/attachments/carepackage.svg',
-    'Elite':       'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/attachments/elite.svg',
-    'Akimbo':      'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/attachments/akimbo.svg',
-    'Charged':     'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/attachments/charged.png',
-    'HopUp':       'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/attachments/hopup.svg',
-    'Shield':      'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/attachments/disruptor.svg',
-    'Health':      'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/attachments/hammerpoint.svg',
-    'Graffiti Mod':'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/attachments/Splatter_Rounds.svg'
+    'CarePackage': '/images/attachments/carepackage.svg',
+    'Elite':       '/images/attachments/elite.svg',
+    'Akimbo':      '/images/attachments/akimbo.svg',
+    'Charged':     '/images/attachments/charged.png',
+    'HopUp':       '/images/attachments/hopup.svg',
+    'Shield':      '/images/attachments/disruptor.svg',
+    'Health':      '/images/attachments/hammerpoint.svg',
+    'Graffiti Mod':'/images/attachments/Splatter_Rounds.svg'
 };
 
 const CATEGORY_BG: Record<WeaponCategory, string> = {
-    'AR':           'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/nemesis.png',
-    'SMG':          'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/r-99.png',
-    'LMG':          'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/rampage.png',
-    'MARKSMAN':     'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/bocek.png',
-    'SNIPER':       'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/kraber.png',
-    'SHOTGUN':      'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/peacekeeper.png',
-    'PISTOL':       'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/wingman.png',
-    'CARE_PACKAGE': 'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/kraber.png'
+    'AR':           '/images/nemesis.png',
+    'SMG':          '/images/r-99.png',
+    'LMG':          '/images/rampage.png',
+    'MARKSMAN':     '/images/bocek.png',
+    'SNIPER':       '/images/kraber.png',
+    'SHOTGUN':      '/images/peacekeeper.png',
+    'PISTOL':       '/images/wingman.png',
+    'CARE_PACKAGE': '/images/kraber.png'
 };
 
 const CATEGORY_IMG_SCALE: Record<string, number> = {
@@ -121,7 +121,7 @@ const getChargedName = (weaponId: string, t: TFunction): string => {
 };
 
 const getAmmoIconSrc = (ammoType: string, category: string): string => {
-    const base = 'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/attachments/';
+    const base = '/images/attachments/';
     const type = ammoType.toLowerCase();
     if (type === 'mythic') {
         if (category === 'SNIPER' || category === 'MARKSMAN') return `${base}mythic_sniper.svg`;
@@ -285,7 +285,7 @@ const renderModeIcon = (id: string, className: string = 'mode-icon-img') => {
     return <img src={src} alt={id} className={className} />;
 };
 
-const FALLBACK_IMG = 'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/unknown.png';
+const FALLBACK_IMG = '/images/unknown.png';
 
 const WeaponsTab = () => {
     const { t } = useTranslation();
@@ -294,7 +294,10 @@ const WeaponsTab = () => {
     const [currentVariant, setCurrentVariant] = useState<WeaponInfo | null>(null);
     const [internalMode, setInternalMode] = useState<InternalMode>('Base');
 
-    useEffect(() => {
+    // New base weapon → its standard variant in Base mode (adjusted during render, not in an effect).
+    const [shownBaseWeapon, setShownBaseWeapon] = useState(selectedBaseWeapon);
+    if (shownBaseWeapon !== selectedBaseWeapon) {
+        setShownBaseWeapon(selectedBaseWeapon);
         if (selectedBaseWeapon) {
             const variants = getWeaponVariants(selectedBaseWeapon);
             const standard = variants.find(v => v.variant === 'STANDARD') || variants[0];
@@ -303,14 +306,16 @@ const WeaponsTab = () => {
         } else {
             setCurrentVariant(null);
         }
-    }, [selectedBaseWeapon]);
+    }
 
     const isCarCP = currentVariant?.id === 'car_cp';
 
-    // Shield is the default CARE C.A.R. mode. Do not depend on internalMode here or the effect loops.
-    useEffect(() => {
+    // Shield is the default CARE C.A.R. mode — applied when the variant becomes car_cp.
+    const [wasCarCP, setWasCarCP] = useState(isCarCP);
+    if (wasCarCP !== isCarCP) {
+        setWasCarCP(isCarCP);
         if (isCarCP) setInternalMode('Shield');
-    }, [isCarCP]);
+    }
 
     const filteredWeapons = useMemo(() =>
         WEAPONS_DB.filter(w => w.category === selectedCategory && w.variant === 'STANDARD'),

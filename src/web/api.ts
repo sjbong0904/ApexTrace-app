@@ -1,6 +1,7 @@
 const API_BASE_URL = 'https://trace-proxy-server.vercel.app/api';
 import { supabase } from '../lib/supabase';
 import { normalizeHistoryForFrontend } from '../utils/matchNormalizer';
+import type { Match } from '../types';
 
 export interface SearchCandidate {
     uid: string;
@@ -58,11 +59,11 @@ export const fetchUserStatsByUid = async (uid: string): Promise<RemoteUserStats 
     return json.data;
 };
 
-export const fetchHistoryByUid = async (uid: string): Promise<any[]> => {
+export const fetchHistoryByUid = async (uid: string): Promise<Match[]> => {
     if (!uid) return [];
     const url = `${API_BASE_URL}/history?uid=${encodeURIComponent(uid)}&t=${Date.now()}`;
     const response = await fetch(url);
-    const json = await safeJson<{ history?: any[] }>(response);
+    const json = await safeJson<{ history?: unknown[] }>(response);
     return normalizeHistoryForFrontend(json?.history);
 };
 

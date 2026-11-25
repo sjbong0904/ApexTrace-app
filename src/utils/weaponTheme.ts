@@ -1,5 +1,6 @@
 import type { CSSProperties } from 'react';
 import { AMMO_COLORS, SHORT_WEAPON_NAMES } from './gameData';
+import { previewImageUrl } from './imageSource';
 import { WEAPONS_DB, type WeaponInfo, type WeaponVariant } from './WeaponsData';
 
 export interface WeaponTagTheme {
@@ -11,7 +12,7 @@ export interface WeaponTagTheme {
 
 export type WeaponTagTier = 'god' | 'master' | 'user';
 
-export const PROFILE_IMAGE_BASE = 'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images';
+export const PROFILE_IMAGE_BASE = '/images';
 
 /** Non-transparent PNG pixels → pure white silhouette (alpha preserved). */
 export const WHITE_SILHOUETTE_FILTER = 'brightness(0) invert(1) drop-shadow(0 1px 2px rgba(0,0,0,0.35))';
@@ -143,35 +144,49 @@ export function getWeaponImageId(rawName: string): string {
     return findWeaponByLoadoutId(rawName)?.id ?? rawName;
 }
 
-/** Prefer catalog `image` URL (handles special files like c.a.r..png). */
+/**
+ * Prefer catalog `image` URL (handles special files like c.a.r..png).
+ * Served from the image cache after the first Supabase download.
+ */
 export function getWeaponImageUrl(rawName: string): string {
     const found = findWeaponByLoadoutId(rawName);
-    if (found?.image) return found.image;
-    return `${PROFILE_IMAGE_BASE}/${getWeaponImageId(rawName)}.png`;
+    if (found?.image) return previewImageUrl(found.image);
+    return previewImageUrl(`${PROFILE_IMAGE_BASE}/${getWeaponImageId(rawName)}.png`);
+}
+
+/**
+ * Game HUD silhouette (white, tightly cropped) uploaded next to each weapon render as
+ * "<render name>_silhouette.png" by scripts/game-icons/sync_supabase.py.
+ * Akimbo variants have their own silhouette even when they share the single-gun render.
+ */
+const AKIMBO_SILHOUETTE_IDS = new Set(['mozambique_akimbo', 'p2020_akimbo', 'wingman_akimbo']);
+
+export function getWeaponSilhouetteUrl(rawName: string): string {
+    const found = findWeaponByLoadoutId(rawName);
+    let stem: string;
+    if (found && AKIMBO_SILHOUETTE_IDS.has(found.id)) {
+        stem = found.id;
+    } else if (found?.image) {
+        const file = decodeURIComponent(found.image.split('/').pop() ?? '');
+        stem = file.replace(/\.png$/i, '');
+    } else {
+        stem = getWeaponImageId(rawName);
+    }
+    return `${PROFILE_IMAGE_BASE}/${encodeURIComponent(stem)}_silhouette.png`;
 }
 
 export function getLegendImageId(rawName: string): string {
     return rawName.toLowerCase().replace(/[^a-z0-9]/g, '') || 'unknown';
 }
 
-/** Pistols / compact SMGs keep default silhouette size in loadout + profile tags. */
-const COMPACT_SILHOUETTE_WEAPON_IDS = new Set([
-    'alternator',
-    'prowler',
-    'mozambique',
-    'wingman',
-    're-45',
-    'p2020',
-]);
-
-export const WEAPON_SILHOUETTE_SCALE_LARGE = 1.28;
-
+/**
+ * Size multiplier for weapon silhouettes. The old colour renders had uneven padding, so long guns
+ * were scaled up 1.28×; the HUD silhouettes are tightly cropped, so every weapon renders at 1×.
+ * Kept as a function so callers stay unchanged if a weapon ever needs a tweak.
+ */
 export function getWeaponSilhouetteScale(rawName?: string | null): number {
-    if (!rawName) return 1;
-    const weapon = findWeaponByLoadoutId(rawName);
-    const canonicalId = loadoutKey(weapon?.baseId ?? weapon?.id ?? rawName);
-    if (COMPACT_SILHOUETTE_WEAPON_IDS.has(canonicalId)) return 1;
-    return WEAPON_SILHOUETTE_SCALE_LARGE;
+    void rawName;
+    return 1;
 }
 
 const getWeaponAmmoColor = (rawName?: string | null): string => {
@@ -198,7 +213,7 @@ export function getWeaponAmmoSilhouetteStyle(
     rawName: string,
     size: { width: number | string; height: number | string },
 ): CSSProperties {
-    const src = getWeaponImageUrl(rawName);
+    const src = getWeaponSilhouetteUrl(rawName);
     const color = getWeaponAmmoColor(rawName);
     const scale = getWeaponSilhouetteScale(rawName);
     return {

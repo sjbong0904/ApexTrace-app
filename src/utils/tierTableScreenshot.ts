@@ -290,8 +290,14 @@ export const promptSaveTierTableScreenshot = async (
     blob: Blob,
     mode: TierTableMode,
     title?: string,
+): Promise<SaveTierScreenshotResult> =>
+    promptSavePngScreenshot(blob, buildTierScreenshotFilename(mode, new Date(), title));
+
+/** Save picker (falls back to a download) for any ApexTrace PNG — tier tables, match share cards. */
+export const promptSavePngScreenshot = async (
+    blob: Blob,
+    filename: string,
 ): Promise<SaveTierScreenshotResult> => {
-    const filename = buildTierScreenshotFilename(mode, new Date(), title);
     await ensureDefaultScreenshotFolder();
 
     try {

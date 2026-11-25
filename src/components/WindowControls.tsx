@@ -10,7 +10,7 @@ import {
     type CloseAction,
 } from '../utils/closePreference';
 
-const getCurrentWindow = (): Promise<any> =>
+const getCurrentWindow = (): Promise<overwolf.windows.WindowInfo> =>
     new Promise((resolve) => overwolf.windows.getCurrentWindow((r) => resolve(r.window)));
 
 const WindowControls = () => {
@@ -50,7 +50,7 @@ const WindowControls = () => {
             }
         });
 
-        const onWindowStateChanged = (state: any) => {
+        const onWindowStateChanged = (state: overwolf.windows.WindowStateChangedEvent) => {
             if (currentWindowId && state.window_id && state.window_id !== currentWindowId) return;
             if (state.window_state_ex === 'maximized') setIsMaximized(true);
             else if (state.window_state_ex === 'normal') setIsMaximized(false);
@@ -81,7 +81,8 @@ const WindowControls = () => {
 
     const handleToggleMaximize = async () => {
         const win = await getCurrentWindow();
-        isMaximized ? overwolf.windows.restore(win.id) : overwolf.windows.maximize(win.id);
+        if (isMaximized) overwolf.windows.restore(win.id);
+        else overwolf.windows.maximize(win.id);
     };
 
     const btnStyle: React.CSSProperties = {
@@ -93,7 +94,7 @@ const WindowControls = () => {
 
     return (
         <>
-            <div style={{ display: 'flex', height: '100%', WebkitAppRegion: 'no-drag', zIndex: 9999 } as any}>
+            <div style={{ display: 'flex', height: '100%', WebkitAppRegion: 'no-drag', zIndex: 9999 } as React.CSSProperties}>
                 <button
                     onClick={handleMinimize}
                     style={btnStyle}

@@ -6,16 +6,20 @@ export interface MatchHistory {
     damage?: number | null;
     assists?: number | null;
     knocks?: number | null;
+    /** Team kills incl. the player (0/missing on legacy captures). */
+    squadKills?: number | null;
     /** Combat-log death count; omit/null → legacy win/loss fallback in getMatchDeaths. */
     deaths?: number | null;
     placement?: number | string | null;
-    legend?: string;
+    legend?: string | null;
     playerName?: string;
+    map?: string;
+    teamStats?: Array<{ name?: string; uid?: string | null; legend?: string }>;
     startTime?: number;
     endTime?: number;
     loadout?: {
-        primary?: string;
-        secondary?: string;
+        primary?: string | null;
+        secondary?: string | null;
     };
     /** Per-weapon combat summary (summary-safe). */
     weaponCombat?: WeaponCombatMap;

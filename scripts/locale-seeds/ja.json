@@ -32,6 +32,7 @@
     "waitSec": "{{sec}}秒待機",
     "refresh": "更新",
     "collapseAll": "すべて折りたたむ",
+    "first": "« 最初",
     "prev": "◀ 前へ",
     "page": "ページ",
     "of": "/",
@@ -318,7 +319,7 @@
   },
   "combatLog": {
     "noEvents": "記録された戦闘がありません。",
-    "title": "戦闘ログ",
+    "title": "戦闘",
     "eventsCount": "{{count}}件のイベント",
     "me": "自分",
     "unknown": "不明"
@@ -445,6 +446,10 @@
     "footer": {
       "copyright": "© 2026 ApexTrace. All rights reserved.",
       "poweredBy": "Powered by Overwolf"
+    },
+    "externalLink": {
+      "title": "ブラウザで開きますか？",
+      "message": "ゲームの外でウェブブラウザが開きます。"
     }
   },
   "playstyles": {
@@ -575,7 +580,19 @@
     "totalKnocks": "合計ノックダウン",
     "knocksSuffix": " ノックダウン",
     "totalAssists": "合計アシスト",
-    "assistsSuffix": " アシスト"
+    "assistsSuffix": " アシスト",
+    "notCollected": "このマッチでは記録されていません",
+    "damagePerKnock": "ノックあたりのダメージ",
+    "dmgKnockSuffix": " dmg/knock",
+    "headshotRate": "ヘッドショット率",
+    "headshotRateHint": "{{hits}}ヒット中 {{headshots}}回",
+    "grenadeDamage": "グレネードダメージ",
+    "timesKnocked": "ダウン回数",
+    "timesSuffix": "回",
+    "revivesRespawns": "蘇生 · リスポーン",
+    "revivesRespawnsHint": "蘇生 {{revives}}回 · リスポーン {{respawns}}回",
+    "ultimatesUsed": "アルティメット使用",
+    "timeOutsideRing": "リング外滞在時間"
   },
   "statistics": {
     "tabs": {
@@ -655,7 +672,9 @@
       "radarHoverModeVertex": "Stat point",
       "radarHoverModeLabel": "Category",
       "radarHoverHintVertex": "Hover stat points on the chart",
-      "radarHoverHintLabel": "Hover category labels around the chart"
+      "radarHoverHintLabel": "Hover category labels around the chart",
+      "groupMatchResults": "試合結果",
+      "groupPersonalStats": "個人スタッツ"
     },
     "maps": {
       "statistics": "統計",

@@ -1,4 +1,4 @@
-import { MAP_DATA as LOCAL_MAP_DATA } from './constants';
+import { MAP_DATA as LOCAL_MAP_DATA, type MapConfig } from './constants';
 import type { Season } from './match';
 
 /** Season 30 Split 1 start (World's Edge layout refresh). Fallback if seasons not loaded. */
@@ -65,7 +65,7 @@ export const STAT_TIER_COLOR = {
  * Match placement accent (shared with STAT_TIER_COLOR):
  * 1 → elite · 2–5 → high · 6–10 → normal · 11+ → low.
  */
-export const getRankColor = (rank: number | string) => {
+export const getRankColor = (rank: number | string | null | undefined) => {
     if (rank === 1 || rank === '1' || rank === '#1') return STAT_TIER_COLOR.elite;
     const r = parseInt(String(rank).replace('#', ''));
     if (isNaN(r)) return STAT_TIER_COLOR.low;
@@ -181,6 +181,37 @@ export type RankTierKey =
     | 'unranked'
     | 'unknown';
 
+/**
+ * Ranked tier entry RP, from the game's ranked period data (S28–S31: Rookie 0 · Bronze 1000 ·
+ * Silver 3000 · Gold 5500 · Platinum 8500 · Diamond 12000 · Master 16000). Predator is top-750,
+ * not an RP floor. Re-check with scripts/game-icons/game_data.py (seasons.json) after a season patch.
+ */
+export const RANK_TIER_RP_FLOORS: ReadonlyArray<{ key: Exclude<RankTierKey, 'predator' | 'unknown'>; name: string; rp: number }> = [
+    { key: 'unranked', name: 'Rookie', rp: 0 },
+    { key: 'bronze', name: 'Bronze', rp: 1000 },
+    { key: 'silver', name: 'Silver', rp: 3000 },
+    { key: 'gold', name: 'Gold', rp: 5500 },
+    { key: 'platinum', name: 'Platinum', rp: 8500 },
+    { key: 'diamond', name: 'Diamond', rp: 12000 },
+    { key: 'master', name: 'Master', rp: 16000 },
+];
+
+/** Tier name for an RP value (Predator only when the rank name says so). */
+export const getRankTierNameFromRp = (rp: number, rankName?: string | null): string => {
+    if (getRankTierKey(rankName) === 'predator') return 'Apex Predator';
+    let name = RANK_TIER_RP_FLOORS[0].name;
+    for (const floor of RANK_TIER_RP_FLOORS) {
+        if (rp >= floor.rp) name = floor.name;
+    }
+    return name;
+};
+
+/** Tier color for an RP value (Rookie uses the unranked color). */
+export const getRankTierColorFromRp = (rp: number, rankName?: string | null): string => {
+    const name = getRankTierNameFromRp(rp, rankName);
+    return getRankTierColor(name === 'Rookie' ? 'unranked' : name);
+};
+
 /** Apex ranked tier from API rank name (division suffix ignored). */
 export const getRankTierKey = (rankName: string | null | undefined): RankTierKey => {
     const tier = String(rankName ?? '').toLowerCase();
@@ -278,7 +309,7 @@ export const formatMatchElapsedTime = (
 ) => formatMatchTime(toGameElapsedMs(elapsedFromMatchStartMs), style);
 
 /** Relative duration only (e.g. `3h`, `5m`). Use `formatRelativeTime` for display. */
-export const getRelativeTime = (timestamp: number | string): string => {
+export const getRelativeTime = (timestamp: number | string | null | undefined): string => {
     if (!timestamp) return "";
 
     const timeMs = typeof timestamp === 'string' ? new Date(timestamp).getTime() : timestamp;
@@ -314,10 +345,10 @@ export const formatRelativeTime = (
     return t(agoKey, { time });
 };
 
-export const getMapConfig = (mapName: string, matchTimeMs?: number | null, seasons?: Season[] | null) => {
+export const getMapConfig = (mapName: string, matchTimeMs?: number | null, seasons?: Season[] | null): MapConfig => {
     if (!mapName || isBlankOrUnknownMapToken(mapName)) return LOCAL_MAP_DATA["Unknown"];
     const displayName = normalizeMapDisplayName(mapName);
-    const bg = window.overwolf?.windows?.getMainWindow() as any;
+    const bg = window.overwolf?.windows?.getMainWindow() as { BG_MAP_DATA?: Record<string, MapConfig> } | undefined;
     const remoteData = bg?.BG_MAP_DATA;
 
     const mapSource = (remoteData && (remoteData[displayName] || remoteData[mapName]))
@@ -421,7 +452,7 @@ export const getMatchDeaths = (match: {
     return placement === 1 ? 0 : 1;
 };
 
-export const getPlatformInfo = (hw?: number | null) => {
+export const getPlatformInfo = (hw?: number | string | null) => {
     if (hw === undefined || hw === null) {
         return { id: 'unknown', label: 'Unknown' };
     }

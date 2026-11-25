@@ -16,6 +16,24 @@ const matchLog = (message, details) => {
     if (window.Utils?.matchLog) return window.Utils.matchLog(message, details);
 };
 
+const gepLog = (message, details) => {
+    if (window.Utils?.gepLog) return window.Utils.gepLog(message, details);
+};
+
+const locationLog = (message, details) => {
+    if (window.Utils?.locationLog) return window.Utils.locationLog(message, details);
+};
+
+const logInfoUpdatesDebug = (info) => {
+    const split = window.Utils?.splitGepInfoForLog?.(info);
+    if (!split) {
+        gepLog('onInfoUpdates2', info);
+        return;
+    }
+    if (split.withoutLocation) gepLog('onInfoUpdates2', split.withoutLocation);
+    if (split.locationOnly) locationLog('onInfoUpdates2', split.locationOnly);
+};
+
 const MatchBoundary = {
     _rotateDebounceTimer: null,
     _rotateGeneration: 0,
@@ -1173,6 +1191,25 @@ const applyMatchSummaryToMatch = (match, raw) => {
     const summary = parseTabsPayload(raw);
     if (!match || !summary) return false;
     const rank = parseInt(summary.rank, 10);
+    if (!isNaN(rank) && rank > 0
+        && window.Utils?.isImpossibleSummaryRank?.(match, rank, summary.teams)) {
+        // Stale summary (previous match's rank/squadKills replayed by GEP): keep the
+        // teams-alive estimate and ignore the whole payload, squadKills included.
+        const staleKey = `${rank}/${summary.squadKills ?? summary.squad_kills ?? ''}`;
+        if (match._rejectedSummaryKey !== staleKey) {
+            match._rejectedSummaryKey = staleKey;
+            console.warn(`[MatchAudit] match_summary rejected (rank below teams alive) ${JSON.stringify({
+                matchId: match.matchId,
+                rank,
+                squadKills: summary.squadKills ?? summary.squad_kills ?? null,
+                minTeamsAlive: match._minTeamsAlive ?? null,
+                lastTeamsAlive: match._lastTeamsAlive ?? null,
+                estimate: match._estimatedPlacement ?? null,
+                squadEliminated: !!match._squadEliminated,
+            })}`);
+        }
+        return !!match._matchSummaryRank;
+    }
     if (!isNaN(rank) && rank > 0) {
         const prevEstimated = match._estimatedPlacement;
         // Summary shown after leaving early carries the rank *at that moment*, not the
@@ -1298,6 +1335,283 @@ const handleTeamInfoUpdate = (match, raw) => {
     if (parseTeamInfoState(raw) === 'eliminated') {
         markSquadEliminated(match);
     }
+};
+
+const parseGepJson = (raw) => {
+    if (raw == null || raw === '' || raw === 'null') return null;
+    if (typeof raw === 'object') return raw;
+    try {
+        return JSON.parse(raw);
+    } catch (e) {
+        return null;
+    }
+};
+
+/** GEP `ring` category → MatchService.recordRing (see that method for storage shape). */
+const handleRingUpdate = (ringInfo, match) => {
+    if (!ringInfo || typeof ringInfo !== 'object') return;
+    [['next_ring', 'next'], ['active_ring', 'active']].forEach(([key, kind]) => {
+        if (!Object.prototype.hasOwnProperty.call(ringInfo, key)) return;
+        const parsed = parseGepJson(ringInfo[key]);
+        if (!parsed) {
+            window.Utils?.ringLog?.(`${key} empty/unparsable`, { raw: ringInfo[key] });
+            return;
+        }
+        if (!match || match._ending) {
+            window.Utils?.ringLog?.(`${key} with no active match — dropped`, parsed);
+            return;
+        }
+        window.CoreController?.updateMatch?.('RING', { kind, x: parsed.x, y: parsed.y, radius: parsed.radius });
+    });
+};
+
+const PLAYER_STATS_KEYS = [
+    'player_stats_career',
+    'player_stats_br_ranked_latest',
+    'player_stats_br_unranked_latest',
+    'player_stats_br_ranked_history',
+    'player_stats_br_unranked_history',
+];
+
+/** GEP key → POST /account-stats snapshot field. */
+const PLAYER_STATS_UPLOAD_FIELDS = {
+    player_stats_career: 'career',
+    player_stats_br_ranked_latest: 'brRankedLatest',
+    player_stats_br_unranked_latest: 'brUnrankedLatest',
+    player_stats_br_ranked_history: 'brRankedHistory',
+    player_stats_br_unranked_history: 'brUnrankedHistory',
+};
+
+const ACCOUNT_STATS_DEBOUNCE_MS = 4000;
+const ACCOUNT_STATS_RETRY_MS = 15000;
+
+/**
+ * Uploads changed player_stats keys to POST /account-stats (debounced).
+ * Separate from the match upload: `br_ranked_latest` (RP) lands up to ~80s after match_end.
+ * See docs/GEP-REQUESTS.md §player_stats.
+ */
+const AccountStatsSync = {
+    _dirty: new Set(),
+    _timer: null,
+    _inFlight: false,
+
+    markDirty(key) {
+        if (!PLAYER_STATS_UPLOAD_FIELDS[key]) return;
+        this._dirty.add(key);
+        this.schedule(ACCOUNT_STATS_DEBOUNCE_MS);
+    },
+
+    schedule(delayMs) {
+        if (this._timer) clearTimeout(this._timer);
+        this._timer = setTimeout(() => {
+            this._timer = null;
+            void this.flush();
+        }, delayMs);
+    },
+
+    async flush() {
+        if (this._inFlight || this._dirty.size === 0) return;
+        const localUser = window.Store?.system?.localUser;
+        const store = window.Store?.playerStats;
+        // Identity can arrive after the lobby snapshot; handleWorkerIdentity calls flush again.
+        if (!localUser?.uid || !store || !window.CloudRepository?.saveAccountStats) return;
+
+        const keys = [...this._dirty];
+        const snapshot = {};
+        keys.forEach((key) => {
+            if (store[key] != null) snapshot[PLAYER_STATS_UPLOAD_FIELDS[key]] = store[key];
+        });
+        this._dirty.clear();
+        if (Object.keys(snapshot).length === 0) return;
+
+        this._inFlight = true;
+        try {
+            const res = await window.CloudRepository.saveAccountStats(localUser.uid, {
+                name: localUser.name || null,
+                legend: store.lastLegend || null,
+                snapshot,
+            });
+            window.Utils?.playerStatsLog?.('Uploaded', {
+                keys,
+                ok: !!res?.success,
+                rpApplied: res?.rpApplied ?? null,
+                rpPending: res?.rpPending ?? null,
+            });
+            if (!res?.success) {
+                keys.forEach((key) => this._dirty.add(key));
+                this.schedule(ACCOUNT_STATS_RETRY_MS);
+            } else if (res.rpApplied && typeof window.CoreController?.onRemoteRpApplied === 'function') {
+                window.CoreController.onRemoteRpApplied(res.rpApplied);
+            }
+        } finally {
+            this._inFlight = false;
+        }
+        if (this._dirty.size > 0) this.schedule(ACCOUNT_STATS_DEBOUNCE_MS);
+    },
+};
+window.AccountStatsSync = AccountStatsSync;
+
+/** GEP career.level is total level (prestige included); profile fields keep ALS's split. */
+const splitTotalLevel = (totalLevel) => {
+    const total = Number(totalLevel);
+    if (!Number.isFinite(total) || total < 1) return null;
+    const prestige = Math.min(Math.floor((total - 1) / 500), 3);
+    return { prestige, level: total - prestige * 500 };
+};
+
+/** Reflect the local player's GEP values on Store.user so the profile card updates live. */
+const applyPlayerStatsToLocalUser = (store) => {
+    const localUid = window.Store?.system?.localUser?.uid;
+    const user = window.Store?.user;
+    if (!localUid || !user || String(user.uid) !== String(localUid)) return;
+
+    const career = store.player_stats_career;
+    const split = career ? splitTotalLevel(career.level) : null;
+    const next = { ...user };
+    if (split) {
+        next.level = split.level;
+        next.prestige = split.prestige;
+    }
+    if (career) {
+        next.currentXp = career.current_xp ?? next.currentXp ?? null;
+        next.neededXp = career.needed_xp ?? next.neededXp ?? null;
+    }
+    const rp = Number(store.player_stats_br_ranked_latest?.rank_score);
+    if (Number.isFinite(rp)) next.rankScore = rp;
+    // Replace (not mutate) so the UI poll sees a new object.
+    window.Store.user = next;
+};
+
+/** Same rule as the proxy's rankedDeltaBetween: exactly one ranked game apart, same season. */
+const localRankedDelta = (prev, next) => {
+    if (!prev || !next || Number(prev.season) !== Number(next.season)) return null;
+    if (Number(next.games) !== Number(prev.games) + 1) return null;
+    const prevRp = Number(prev.rank_score);
+    const nextRp = Number(next.rank_score);
+    if (!Number.isFinite(prevRp) || !Number.isFinite(nextRp)) return null;
+    return { rankScore: nextRp, rpChange: nextRp - prevRp };
+};
+
+const LOCAL_RP_WINDOW_MS = 60 * 60 * 1000;
+
+/** `public.seasons` row (one per split) containing `ms`, from the list loaded at startup. */
+const splitIdAt = (ms) => {
+    const t = Number(ms);
+    if (!Number.isFinite(t) || t <= 0) return null;
+    const row = (Array.isArray(window.SEASONS) ? window.SEASONS : []).find((s) =>
+        t >= Number(s.startTime || 0) && (s.endTime == null || t < Number(s.endTime)));
+    return row ? row.id : null;
+};
+
+/**
+ * GEP `season` has no split: across a ranked reset the snapshots still look one game
+ * apart. Same guard as the proxy's sameSplit — unknown boundaries mean no local pin.
+ */
+const sameSplitLocal = (prevAtMs, nextAtMs) => {
+    const prevId = splitIdAt(prevAtMs);
+    return prevId != null && prevId === splitIdAt(nextAtMs);
+};
+
+/**
+ * Pin a fresh `br_ranked_latest` delta on the local ranked match right away, so the RP
+ * chart moves with the profile instead of after the /account-stats round trip.
+ * Mirrors the proxy's match pick: unprocessed ranked match still running at the previous
+ * ranked snapshot and already started now. The server's rpApplied later confirms it.
+ */
+const applyLocalRankedDelta = (delta, prevRankedAt, activeMatch) => {
+    const localUid = window.Store?.system?.localUser?.uid;
+    if (!delta || !localUid) return;
+    const now = Date.now();
+    if (!sameSplitLocal(prevRankedAt, now)) return;
+    const minEnd = Math.max(now - LOCAL_RP_WINDOW_MS, prevRankedAt || 0);
+    const isRanked = (m) => String(m?.mode ?? '').toLowerCase().includes('ranked');
+    // Ended matches only: the delta usually lands ~80s after match_end, possibly while the
+    // next ranked match is already in the dropship, so a running match is never a target.
+    // A delta sent before match_end goes to the server's pending_rp and comes back as
+    // POST /history's rpApplied.
+    const ended = [];
+    for (const m of (Array.isArray(window.Store.history) ? window.Store.history : [])) {
+        if (!m?.matchId || m.rpProcessed || !isRanked(m)) continue;
+        if (m.platformId && String(m.platformId) !== String(localUid)) continue;
+        if ((m.endTime || 0) < minEnd || (m.startTime || 0) > now) continue;
+        ended.push(m);
+    }
+    if (activeMatch?._ending && activeMatch.matchId && isRanked(activeMatch)) ended.push(activeMatch);
+    ended.sort((a, b) => (b.startTime || 0) - (a.startTime || 0));
+    const target = ended[0];
+    if (!target) return;
+    window.Utils?.playerStatsLog?.('rp_local_pin', { matchId: target.matchId, ...delta });
+    window.CoreController?.onRemoteRpApplied?.({ matchId: target.matchId, ...delta });
+};
+
+/**
+ * GEP `player_stats` category. Keeps the latest snapshot on Store (lobby updates included),
+ * copies it onto the active match, and queues changed keys for POST /account-stats.
+ */
+const handlePlayerStatsUpdate = (statsInfo, match) => {
+    if (!statsInfo || typeof statsInfo !== 'object' || !window.Store) return;
+    const store = window.Store.playerStats || (window.Store.playerStats = {});
+    PLAYER_STATS_KEYS.forEach((key) => {
+        if (!Object.prototype.hasOwnProperty.call(statsInfo, key)) return;
+        const parsed = parseGepJson(statsInfo[key]);
+        if (!parsed) return;
+        const prev = store[key];
+        store[key] = parsed;
+        store.updatedAt = Date.now();
+        // GEP re-sends identical career values after match_end; only upload real changes.
+        if (!prev || JSON.stringify(prev) !== JSON.stringify(parsed)) AccountStatsSync.markDirty(key);
+        if (key === 'player_stats_br_ranked_latest' && prev && JSON.stringify(prev) !== JSON.stringify(parsed)) {
+            const prevRankedAt = store.brRankedAt;
+            store.brRankedAt = Date.now();
+            applyLocalRankedDelta(localRankedDelta(prev, parsed), prevRankedAt, match);
+        } else if (key === 'player_stats_br_ranked_latest' && !prev) {
+            store.brRankedAt = Date.now();
+        }
+
+        if (key === 'player_stats_br_ranked_history' || key === 'player_stats_br_unranked_history') {
+            window.Utils?.playerStatsLog?.(key, { seasons: Array.isArray(parsed) ? parsed.length : null });
+        } else if (key === 'player_stats_career') {
+            const changed = !prev || prev.level !== parsed.level || prev.current_xp !== parsed.current_xp;
+            if (changed) {
+                window.Utils?.playerStatsLog?.('career', {
+                    level: parsed.level,
+                    current_xp: parsed.current_xp,
+                    needed_xp: parsed.needed_xp,
+                    total_xp: parsed.total_xp,
+                    inMatch: !!match,
+                });
+            }
+        } else if (!prev || JSON.stringify(prev) !== JSON.stringify(parsed)) {
+            window.Utils?.playerStatsLog?.(key, {
+                season: parsed.season,
+                games: parsed.games,
+                // Undocumented but present on ranked keys; equals ALS RP.
+                rank_score: parsed.rank_score ?? null,
+                inMatch: !!match,
+            });
+        }
+    });
+
+    if (match && !match._ending) {
+        const career = store.player_stats_career;
+        match.playerStats = {
+            level: career?.level ?? null,
+            currentXp: career?.current_xp ?? null,
+            neededXp: career?.needed_xp ?? null,
+            totalXp: career?.total_xp ?? null,
+            career: career || null,
+            brRankedLatest: store.player_stats_br_ranked_latest || null,
+            brUnrankedLatest: store.player_stats_br_unranked_latest || null,
+            capturedAt: store.updatedAt,
+        };
+        if (!match.playerStatsStart && career) {
+            match.playerStatsStart = { level: career.level, currentXp: career.current_xp, totalXp: career.total_xp };
+        }
+        // Profile avatar fallback = legend of the most recent match (GEP legendSelect only).
+        if (match.legend && match.legend !== 'Unknown') store.lastLegend = match.legend;
+    }
+
+    applyPlayerStatsToLocalUser(store);
 };
 
 const applyInfoToMatch = (infoRoot, match) => {
@@ -1565,6 +1879,8 @@ const EventRouter = {
     onInfoUpdates: (info) => {
         if (!info) return;
 
+        logInfoUpdatesDebug(info);
+
         // onInfoUpdates2 / getInfo may nest under .info or pass categories at the root.
         const infoRoot = info.info || info;
         const matchInfoTop = infoRoot.match_info || info.match_info;
@@ -1690,6 +2006,10 @@ const EventRouter = {
             }
         }
 
+        // player_stats arrives in the lobby too (no active match needed).
+        if (infoRoot.player_stats) handlePlayerStatsUpdate(infoRoot.player_stats, activeMatch);
+        if (infoRoot.ring) handleRingUpdate(infoRoot.ring, activeMatch);
+
         if (!activeMatch) return;
 
         if ((data.name || data.player) && activeMatch.playerName === 'Unknown') {
@@ -1810,6 +2130,8 @@ const EventRouter = {
 
     onNewEvents: (info) => {
         if (!info || !info.events) return;
+
+        gepLog('onNewEvents', info);
 
         info.events.forEach(event => {
             const { name, data } = event;
@@ -1958,6 +2280,12 @@ const EventRouter = {
             } else if (name === 'damage') {
                 const amount = parseFloat(parsed.damageAmount || parsed.amount);
                 if (!isNaN(amount)) {
+                    // GEP flags are "true"/"false" strings. Recorded for future stats (not shown yet).
+                    window.CoreController.updateMatch('DAMAGE_HIT_FLAGS', {
+                        amount,
+                        headshot: String(parsed.headshot).toLowerCase() === 'true',
+                        grenade: String(parsed.grenade).toLowerCase() === 'true',
+                    });
                     window.CoreController.updateMatch('DAMAGE', { amount });
                     // Debounced damage markers for weapon-qualify timestamps (hidden from Combat Log UI).
                     const now = Date.now();

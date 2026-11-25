@@ -33,9 +33,9 @@
   --color-text-primary:   #ffffff;
   --color-text-secondary: #eeeeee;
   --color-text-dim:       #cccccc;
-  --color-text-muted:     #888888;
+  --color-text-muted:     #9a9a9a;
   --color-text-subtle:    #555555;
-  --color-text-faint:     #666666;
+  --color-text-faint:     #7c7c7c;
 
   --color-accent:       #e74c3c;
   --color-accent-hover: #ff4757;
@@ -325,16 +325,16 @@ button.btn-tab:active {
 }
 
 /* ── Match accordion ────────────────────────────────────────────────────── */
+/* No opacity on the collapsed state: opacity < 1 forces the whole detail subtree
+   (map + tabs) into its own render surface while it animates. */
 .match-accordion {
   display: grid;
   grid-template-rows: 0fr;
   transition: grid-template-rows 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-  opacity: 0.5;
 }
 
 .match-accordion.open {
   grid-template-rows: 1fr;
-  opacity: 1;
 }
 
 .match-accordion-inner {
@@ -391,6 +391,8 @@ button.btn-tab:active {
   height: 0;
   display: flex;
   justify-content: center;
+  /* Zero-height anchor: without this the card stretches to 0px and its box ends after the first line. */
+  align-items: flex-start;
   pointer-events: none;
 }
 
@@ -416,21 +418,80 @@ button.btn-tab:active {
 
 .premium-blur-card {
   pointer-events: auto;
-  margin-top: clamp(48px, 18vh, 220px);
-  background: var(--color-bg-card);
-  border: 1px solid var(--color-border-light);
-  border-radius: 12px;
-  padding: 28px 32px;
-  text-align: center;
-  width: min(100%, 420px);
+  margin-top: clamp(32px, 12vh, 160px);
+  background: color-mix(in srgb, var(--color-rank-first) 5%, var(--color-bg-card));
+  border: 1px solid color-mix(in srgb, var(--color-rank-first) 35%, var(--color-border));
+  border-radius: 14px;
+  padding: 22px 24px;
+  text-align: left;
+  width: min(100%, 400px);
   min-width: 0;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: flex-start;
   gap: 14px;
   box-sizing: border-box;
 }
+
+.premium-teaser {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: var(--color-bg-sub-header);
+  border: 1px solid var(--color-border);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.premium-teaser-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 11px;
+}
+
+.premium-teaser-label { color: var(--color-rank-top5); font-weight: 700; }
+.premium-teaser-free { color: var(--color-text-muted); }
+.premium-teaser-name { font-size: 16px; font-weight: 900; color: var(--color-text-primary); }
+
+.premium-teaser-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  font-size: 12px;
+  color: var(--color-text-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+.premium-blur-bullets {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  line-height: 1.45;
+}
+
+.premium-blur-bullets li { display: flex; gap: 8px; }
+
+.premium-blur-link {
+  border: none;
+  background: transparent;
+  color: var(--color-rank-first);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 4px 0;
+  align-self: center;
+}
+
+.premium-blur-link:hover { text-decoration: underline; }
 
 .premium-blur-card--compact {
   margin-top: clamp(24px, 12vh, 120px);

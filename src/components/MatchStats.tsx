@@ -5,6 +5,18 @@ import { FaInfoCircle } from 'react-icons/fa';
 import type { TFunction } from 'i18next';
 import { useTranslation } from 'react-i18next';
 import { c } from '../theme';
+import { resolveWeaponCombatForMatch } from '../utils/weaponMatchStats';
+import { getWeaponDisplayName, getWeaponSilhouetteScale, getWeaponSilhouetteUrl, getWeaponAmmoTint, WHITE_SILHOUETTE_FILTER, PROFILE_IMAGE_BASE } from '../utils/weaponTheme';
+import { COMPARISON_MIN_SAMPLE, type RecentComparison } from '../utils/matchComparison';
+import {
+    getDamagePerKnock,
+    getGrenadeDamage,
+    getHeadshotRate,
+    getRevivesReceived,
+    getTimeOutsideRingMs,
+    getTimesKnocked,
+    getUltimatesUsed,
+} from '../utils/matchDetailStats';
 
 interface AutoResizingTextProps {
     text: string | number;
@@ -64,7 +76,7 @@ const AutoResizingText = ({ text, baseSize = 16, color = 'var(--color-text-prima
     );
 };
 
-const calculateTotalDistance = (path: any[], mapName: string) => {
+const calculateTotalDistance = (path: Match['path'], mapName: string) => {
     if (!path || !Array.isArray(path) || path.length < 2) return 0;
     const config = getMapConfig(mapName);
     const scale = config?.scale || 30;
@@ -241,13 +253,288 @@ const valContainerStyle: React.CSSProperties = {
 interface MatchStatsProps {
     match: Match;
     onUserSelect?: (user: { uid: string, name: string }) => void;
+    /**
+     * full: every card in one grid (narrow / split layouts).
+     * overview: playstyle, survival, teammates and this match vs recent games.
+     * detail: the per-match efficiency numbers.
+     */
+    view?: 'full' | 'overview' | 'detail';
+    comparison?: RecentComparison | null;
 }
 
-const MatchStats = ({ match, onUserSelect }: MatchStatsProps) => {
+
+/** Weapon with the most kills (then assists, then hold time) this match. */
+const BestWeaponCard = ({ match }: { match: Match }) => {
+    const { t } = useTranslation();
+    const [imgFailed, setImgFailed] = useState(false);
+
+    const best = useMemo(() => {
+        const combat = resolveWeaponCombatForMatch(match);
+        const entries = Object.entries(combat).filter(([id]) => id && id.toLowerCase() !== 'unknown');
+        if (entries.length === 0) return null;
+        entries.sort(([, a], [, b]) =>
+            (b.kills - a.kills) || ((b.assists || 0) - (a.assists || 0)) || ((b.holdMs || 0) - (a.holdMs || 0)));
+        const [id, entry] = entries[0];
+        return { id, ...entry };
+    }, [match]);
+
+    if (!best) {
+        return (
+            <div style={boxStyle}>
+                <MarqueeLabel>{t('matchStats.bestWeapon', { defaultValue: 'Best weapon' })}</MarqueeLabel>
+                <div style={{ fontSize: 12, color: 'var(--color-text-faint)' }}>—</div>
+            </div>
+        );
+    }
+
+    const tint = getWeaponAmmoTint(best.id);
+    const scale = getWeaponSilhouetteScale(best.id);
+    const holdMin = best.holdMs > 0 ? Math.max(1, Math.round(best.holdMs / 60000)) : null;
+
+    return (
+        <div style={{
+            ...boxStyle,
+            position: 'relative',
+            overflow: 'hidden',
+            justifyContent: 'space-between',
+            background: `linear-gradient(135deg, color-mix(in srgb, ${tint} 22%, var(--color-bg-card)) 0%, var(--color-bg-card) 70%)`,
+        }}>
+            <MarqueeLabel>{t('matchStats.bestWeapon', { defaultValue: 'Best weapon' })}</MarqueeLabel>
+            {!imgFailed && (
+                <img
+                    src={getWeaponSilhouetteUrl(best.id)}
+                    alt=""
+                    aria-hidden
+                    onError={() => setImgFailed(true)}
+                    style={{
+                        position: 'absolute',
+                        right: 8,
+                        top: '50%',
+                        transform: `translateY(-50%) scale(${scale})`,
+                        maxWidth: '55%',
+                        maxHeight: '58%',
+                        objectFit: 'contain',
+                        filter: WHITE_SILHOUETTE_FILTER,
+                        opacity: 0.9,
+                        pointerEvents: 'none',
+                    }}
+                />
+            )}
+            <div style={{ position: 'relative', minWidth: 0, maxWidth: '55%' }}>
+                <div style={{ fontSize: 14, fontWeight: 800, color: 'var(--color-text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {getWeaponDisplayName(best.id)}
+                </div>
+                <div style={{ fontSize: 11, color: 'var(--color-text-dim)', whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums' }}>
+                    {t('matchStats.bestWeaponLine', { kills: best.kills, assists: best.assists || 0, defaultValue: '{{kills}} K · {{assists}} A' })}
+                    {holdMin ? ` · ${t('matchStats.heldMinutes', { count: holdMin, defaultValue: '{{count}} min held' })}` : ''}
+                </div>
+            </div>
+        </div>
+    );
+};
+
+interface TeammateSlotProps {
+    teammate?: { uid: unknown; name: string; legend?: string; kills: number };
+    hovered: boolean;
+    onClick?: () => void;
+    onHover: (on: boolean) => void;
+}
+
+/** Always rendered: solo / duo keep an empty slot so the grid never reflows. */
+const TeammateSlot = ({ teammate, hovered, onClick, onHover }: TeammateSlotProps) => {
+    const { t } = useTranslation();
+    const [imgFailed, setImgFailed] = useState(false);
+
+    if (!teammate) {
+        return (
+            <div style={{ ...boxStyle, flexDirection: 'row', alignItems: 'center', gap: 10, border: '1px dashed var(--color-border)', background: 'transparent' }}>
+                <div style={{ width: 32, height: 32, borderRadius: 8, flexShrink: 0, border: '1px dashed var(--color-border-light)' }} />
+                <div style={{ fontSize: 11, color: 'var(--color-text-faint)' }}>{t('matchStats.noTeammate', { defaultValue: 'No teammate' })}</div>
+            </div>
+        );
+    }
+
+    const legendFile = (teammate.legend || 'unknown').toLowerCase();
+
+    return (
+        <div
+            onClick={onClick}
+            onMouseEnter={() => onHover(true)}
+            onMouseLeave={() => onHover(false)}
+            title={onClick ? t('matchStats.clickToViewProfile') : t('matchStats.profileNotAvailable')}
+            style={{
+                ...boxStyle,
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 10,
+                background: hovered ? 'var(--color-bg-card-hover)' : 'var(--color-bg-card)',
+                cursor: onClick ? 'pointer' : 'default',
+                transition: 'background 0.2s',
+            }}
+        >
+            {imgFailed ? (
+                <div style={{ width: 32, height: 32, borderRadius: 8, flexShrink: 0, background: 'var(--color-bg-sub-header)' }} />
+            ) : (
+                <img
+                    src={`${PROFILE_IMAGE_BASE}/${legendFile}.png`}
+                    alt=""
+                    onError={() => setImgFailed(true)}
+                    style={{ width: 32, height: 32, borderRadius: 8, flexShrink: 0, objectFit: 'cover', background: 'var(--color-bg-sub-header)' }}
+                />
+            )}
+            <div style={{ minWidth: 0, flex: 1 }}>
+                <div style={{ fontSize: 10, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                    {t('matchStats.teammate', { defaultValue: 'Teammate' })}
+                </div>
+                <div title={teammate.name} style={{ fontSize: 12, fontWeight: 700, color: 'var(--color-text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                    {teammate.name}
+                </div>
+            </div>
+            <div style={{ flexShrink: 0, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>
+                <span style={{ fontSize: 16, fontWeight: 800, color: 'var(--color-text-primary)' }}>{teammate.kills}</span>
+                <span style={{ fontSize: 10, color: 'var(--color-text-muted)', marginLeft: 3 }}>{t('matchStats.killsSuffix')}</span>
+            </div>
+        </div>
+    );
+};
+
+/** This match vs the user's recent games in the same mode: bar = this match, tick = average. */
+const MatchComparisonCard = ({ comparison }: { comparison?: RecentComparison | null }) => {
+    const { t } = useTranslation();
+
+    if (!comparison) {
+        return (
+            <div style={{ ...boxStyle, gridColumn: '1 / -1', padding: '10px 12px' }}>
+                <MarqueeLabel>{t('match.vsRecentTitle', { defaultValue: 'vs your recent games' })}</MarqueeLabel>
+                <div style={{ fontSize: 12, color: 'var(--color-text-muted)' }}>
+                    {t('match.vsRecentEmpty', { count: COMPARISON_MIN_SAMPLE, defaultValue: 'Shows up once {{count}}+ earlier games in this mode are recorded.' })}
+                </div>
+            </div>
+        );
+    }
+
+    /** Relative difference vs the average, + = better. Only decides the "about average" grey. */
+    const rel = (value: number, avg: number, lowerIsBetter = false) => {
+        if (avg <= 0) return value > 0 ? 1 : 0;
+        const r = (value - avg) / avg;
+        return lowerIsBetter ? -r : r;
+    };
+    /**
+     * Split scale: centre = average, left end = worst of the window, right end = best.
+     * Each half is scaled on its own so one outlier only squeezes its side. -1…1, + = better.
+     */
+    const pos = (value: number, avg: number, min: number, max: number, lowerIsBetter = false) => {
+        if (value === avg) return 0;
+        const better = (value > avg) !== lowerIsBetter;
+        const end = better ? (lowerIsBetter ? min : max) : (lowerIsBetter ? max : min);
+        const span = Math.abs(end - avg);
+        if (span <= 0) return 0;
+        const r = Math.abs(value - avg) / span;
+        return better ? r : -r;
+    };
+    const rows = [
+        {
+            key: 'damage',
+            label: t('match.damage', { defaultValue: 'Damage' }),
+            rel: rel(comparison.damage.value, comparison.damage.avg),
+            pos: pos(comparison.damage.value, comparison.damage.avg, comparison.damage.min, comparison.damage.max),
+            worstText: comparison.damage.min.toLocaleString(),
+            bestText: comparison.damage.max.toLocaleString(),
+            text: comparison.damage.value.toLocaleString(),
+            avgText: Math.round(comparison.damage.avg).toLocaleString(),
+            delta: `${comparison.damage.deltaPct > 0 ? '+' : ''}${comparison.damage.deltaPct}%`,
+        },
+        {
+            key: 'kills',
+            label: t('match.kills', { defaultValue: 'Kills' }),
+            rel: rel(comparison.kills.value, comparison.kills.avg),
+            pos: pos(comparison.kills.value, comparison.kills.avg, comparison.kills.min, comparison.kills.max),
+            worstText: String(comparison.kills.min),
+            bestText: String(comparison.kills.max),
+            text: String(comparison.kills.value),
+            avgText: comparison.kills.avg.toFixed(1),
+            delta: `${comparison.kills.delta > 0 ? '+' : ''}${comparison.kills.delta.toFixed(1)}`,
+        },
+        {
+            key: 'placement',
+            label: t('match.rank', { defaultValue: 'Placement' }),
+            rel: rel(comparison.placement.value, comparison.placement.avg, true),
+            pos: pos(comparison.placement.value, comparison.placement.avg, comparison.placement.min, comparison.placement.max, true),
+            worstText: `#${comparison.placement.max}`,
+            bestText: `#${comparison.placement.min}`,
+            text: `#${comparison.placement.value}`,
+            avgText: `#${comparison.placement.avg.toFixed(1)}`,
+            delta: `${comparison.placement.delta < 0 ? '▲' : comparison.placement.delta > 0 ? '▼' : ''}${Math.abs(comparison.placement.delta).toFixed(1)}`,
+        },
+    ];
+
+    const COLS = '52px minmax(0, 1fr) 42px 42px 46px';
+    const head = { fontSize: 9, color: 'var(--color-text-muted)', textAlign: 'right' as const, textTransform: 'uppercase' as const, letterSpacing: '0.4px' };
+
+    return (
+        <div style={{ ...boxStyle, gridColumn: '1 / -1', padding: '10px 12px 16px', gap: 6 }}>
+            <span style={{ ...labelStyle, marginBottom: 0 }}>
+                {t('match.vsRecent', { count: comparison.sampleSize, defaultValue: 'vs your last {{count}} games' })}
+            </span>
+            <div style={{ display: 'grid', gridTemplateColumns: COLS, alignItems: 'end', gap: 10, width: '100%' }}>
+                <span />
+                <span style={{ display: 'flex', justifyContent: 'space-between', fontSize: 9, color: 'var(--color-text-faint)' }}>
+                    <span>{t('match.vsRecentLow', { defaultValue: 'Worst' })}</span>
+                    <span style={{ color: 'var(--color-text-muted)', fontWeight: 700 }}>{t('match.vsRecentAvg', { defaultValue: 'Avg' })}</span>
+                    <span>{t('match.vsRecentHigh', { defaultValue: 'Best' })}</span>
+                </span>
+                <span style={head}>{t('match.vsRecentThis', { defaultValue: 'This' })}</span>
+                <span style={head}>{t('match.vsRecentAvg', { defaultValue: 'Avg' })}</span>
+                <span />
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 13, width: '100%' }}>
+                {rows.map((row) => {
+                    // Centre = your average; a half fills completely at your worst / best.
+                    const r = Math.max(-1, Math.min(1, row.pos));
+                    const neutral = Math.abs(row.rel) < 0.03;
+                    const better = r > 0;
+                    const color = neutral ? 'var(--color-text-muted)' : better ? 'var(--color-rank-top5)' : 'var(--color-danger)';
+                    const half = Math.max(neutral ? 0 : 3, Math.abs(r) * 50);
+                    return (
+                        <div key={row.key} style={{ display: 'grid', gridTemplateColumns: COLS, alignItems: 'center', gap: 10, fontVariantNumeric: 'tabular-nums' }}>
+                            <span style={{ fontSize: 10, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.5px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{row.label}</span>
+                            <div style={{ position: 'relative', minWidth: 0 }}>
+                            <div style={{ position: 'relative', height: 10, borderRadius: 5, background: 'var(--color-bg-sub-header)', border: '1px solid var(--color-border)' }}>
+                                <div style={{
+                                    position: 'absolute',
+                                    top: 1,
+                                    bottom: 1,
+                                    left: better ? '50%' : `${50 - half}%`,
+                                    width: `${half}%`,
+                                    borderRadius: 3,
+                                    background: color,
+                                }} />
+                                <div aria-hidden style={{ position: 'absolute', left: 'calc(50% - 1px)', top: -3, bottom: -3, width: 2, borderRadius: 1, background: 'var(--color-text-primary)' }} />
+                            </div>
+                            {/* What the bar's ends stand for in this row. */}
+                            <div style={{ position: 'absolute', top: 'calc(100% + 2px)', left: 0, right: 0, display: 'flex', justifyContent: 'space-between', fontSize: 9, lineHeight: 1, color: 'var(--color-text-faint)', pointerEvents: 'none' }}>
+                                <span>{row.worstText}</span>
+                                <span>{row.bestText}</span>
+                            </div>
+                            </div>
+                            <span style={{ fontSize: 12, fontWeight: 800, color: 'var(--color-text-primary)', textAlign: 'right' }}>{row.text}</span>
+                            <span style={{ fontSize: 12, color: 'var(--color-text-dim)', textAlign: 'right' }}>{row.avgText}</span>
+                            <span style={{ fontSize: 12, fontWeight: 800, color, textAlign: 'right' }}>{row.delta}</span>
+                        </div>
+                    );
+                })}
+            </div>
+        </div>
+    );
+};
+
+const MatchStats = ({ match, onUserSelect, view = 'full', comparison = null }: MatchStatsProps) => {
     const { t } = useTranslation();
     const [showTooltip, setShowTooltip] = useState(false);
     const [showTooltip2, setShowTooltip2] = useState(false);
     const [hoveredTm, setHoveredTm] = useState<number | null>(null);
+    /** Stand-in end time for a match still in progress (no endTime yet), fixed when the panel opens. */
+    const [openedAt] = useState(Date.now);
 
     const placement = typeof match.placement === 'string' ? parseInt(match.placement) : (match.placement || 20);
     const totalDamage = Number(match.damage || 0);
@@ -262,6 +549,7 @@ const MatchStats = ({ match, onUserSelect }: MatchStatsProps) => {
         const stats = roster.map((member) => ({
             name: member.name,
             uid: member.uid,
+            legend: member.legend,
             kills: Number(member.kills || 0)
         }));
         return stats.sort((a, b) => b.kills - a.kills);
@@ -298,7 +586,7 @@ const MatchStats = ({ match, onUserSelect }: MatchStatsProps) => {
         squadKills = totalAssists + totalKills;
     }
 
-    const durationMs = toGameElapsedMs((match.endTime || Date.now()) - match.startTime);
+    const durationMs = toGameElapsedMs((match.endTime || openedAt) - match.startTime);
     const durationMin = durationMs / 1000 / 60;
     const timeLabel = formatMatchTime(durationMs, 'text');
     const dpm = durationMin > 0.1 ? Math.round(totalDamage / durationMin) : 0;
@@ -313,7 +601,83 @@ const MatchStats = ({ match, onUserSelect }: MatchStatsProps) => {
 
     const style = determinePlaystyle(t, durationMin, dpm, avgSpeed, distance, dmgPerKill, totalKills, totalDamage, KillConversionRate, totalAssists, placement, KPP, squadKills);
 
-    const handleTeammateClick = (tm: { uid: any; name: string }) => {
+    const outsideRingMs = useMemo(() => getTimeOutsideRingMs(match), [match]);
+    const detailCards = useMemo(() => {
+        const headshotRate = getHeadshotRate(match);
+        const dmgPerKnock = getDamagePerKnock(match);
+        const grenadeDamage = getGrenadeDamage(match);
+        const timesKnocked = getTimesKnocked(match);
+        const support = getRevivesReceived(match);
+        const ultimates = getUltimatesUsed(match);
+        const notCollected = t('matchStats.notCollected', { defaultValue: 'Not recorded for this match' });
+        const cards: {
+            key: string;
+            label: string;
+            value: string | number | null;
+            suffix?: string;
+            color?: string;
+            hint?: string;
+        }[] = [
+            { key: 'survival', label: t('matchStats.survivalTime'), value: timeLabel, color: 'var(--color-text-secondary)' },
+            { key: 'distance', label: t('matchStats.travelDistance'), value: distance.toLocaleString(), suffix: t('matchStats.mSuffix') },
+            { key: 'kpp', label: t('matchStats.killParticipant'), value: KPP, suffix: '%' },
+            {
+                key: 'dmgPerKnock',
+                label: t('matchStats.damagePerKnock', { defaultValue: 'Damage per knock' }),
+                value: dmgPerKnock,
+                suffix: t('matchStats.dmgKnockSuffix', { defaultValue: ' dmg/knock' }),
+            },
+            {
+                key: 'headshotRate',
+                label: t('matchStats.headshotRate', { defaultValue: 'Headshot rate' }),
+                value: headshotRate,
+                suffix: '%',
+                hint: headshotRate === null
+                    ? notCollected
+                    : t('matchStats.headshotRateHint', { headshots: match.headshots || 0, hits: match.damageHits || 0, defaultValue: '{{headshots}} of {{hits}} hits' }),
+            },
+            {
+                key: 'grenade',
+                label: t('matchStats.grenadeDamage', { defaultValue: 'Grenade damage' }),
+                value: grenadeDamage === null ? null : grenadeDamage.toLocaleString(),
+                suffix: grenadeDamage !== null && totalDamage > 0
+                    ? ` (${Math.round((grenadeDamage / totalDamage) * 100)}%)`
+                    : undefined,
+                hint: grenadeDamage === null ? notCollected : undefined,
+            },
+            {
+                key: 'knocked',
+                label: t('matchStats.timesKnocked', { defaultValue: 'Times knocked' }),
+                value: timesKnocked,
+                suffix: t('matchStats.timesSuffix', { defaultValue: 'x' }),
+            },
+            {
+                key: 'support',
+                label: t('matchStats.revivesRespawns', { defaultValue: 'Revived · Respawned' }),
+                value: support ? `${support.revives} · ${support.respawns}` : null,
+                hint: support
+                    ? t('matchStats.revivesRespawnsHint', { revives: support.revives, respawns: support.respawns, defaultValue: 'Revived {{revives}}x · Respawned {{respawns}}x' })
+                    : notCollected,
+            },
+            {
+                key: 'ultimates',
+                label: t('matchStats.ultimatesUsed', { defaultValue: 'Ultimates used' }),
+                value: ultimates,
+                suffix: t('matchStats.timesSuffix', { defaultValue: 'x' }),
+                hint: ultimates === null ? notCollected : undefined,
+            },
+            {
+                key: 'outsideRing',
+                label: t('matchStats.timeOutsideRing', { defaultValue: 'Time outside ring' }),
+                value: outsideRingMs === null ? null : formatMatchTime(outsideRingMs, 'text'),
+                color: outsideRingMs && outsideRingMs >= 30000 ? 'var(--color-danger)' : undefined,
+                hint: outsideRingMs === null ? notCollected : undefined,
+            },
+        ];
+        return cards;
+    }, [match, t, timeLabel, distance, KPP, totalDamage, outsideRingMs]);
+
+    const handleTeammateClick = (tm: { uid: string | null; name: string }) => {
         if (tm.uid && onUserSelect) {
             onUserSelect({ uid: tm.uid, name: tm.name });
         }
@@ -327,6 +691,124 @@ const MatchStats = ({ match, onUserSelect }: MatchStatsProps) => {
                     to { transform: translateX(calc(-1 * var(--match-stats-label-distance, 0px))); }
                 }
             `}</style>
+            {view === 'overview' ? (
+            <div style={{
+                display: 'grid',
+                gridTemplateColumns: '1fr 1fr',
+                gridTemplateRows: 'minmax(64px, 1fr) minmax(56px, 1fr) auto',
+                gap: '12px',
+                flex: 1,
+                minHeight: 0
+            }}>
+                <div style={{
+                    ...boxStyle,
+                    background: style.bgGradient,
+                    border: 'none',
+                    color: c.playstyleText,
+                    position: 'relative',
+                    textShadow: style.isPrimary ? c.playstyleTextShadow : 'none',
+                    boxShadow: '0 4px 15px rgba(0, 0, 0, 0.25)',
+                }}>
+                    <MarqueeLabel style={{
+                        color: c.playstyleLabel,
+                        fontWeight: '600',
+                        letterSpacing: '0.5px'
+                    }}>
+                        {t('matchStats.playedLike')}
+                    </MarqueeLabel>
+                    <div style={valContainerStyle}>
+                        <AutoResizingText
+                            text={style.name}
+                            color={c.playstyleText}
+                        />
+                    </div>
+                    <div
+                        onMouseEnter={() => setShowTooltip(true)}
+                        onMouseLeave={() => setShowTooltip(false)}
+                        style={{
+                            position: 'absolute',
+                            top: '8px',
+                            right: '8px',
+                            color: c.playstyleIcon,
+                            cursor: 'help',
+                            display: 'flex',
+                            alignItems: 'center',
+                            zIndex: 100
+                        }}
+                    >
+                        <FaInfoCircle size={12} />
+                    </div>
+                    {showTooltip && (
+                        <div style={{
+                            position: 'absolute',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            top: '28px',
+                            right: '8px',
+                            background: 'var(--color-bg-card)',
+                            border: `1px solid var(--color-border-light)`,
+                            borderRadius: '4px',
+                            padding: '6px 10px',
+                            zIndex: 100,
+                            boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
+                            pointerEvents: 'none',
+                            whiteSpace: 'nowrap',
+                            minWidth: '120px'
+                        }}>
+                            <span style={{ fontSize: '10px', color: 'var(--color-text-dim)', marginBottom: '2px' }}>
+                                {t('matchStats.matchPlaystyle')}
+                            </span>
+                            <span style={{ fontSize: '12px', fontWeight: 'bold', color: 'var(--color-text-dim)' }}>
+                                {style.name}
+                            </span>
+                            <span style={{ fontSize: '11px', color: 'var(--color-text-dim)' }}>
+                                "{style.sub}"
+                            </span>
+                        </div>
+                    )}
+                </div>
+
+                <BestWeaponCard match={match} />
+
+                {[0, 1].map((slot) => {
+                    const tm = teammateStats[slot];
+                    const clickable = !!(tm?.uid && onUserSelect);
+                    return (
+                        <TeammateSlot
+                            key={slot}
+                            teammate={tm}
+                            hovered={hoveredTm === slot}
+                            onClick={clickable ? () => handleTeammateClick(tm!) : undefined}
+                            onHover={(on) => setHoveredTm(on && clickable ? slot : null)}
+                        />
+                    );
+                })}
+                <MatchComparisonCard comparison={comparison} />
+            </div>
+            ) : view === 'detail' ? (
+            <div style={{
+                display: 'grid',
+                gridTemplateColumns: '1fr 1fr',
+                gridTemplateRows: 'repeat(5, 1fr)',
+                gap: '12px',
+                flex: 1,
+                minHeight: 0
+            }}>
+                {/* Pairs per row: flow · combat · damage quality · going down · utility & zone. */}
+                {detailCards.map((card) => (
+                    <div key={card.key} style={boxStyle} title={card.hint}>
+                        <MarqueeLabel>{card.label}</MarqueeLabel>
+                        <div style={valContainerStyle}>
+                            {card.value === null ? (
+                                <AutoResizingText text="-" color="var(--color-text-faint)" />
+                            ) : (
+                                <AutoResizingText text={card.value} suffix={card.suffix} color={card.color} />
+                            )}
+                        </div>
+                    </div>
+                ))}
+            </div>
+            ) : (
             <div style={{
                 display: 'grid',
                 gridTemplateColumns: '1fr 1fr',
@@ -413,7 +895,7 @@ const MatchStats = ({ match, onUserSelect }: MatchStatsProps) => {
                 <div style={boxStyle}>
                     <MarqueeLabel>{t('matchStats.killParticipant')}</MarqueeLabel>
                     <div style={valContainerStyle}>
-                        <AutoResizingText text={KPP} color='#32da78' suffix="%" />
+                        <AutoResizingText text={KPP} suffix="%" />
                     </div>
                 </div>
 
@@ -444,7 +926,7 @@ const MatchStats = ({ match, onUserSelect }: MatchStatsProps) => {
                 <div style={boxStyle}>
                     <MarqueeLabel>{t('matchStats.damagePerKill')}</MarqueeLabel>
                     <div style={valContainerStyle}>
-                        <AutoResizingText text={dmgPerKill} color='#ae49f1' suffix={t('matchStats.dmgKillSuffix')} />
+                        <AutoResizingText text={dmgPerKill} suffix={t('matchStats.dmgKillSuffix')} />
                     </div>
                 </div>
 
@@ -458,7 +940,7 @@ const MatchStats = ({ match, onUserSelect }: MatchStatsProps) => {
                 <div style={boxStyle}>
                     <MarqueeLabel>{t('matchStats.travelDistance')}</MarqueeLabel>
                     <div style={valContainerStyle}>
-                        <AutoResizingText text={distance.toLocaleString()} color='var(--color-mode-trio)' suffix={t('matchStats.mSuffix')} />
+                        <AutoResizingText text={distance.toLocaleString()} suffix={t('matchStats.mSuffix')} />
                     </div>
                 </div>
 
@@ -479,18 +961,17 @@ const MatchStats = ({ match, onUserSelect }: MatchStatsProps) => {
                                 onMouseLeave={() => setHoveredTm(null)}
                                 style={{
                                     ...boxStyle,
-                                    border: '1px solid #f89b44',
+                                    border: '1px solid var(--color-border-light)',
                                     background: hoveredTm === idx ? 'var(--color-bg-card-hover)' : 'var(--color-bg-card)',
                                     cursor: (tm.uid && onUserSelect) ? 'pointer' : 'default',
                                     transition: 'background 0.2s'
                                 }}
                                 title={tm.uid ? t('matchStats.clickToViewProfile') : t('matchStats.profileNotAvailable')}
                             >
-                                <div style={{ fontSize: '12px', color: 'var(--color-text-primary)', marginBottom: '4px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', width: '100%' }}>
-                                    {tm.name}
-                                </div>
+                                {/* Without a label these read as "who I killed"; say they are teammates. */}
+                                <MarqueeLabel>{`${t('matchStats.teammate', { defaultValue: 'Teammate' })} · ${tm.name}`}</MarqueeLabel>
                                 <div style={valContainerStyle}>
-                                    <AutoResizingText text={tm.kills} color="var(--color-warning)" suffix={t('matchStats.killsSuffix')} />
+                                    <AutoResizingText text={tm.kills} suffix={t('matchStats.killsSuffix')} />
                                 </div>
                             </div>
                         ))}
@@ -500,7 +981,7 @@ const MatchStats = ({ match, onUserSelect }: MatchStatsProps) => {
                             <div style={{ ...boxStyle, border: '1px solid var(--color-border)' }}>
                                 <MarqueeLabel>{t('matchStats.totalKnocks')}</MarqueeLabel>
                                 <div style={valContainerStyle}>
-                                    <AutoResizingText text={totalKnocks} color='#9b59b6' suffix={t('matchStats.knocksSuffix')} />
+                                    <AutoResizingText text={totalKnocks} suffix={t('matchStats.knocksSuffix')} />
                                 </div>
                             </div>
                         )}
@@ -510,18 +991,19 @@ const MatchStats = ({ match, onUserSelect }: MatchStatsProps) => {
                         <div style={boxStyle}>
                             <MarqueeLabel>{t('matchStats.totalKnocks')}</MarqueeLabel>
                             <div style={valContainerStyle}>
-                                <AutoResizingText text={totalKnocks} color='#9b59b6' suffix={t('matchStats.knocksSuffix')} />
+                                <AutoResizingText text={totalKnocks} suffix={t('matchStats.knocksSuffix')} />
                             </div>
                         </div>
                         <div style={boxStyle}>
                             <MarqueeLabel>{t('matchStats.totalAssists')}</MarqueeLabel>
                             <div style={valContainerStyle}>
-                                <AutoResizingText text={totalAssists} color='#f1c40f' suffix={t('matchStats.assistsSuffix')} />
+                                <AutoResizingText text={totalAssists} suffix={t('matchStats.assistsSuffix')} />
                             </div>
                         </div>
                     </>
                 )}
             </div>
+            )}
         </div>
     );
 };

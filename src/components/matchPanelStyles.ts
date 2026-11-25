@@ -74,6 +74,11 @@ export const matchPanelTabStyle = (active: boolean): CSSProperties => ({
     textTransform: 'uppercase',
     letterSpacing: '0.4px',
     cursor: 'pointer',
+    // 4 tabs at the minimum window width: keep each on one line ("Combat log 5" used to wrap).
+    whiteSpace: 'nowrap',
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    minWidth: 0,
     boxSizing: 'border-box',
     boxShadow: active ? 'inset 0 -2px 0 var(--color-warning)' : 'none',
 });

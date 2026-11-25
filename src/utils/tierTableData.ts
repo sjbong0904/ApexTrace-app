@@ -1,6 +1,6 @@
 import { LEGENDS_LIST } from './gameData';
 import { WEAPONS_DB, type WeaponCategory } from './WeaponsData';
-import { getWeaponDisplayName } from './weaponTheme';
+import { getWeaponDisplayName, getWeaponSilhouetteUrl, getWeaponTagTheme } from './weaponTheme';
 
 export type TierTableMode = 'legend' | 'weapon';
 
@@ -21,7 +21,7 @@ export interface TierTableState {
     assignments: Record<string, string[]>;
 }
 
-const IMAGE_BASE = 'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images';
+const IMAGE_BASE = '/images';
 export const TIER_FALLBACK_IMG = `${IMAGE_BASE}/unknown.png`;
 export const APEXTRACE_LOGO = '/icons/IconMouseOver.png';
 
@@ -93,12 +93,24 @@ export const buildWeaponItems = (): TierTableItem[] => {
             items.push({
                 id: weapon.id,
                 label: getWeaponDisplayName(weapon.id),
-                image: weapon.image,
+                // White game-HUD silhouette; the tile behind it carries the ammo colour.
+                image: getWeaponSilhouetteUrl(weapon.id),
             });
         }
     }
 
     return items;
+};
+
+/**
+ * Tile background for an item. Weapons: dark ammo-tinted gradient so the white silhouette reads
+ * in both themes (same look as the Statistics weapon picker). Plain gradients only — the tier
+ * screenshot goes through html2canvas, which can't paint color-mix() or CSS masks.
+ */
+export const getTierItemBackground = (mode: TierTableMode | null, itemId: string, fallback: string): string => {
+    if (mode !== 'weapon') return fallback;
+    const theme = getWeaponTagTheme(itemId, 'master');
+    return `linear-gradient(rgba(0,0,0,0.58), rgba(0,0,0,0.52)), ${theme.bgGradient ?? theme.themeColor}`;
 };
 
 export const getItemsForMode = (mode: TierTableMode): TierTableItem[] =>

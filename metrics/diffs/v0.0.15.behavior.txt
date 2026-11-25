@@ -1,0 +1,172 @@
+
+ RUN  v3.2.7 C:/Users/sjbon/AppData/Local/Temp/apex-metrics-fCPG3y/tree
+
+ ✓ src/utils/__tests__/matchMode.test.ts > matchMode > missing / fallback / supported 2ms
+ ✓ src/utils/__tests__/matchMode.test.ts > matchMode > Ranked Trios → tabs 0ms
+ ✓ src/utils/__tests__/matchMode.test.ts > matchMode > Trios → tabs 0ms
+ ✓ src/utils/__tests__/matchMode.test.ts > matchMode > Duos → tabs 0ms
+ ✓ src/utils/__tests__/matchMode.test.ts > matchMode > BR → tabs 0ms
+ ✓ src/utils/__tests__/matchMode.test.ts > matchMode > Mixtape → tabs 0ms
+ ✓ src/utils/__tests__/matchMode.test.ts > matchMode > statistics mode filter 0ms
+ ✓ src/utils/__tests__/matchMode.test.ts > matchMode > labels and colors 0ms
+ ✓ src/utils/__tests__/helpers.test.ts > normalizeMapDisplayName > null → Unknown 2ms
+ ✓ src/utils/__tests__/helpers.test.ts > normalizeMapDisplayName >  → Unknown 0ms
+ ✓ src/utils/__tests__/helpers.test.ts > normalizeMapDisplayName > UNKNOWN → Unknown 0ms
+ ✓ src/utils/__tests__/helpers.test.ts > normalizeMapDisplayName > mp_rr_desertlands_hu → World's Edge 0ms
+ ✓ src/utils/__tests__/helpers.test.ts > normalizeMapDisplayName > worlds edge → World's Edge 0ms
+ ✓ src/utils/__tests__/helpers.test.ts > normalizeMapDisplayName > mp_rr_canyonlands_hu → Kings Canyon 0ms
+ ✓ src/utils/__tests__/helpers.test.ts > normalizeMapDisplayName > mp_rr_olympus_mu2 → Olympus 0ms
+ ✓ src/utils/__tests__/helpers.test.ts > rank helpers > placement colors by tier 0ms
+ × src/utils/__tests__/helpers.test.ts > rank helpers > RP floors map to tier names 4ms
+   → (0 , getRankTierNameFromRp) is not a function
+ ✓ src/utils/__tests__/helpers.test.ts > rank helpers > tier key ignores division 0ms
+ ✓ src/utils/__tests__/helpers.test.ts > rank helpers > formatFullRankName dedupes roman suffixes 0ms
+ ✓ src/utils/__tests__/helpers.test.ts > stat colors > K/D thresholds 0ms
+ ✓ src/utils/__tests__/helpers.test.ts > stat colors > win rate respects hasValue 0ms
+ ✓ src/utils/__tests__/helpers.test.ts > formatMatchTime > digital and text 0ms
+ ✓ src/utils/__tests__/helpers.test.ts > player / legend identity > isSamePlayer ignores clan tags, spaces, case 0ms
+ ✓ src/utils/__tests__/helpers.test.ts > player / legend identity > isKnownLegend 0ms
+ ✓ src/utils/__tests__/helpers.test.ts > getMatchDeaths > prefers stored deaths 0ms
+ ✓ src/utils/__tests__/helpers.test.ts > getMatchDeaths > counts death events for the player 0ms
+ ✓ src/utils/__tests__/helpers.test.ts > getMatchDeaths > legacy fallback: win=0 / loss=1 0ms
+stdout | src/utils/__tests__/scoring.test.ts
+🌐 i18next is made possible by our own product, Locize — consider powering your project with managed localization (AI, CDN, integrations): https://locize.com 💙
+
+stdout | src/utils/__tests__/golden.test.ts > golden: demo dataset > normalizes every match
+🌐 i18next is made possible by our own product, Locize — consider powering your project with managed localization (AI, CDN, integrations): https://locize.com 💙
+
+ ✓ src/utils/__tests__/golden.test.ts > golden: demo dataset > normalizes every match 334ms
+ ✓ src/utils/__tests__/scoring.test.ts > score curves > linearScore clamps 1ms
+ ✓ src/utils/__tests__/scoring.test.ts > score curves > logScore is monotonic between floor and ceiling 0ms
+ ✓ src/utils/__tests__/scoring.test.ts > score curves > strictify compresses mid scores 0ms
+ ✓ src/utils/__tests__/scoring.test.ts > score curves > curvedMetricScore: 1000 dmg ≈ 85 pts 0ms
+ ✓ src/utils/__tests__/scoring.test.ts > score curves > hybridRankScore penalizes tiny samples 0ms
+ ✓ src/utils/__tests__/scoring.test.ts > tableSort > toggles direction on same column 1ms
+ ✓ src/utils/__tests__/scoring.test.ts > tableSort > missing rows stay last in both directions 0ms
+ ✓ src/utils/__tests__/scoring.test.ts > tableSort > avg placement: lower is better 0ms
+ ✓ src/utils/__tests__/scoring.test.ts > hasUsableMatchStats > rejects null placement or all-null stats 0ms
+ × src/utils/__tests__/golden.test.ts > golden: demo dataset > calculateStats 13ms
+   → Snapshot `golden: demo dataset > calculateStats 1` mismatched
+ ✓ src/utils/__tests__/golden.test.ts > golden: demo dataset > overview analytics (tier/score) 9ms
+ ✓ src/utils/__tests__/golden.test.ts > golden: demo dataset > aggregate: legends 1ms
+ ✓ src/utils/__tests__/golden.test.ts > golden: demo dataset > aggregate: weapons 2ms
+ ✓ src/utils/__tests__/golden.test.ts > golden: demo dataset > aggregate: threats 9ms
+ ✓ src/utils/__tests__/golden.test.ts > golden: demo dataset > aggregate: maps 1ms
+ ✓ src/utils/__tests__/golden.test.ts > golden: demo dataset > teammate baseline 10ms
+ ↓ src/utils/__tests__/golden.test.ts > golden: demo dataset > per-match detail stats 2ms
+ ↓ src/utils/__tests__/golden.test.ts > golden: demo dataset > map replay + ring overlay summary 1ms
+ ↓ src/utils/__tests__/golden.test.ts > golden: demo dataset > recent comparison for newest match 1ms
+
+  Snapshots  1 failed
+ Test Files  5 failed | 2 passed (7)
+      Tests  2 failed | 42 passed | 3 skipped (47)
+   Start at  00:17:23
+   Duration  950ms (transform 531ms, setup 84ms, collect 697ms, tests 403ms, environment 1ms, prepare 1.28s)
+
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/utils/__tests__/appState.test.ts [ src/utils/__tests__/appState.test.ts ]
+Error: Cannot find module '../accountRecord' imported from 'C:/Users/sjbon/AppData/Local/Temp/apex-metrics-fCPG3y/tree/src/utils/__tests__/appState.test.ts'
+ ❯ src/utils/__tests__/appState.test.ts:4:1
+      2| import { afterEach, beforeEach, describe, expect, it, vi } from 'vites…
+      3| import type { Match } from '../../types';
+      4| import { hasAccountRecord, summarizeBrBlock } from '../accountRecord';
+       | ^
+      5| import {
+      6|     consumeFreeReplay,
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
+Serialized Error: { code: 'ERR_MODULE_NOT_FOUND' }
+Caused by: Error: Failed to load url ../accountRecord (resolved id: ../accountRecord) in C:/Users/sjbon/AppData/Local/Temp/apex-metrics-fCPG3y/tree/src/utils/__tests__/appState.test.ts. Does the file exist?
+ ❯ loadAndTransform ../../../../../Desktop/Projects/apex-trace%20-%20%EB%B3%B5%EC%82%AC%EB%B3%B8/node_modules/vite/dist/node/chunks/config.js:22662:33
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/5]⎯
+
+ FAIL  src/utils/__tests__/replay.test.ts [ src/utils/__tests__/replay.test.ts ]
+Error: Cannot find module '../groundPath' imported from 'C:/Users/sjbon/AppData/Local/Temp/apex-metrics-fCPG3y/tree/src/utils/__tests__/replay.test.ts'
+ ❯ src/utils/__tests__/replay.test.ts:4:1
+      2| import { describe, expect, it } from 'vitest';
+      3| import type { Match, RingRound, RingSample } from '../../types';
+      4| import { findLandingIndex, groundPathPoints } from '../groundPath';
+       | ^
+      5| import { buildRingCircles, resolveRingCenter } from '../ringOverlay';
+      6| import { buildMapReplay, formatReplayClock, getReplayFrame } from '../…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
+Serialized Error: { code: 'ERR_MODULE_NOT_FOUND' }
+Caused by: Error: Failed to load url ../groundPath (resolved id: ../groundPath) in C:/Users/sjbon/AppData/Local/Temp/apex-metrics-fCPG3y/tree/src/utils/__tests__/replay.test.ts. Does the file exist?
+ ❯ loadAndTransform ../../../../../Desktop/Projects/apex-trace%20-%20%EB%B3%B5%EC%82%AC%EB%B3%B8/node_modules/vite/dist/node/chunks/config.js:22662:33
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/5]⎯
+
+ FAIL  src/utils/__tests__/seasons.test.ts [ src/utils/__tests__/seasons.test.ts ]
+Error: Cannot find module '../seasonGroups' imported from 'C:/Users/sjbon/AppData/Local/Temp/apex-metrics-fCPG3y/tree/src/utils/__tests__/seasons.test.ts'
+ ❯ src/utils/__tests__/seasons.test.ts:10:1
+      8|     type SeasonBoundary,
+      9| } from '../seasons';
+     10| import {
+       | ^
+     11|     findSeasonGroup,
+     12|     getSeasonGroupRange,
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
+Serialized Error: { code: 'ERR_MODULE_NOT_FOUND' }
+Caused by: Error: Failed to load url ../seasonGroups (resolved id: ../seasonGroups) in C:/Users/sjbon/AppData/Local/Temp/apex-metrics-fCPG3y/tree/src/utils/__tests__/seasons.test.ts. Does the file exist?
+ ❯ loadAndTransform ../../../../../Desktop/Projects/apex-trace%20-%20%EB%B3%B5%EC%82%AC%EB%B3%B8/node_modules/vite/dist/node/chunks/config.js:22662:33
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/5]⎯
+
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/utils/__tests__/golden.test.ts > golden: demo dataset > calculateStats
+Error: Snapshot `golden: demo dataset > calculateStats 1` mismatched
+
+- Expected
++ Received
+
+@@ -1,20 +1,18 @@
+  {
+    "assists": 50,
+    "avgDamage": 1315,
+    "avgKills": "3.8",
+-   "avgKnocks": "4.0",
+    "avgPlacement": "6.0",
+    "avgTime": "14m 4s",
+    "avgTimeSec": 845,
+    "avgmin": 14,
+    "avgsec": 5,
+    "deaths": 20,
+    "kd": "4.35",
+    "kda": "6.85",
+    "kills": 87,
+-   "knockToKillRate": "95.6",
+    "lograte": "57.7",
+    "matches": 23,
+    "maxKills": 10,
+    "mostLegend": "alter",
+    "mostWeapon": "EVA-8",
+
+ ❯ src/utils/__tests__/golden.test.ts:49:60
+     47|     it('calculateStats', async (ctx) => {
+     48|         const { calculateStats } = await need(ctx, () => import('../st…
+     49|         expect(round(calculateStats(await loadHistory()))).toMatchSnap…
+       |                                                            ^
+     50|     });
+     51| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/5]⎯
+
+ FAIL  src/utils/__tests__/helpers.test.ts > rank helpers > RP floors map to tier names
+TypeError: (0 , getRankTierNameFromRp) is not a function
+ ❯ src/utils/__tests__/helpers.test.ts:41:16
+     39| 
+     40|     it('RP floors map to tier names', () => {
+     41|         expect(getRankTierNameFromRp(0)).toBe('Rookie');
+       |                ^
+     42|         expect(getRankTierNameFromRp(999)).toBe('Rookie');
+     43|         expect(getRankTierNameFromRp(1000)).toBe('Bronze');
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/5]⎯
+

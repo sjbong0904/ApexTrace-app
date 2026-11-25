@@ -5,8 +5,8 @@ import { formatFullRankName, getRankTierColor } from '../utils/helpers';
 import type { RecentSearchProfile } from '../utils/recentSearches';
 
 const LEGEND_IMG = (legend: string) =>
-    `https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/${(legend || 'unknown').toLowerCase()}.png`;
-const UNKNOWN_LEGEND_IMG = 'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/unknown.png';
+    `/images/${(legend || 'unknown').toLowerCase()}.png`;
+const UNKNOWN_LEGEND_IMG = '/images/unknown.png';
 
 export type SearchBarProps = {
     onSearch: (query: string) => void;
@@ -33,9 +33,12 @@ const SearchBar = memo(({
     const rootRef = useRef<HTMLDivElement>(null);
     const { t } = useTranslation();
 
-    useEffect(() => {
+    // Parent bumps resetKey after a successful load → clear the box (during render, not in an effect).
+    const [seenResetKey, setSeenResetKey] = useState(resetKey);
+    if (seenResetKey !== resetKey) {
+        setSeenResetKey(resetKey);
         if (resetKey > 0) setLocalQuery('');
-    }, [resetKey]);
+    }
 
     useEffect(() => {
         const onPointerDown = (event: MouseEvent) => {

@@ -240,6 +240,8 @@ GEP 로스터는 매치당 최대 ~60명. 트래픽 가드:
 
 읽기 GET 캐시 요약: `history` 30s · `search-candidates` 60s · `apex-stats` 180s · `seasons` 1h. 클라이언트는 `t=Date.now()` 캐시 버스터를 붙이지 않음.
 
+`apex-stats`는 엣지 캐시 뒤에 DB 캐시가 한 겹 더 있다: `global_profiles.als_synced_at`이 uid 조회는 10분, 닉네임 조회는 30분 이내면 ALS bridge를 부르지 않고 DB 행을 돌려준다. `updated_at`은 GEP 로스터 upsert도 갱신하므로 신선도 판단에 쓰지 않는다. 클라이언트(`APIService.fetchUserStats`)는 같은 type+query 진행 중 요청을 하나로 합친다.
+
 ---
 
 ## 5. 클라이언트 로딩 전략
@@ -418,6 +420,8 @@ LocalDB                                     → summary + detail 캐시 merge
 | `seasons.version` | 경계 수정 시 bump → 클라이언트가 seasons/stats 재요청 |
 
 ### 8.3 Backfill 절차 (운영)
+
+> 아래 RPC 두 개는 **아직 구현되지 않았다.** 실제 전환 작업과 수동 재배정은 [SEASON-ROLLOVER.md](./SEASON-ROLLOVER.md)를 따른다.
 
 1. `public.seasons` insert/update
 2. `reassign_match_seasons(start_time_min, start_time_max)` RPC

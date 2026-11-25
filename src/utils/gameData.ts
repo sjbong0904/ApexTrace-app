@@ -33,6 +33,8 @@ export const SHORT_WEAPON_NAMES = (rawName: string | null): string | null => {
     // Akimbo names include the base pistol token — match those first.
     if (lower.includes('mozam') && lower.includes('akimbo')) return "MOZAMBIQUE AKIMBO";
     if (lower.includes('p2020') && lower.includes('akimbo')) return "P2020 AKIMBO";
+    if (lower.includes('wingman') && lower.includes('akimbo')) return "WINGMAN AKIMBO";
+    if (lower.includes('shotgun_pistol') || lower.includes('mozambique_cp')) return "MOZAMBIQUE AKIMBO";
 
     // Ambiguous substrings (R-301 vs R-99, C.A.R., G7) before the generic scan.
     if (lower.includes('r301') || lower.includes('r-301') || lower.includes('rspn101')) return "R-301";

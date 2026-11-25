@@ -96,17 +96,25 @@ const RankProgressChart = ({ uid, selectedSeasonId, seasons }: RankProgressChart
         [seasons, selectedSeasonId],
     );
 
+    const startDate = dateRange?.startDate;
+    const endDate = dateRange?.endDate;
+
+    // New profile / season: reset during render; the effect below only fetches.
+    const requestKey = uid && dateRange ? `${uid}|${startDate}|${endDate}` : null;
+    const [shownKey, setShownKey] = useState(requestKey);
+    if (shownKey !== requestKey) {
+        setShownKey(requestKey);
+        if (requestKey === null) setSnapshots([]);
+        setLoading(requestKey !== null);
+    }
+    if (requestKey === null && loading) setLoading(false);
+
     useEffect(() => {
-        if (!uid || !dateRange) {
-            setSnapshots([]);
-            setLoading(false);
-            return;
-        }
+        if (!uid || !startDate || !endDate) return;
 
         let cancelled = false;
-        setLoading(true);
 
-        fetchDailyRankSnapshots(uid, dateRange.startDate, dateRange.endDate)
+        fetchDailyRankSnapshots(uid, startDate, endDate)
             .then(rows => {
                 if (!cancelled) {
                     setSnapshots(rows);
@@ -123,7 +131,7 @@ const RankProgressChart = ({ uid, selectedSeasonId, seasons }: RankProgressChart
         return () => {
             cancelled = true;
         };
-    }, [uid, dateRange?.startDate, dateRange?.endDate]);
+    }, [uid, startDate, endDate]);
 
     const showChart = useMemo(() => hasRankProgressChartData(snapshots), [snapshots]);
 
@@ -217,7 +225,7 @@ const RankProgressChart = ({ uid, selectedSeasonId, seasons }: RankProgressChart
                             <div style={{ color: 'var(--color-text-muted)', marginBottom: '2px' }}>{t('statistics.overview.rankProgressChange')}</div>
                             <div style={{
                                 fontWeight: 'bold',
-                                color: summary.netChange > 0 ? '#4ade80' : summary.netChange < 0 ? 'var(--color-danger)' : 'var(--color-text-dim)',
+                                color: summary.netChange > 0 ? 'var(--color-success)' : summary.netChange < 0 ? 'var(--color-danger)' : 'var(--color-text-dim)',
                             }}>
                                 {formatDelta(summary.netChange)}
                             </div>
@@ -311,7 +319,7 @@ const RankProgressChart = ({ uid, selectedSeasonId, seasons }: RankProgressChart
                                                 {point.delta != null && (
                                                     <div style={{
                                                         marginTop: '4px',
-                                                        color: point.delta > 0 ? '#4ade80' : point.delta < 0 ? 'var(--color-danger)' : 'var(--color-text-faint)',
+                                                        color: point.delta > 0 ? 'var(--color-success)' : point.delta < 0 ? 'var(--color-danger)' : 'var(--color-text-faint)',
                                                     }}>
                                                         {t('statistics.overview.rankProgressTooltipDelta', { delta: formatDelta(point.delta) })}
                                                     </div>

@@ -8,7 +8,7 @@ type MaybeMatch = Partial<Match> & JsonObject;
 /** Background runtime keys that may ride along on live Store matches. */
 const PRIVATE_KEYS = ['startPos', 'endPos', 'isDead'];
 /** `_`-prefixed keys are runtime state except the client's own detail marker. */
-const KEEP_UNDERSCORE_KEYS = new Set(['_detailLoaded']);
+const KEEP_UNDERSCORE_KEYS = new Set(['_detailLoaded', '_detailVersion']);
 
 const isObject = (value: unknown): value is JsonObject =>
     typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -72,6 +72,9 @@ export const normalizeMatchForFrontend = (input: unknown): Match | null => {
         ultimatesUsed: toNumber(source.ultimatesUsed),
         headshots: toNumber(source.headshots),
         grenadeDamage: source.grenadeDamage as number | undefined,
+        damageHits: source.damageHits === undefined || source.damageHits === null
+            ? null
+            : toNumber(source.damageHits),
         rank: {
             name: toStringValue(rank.name, 'Unknown'),
             score: toNumber(rank.score),
@@ -94,7 +97,6 @@ export const normalizeMatchForFrontend = (input: unknown): Match | null => {
         events,
         teamStats: toArray(source.teamStats),
         teammateKills: toObject(source.teammateKills, {}),
-        isKillLeader: source.isKillLeader as boolean | undefined,
         missingSignals: Array.isArray(source.missingSignals) && source.missingSignals.length > 0
             ? source.missingSignals as string[]
             : undefined,

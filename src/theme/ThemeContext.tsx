@@ -1,22 +1,9 @@
-import { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import type { ReactNode } from 'react';
 import { type Theme, darkTheme, ALL_THEMES } from './themes';
+import { ThemeContext } from './useTheme';
 
 const STORAGE_KEY = 'apex-trace-theme';
-
-interface ThemeContextValue {
-  theme: Theme;
-  isDark: boolean;
-  toggleTheme: () => void;
-  setThemeById: (id: 'dark' | 'light') => void;
-}
-
-const ThemeContext = createContext<ThemeContextValue>({
-  theme: darkTheme,
-  isDark: true,
-  toggleTheme: () => {},
-  setThemeById: () => {},
-});
 
 function toKebab(key: string): string {
   return key.replace(/([A-Z])/g, '-$1').toLowerCase();
@@ -57,8 +44,4 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       {children}
     </ThemeContext.Provider>
   );
-}
-
-export function useTheme() {
-  return useContext(ThemeContext);
 }

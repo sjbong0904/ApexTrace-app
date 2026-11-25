@@ -1,4 +1,12 @@
-export const MAP_DATA: any = {
+/** Map image + world→percent transform. Remote (background BG_MAP_DATA) rows share this shape. */
+export interface MapConfig {
+    img: string | null;
+    scale: number;
+    xOffset: number;
+    yOffset: number;
+}
+
+export const MAP_DATA: Record<string, MapConfig> = {
     "Broken Moon": { "img": "broken_moon.png", "scale": 8.5, "xOffset": 2.5, "yOffset": 1 },
     "World's Edge": { "img": "worlds_edge_s30.png", "scale": 9.0, "xOffset": 0, "yOffset": 0 },
     "Olympus": { "img": "olympus.png", "scale": 9.0, "xOffset": 8, "yOffset": 3.5 },

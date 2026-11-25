@@ -1,22 +1,27 @@
 import React, { memo } from 'react';
 import { useTranslation } from 'react-i18next';
 import AdUnit from './AdUnit';
+import mapBg from '../assets/worlds-edge-decor.webp';
 
 const MemoAdUnit = memo(AdUnit);
 
-const RAIL_PAD_X = 16;
+/** 20px sides → 441px rail: ≥ 440px wide ad zone, so High Impact ads can be enabled later. */
+const RAIL_PAD_X = 20;
 export const ADS_RAIL_WIDTH = 1 + RAIL_PAD_X * 2 + 400;
 
-const MAP_BG =
-    'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/worlds_edge_s30.png';
-
-const AD_STACK_GAP = 14;
+const AD_STACK_GAP = 10;
+const RAIL_PAD_TOP = 10;
+const RAIL_PAD_BOTTOM = 10;
 
 /**
  * Right ad rail: map atmosphere + transparent ad slots (OW: parent bg transparent).
  *
+ * Same stack as Overwolf's 440×670 ad-zone layout: 400x60 on top, one gap, 400x600.
+ * Keep it this tight — the desktop window's min height (manifest min_size) is
+ * title bar 35 + 10 + 60 + 10 + 600 + 10, so 1366×768 screens still fit both ads.
+ *
  * - 400x60 pinned to top of the ad area
- * - 400x600 pinned to bottom (grows away from it when the window is taller)
+ * - 400x600 pinned to bottom via margin-top:auto (taller windows add space between them)
  */
 const AdsRail: React.FC<{ paused?: boolean }> = ({ paused = false }) => {
     const { t } = useTranslation();
@@ -35,7 +40,7 @@ const AdsRail: React.FC<{ paused?: boolean }> = ({ paused = false }) => {
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'center',
-                padding: `12px ${RAIL_PAD_X}px 10px`,
+                padding: `${RAIL_PAD_TOP}px ${RAIL_PAD_X}px ${RAIL_PAD_BOTTOM}px`,
                 gap: AD_STACK_GAP,
                 overflow: 'hidden',
                 flexShrink: 0,
@@ -62,7 +67,7 @@ const AdsRail: React.FC<{ paused?: boolean }> = ({ paused = false }) => {
                 style={{
                     position: 'absolute',
                     inset: 0,
-                    backgroundImage: `url(${MAP_BG})`,
+                    backgroundImage: `url(${mapBg})`,
                     backgroundSize: 'cover',
                     backgroundPosition: 'center',
                     filter: 'saturate(0.75) brightness(0.78)',
@@ -104,15 +109,14 @@ const AdsRail: React.FC<{ paused?: boolean }> = ({ paused = false }) => {
                     paused={paused}
                 />
 
-                {/* Flexible gap: window growth sits between banner and bottom unit. */}
-                <div style={{ flex: 1, minHeight: 0, width: '100%', background: 'transparent' }} aria-hidden />
-
+                {/* margin-top:auto (not a spacer element) so the stack has a single gap at min height. */}
                 <MemoAdUnit
                     width={400}
                     height={600}
                     containerId="at_400x600_d_bot"
                     transparent
                     paused={paused}
+                    style={{ marginTop: 'auto' }}
                 />
 
                 <div

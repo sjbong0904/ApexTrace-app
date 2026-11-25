@@ -47,14 +47,15 @@ ALS(Apex Legends Status) 예산(현재 키 기준 약 10 req/s)을 검색 엔진
 **대소문자 무시, exact only** (starts-with / contains 없음).
 
 ```text
-1) global_profiles.name  exact
-2) 없으면 profile_name_aliases.name_norm exact → 해당 uid의 프로필
-3) 둘 다 0건 → 클라이언트/프록시가 ALS player 검색
+1) global_profiles.name  exact  +  profile_name_aliases.name_norm exact (항상 둘 다 조회)
+   → 현닉 히트 먼저, 그 뒤 alias 히트 (중복 uid 제거, 각각 rank_score 순, 최대 30)
+2) 둘 다 0건 → 클라이언트/프록시가 ALS player 검색
       → uid + name upsert (+ rename이면 alias)
-4) DB 후보 2명+ → PlayerSelectionModal (ALS 스킵)
+3) DB 후보 2명+ → PlayerSelectionModal (ALS 스킵)
 ```
 
-- `/search-candidates`가 1·2를 담당. 응답 행에 `matchType`: `"name"` | `"alias"`.
+- `/search-candidates`가 1을 담당. 응답 행에 `matchType`: `"name"` | `"alias"`.
+- 예전에는 현닉 히트가 1건이라도 있으면 alias를 건너뛰어, 다른 플레이어가 지금 그 닉을 쓰는 경우 닉변한 유저가 검색되지 않았다 (2026-11-14 실측 alias 306개 중 37개).
 - alias 히트는 모달에 “Former name” 표시 (`playerModal.formerName`).
 - ALS 닉 검색 성공 시 uid·name을 `global_profiles`에 넣는 동작은 기존 `/apex-stats`와 동일.
 
@@ -79,6 +80,7 @@ GEP 로스터는 인원이 늘어날 때마다 전체 60명을 다시 보내지 
 
 규칙:
 
+0. 제어문자·U+FFFD가 섞인 닉(`isCorruptName`)은 현닉으로도 alias로도 저장하지 않는다. 구 클라이언트의 base64 이중 디코딩(`"HiRo"` → `"\x1e$h"`)이 만든 값이다. address-book은 해당 항목의 `name`만 버리고 나머지 필드는 반영한다. 기존 손상분 복구: `supabase/manual/repair_mangled_profile_names.sql`.
 1. 들어오는 닉이 기존 현닉과 norm이 같으면 alias 작업 최소(현닉과 겹치는 alias만 제거).
 2. 다르면 옛 현닉을 alias upsert, 현닉 갱신.
 3. UID당 alias가 3 초과면 `seen_at`이 가장 오래된 것부터 삭제.

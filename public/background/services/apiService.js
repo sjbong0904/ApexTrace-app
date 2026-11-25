@@ -7,10 +7,23 @@ const parseJsonArrayHistory = (text) => {
     return Array.isArray(json.history) ? json.history : [];
 };
 
+/** In-flight /apex-stats requests by type+query: concurrent profile loads share one ALS call. */
+const inflightUserStats = new Map();
+
 const APIService = {
-    fetchUserStats: async (query, type) => {
+    fetchUserStats: (query, type) => {
+        if (!query) return Promise.resolve(null);
+        const key = `${type}:${query}`;
+        const pending = inflightUserStats.get(key);
+        if (pending) return pending;
+        const task = APIService._fetchUserStats(query, type)
+            .finally(() => inflightUserStats.delete(key));
+        inflightUserStats.set(key, task);
+        return task;
+    },
+
+    _fetchUserStats: async (query, type) => {
         const API_BASE_URL = getApiBaseUrl();
-        if (!query) return null;
         const safeQuery = encodeURIComponent(query);
         const url = `${API_BASE_URL}/apex-stats?query=${safeQuery}&type=${type}`;
 

@@ -555,17 +555,31 @@ export const calculateStats = (matches: MatchHistory[]) => {
     const totalTop5 = usable.filter(m => getMatchPlacement(m) <= 5).length;
     const totalDeaths = usable.reduce((sum, m) => sum + getMatchDeaths(m), 0);
     const totalTime = usable.reduce(
-        (sum, m: any) => sum + toGameElapsedMs((m.endTime || Date.now()) - m.startTime),
+        // Number(): a missing startTime stays NaN, as before.
+        (sum, m) => sum + toGameElapsedMs((m.endTime || Date.now()) - Number(m.startTime)),
         0,
     );
     const totalPlacement = usable.reduce((sum, m) => sum + getMatchPlacement(m), 0);
     const maxKills = Math.max(...usable.map(m => m.kills || 0));
-    const totalsquadKills = usable.reduce((sum, m: any) => sum + (m.squadKills || 0), 0);
+    const totalsquadKills = usable.reduce((sum, m) => sum + (m.squadKills || 0), 0);
     const topLegend = aggregateLegendStatsForMatches(usable)[0];
     const topWeapon = aggregateWeaponStatsForMatches(usable)[0];
-    const myContribution = totalKills + (totalAssists * 0.5);
-    const actualSquadKills = totalsquadKills > 0 ? totalsquadKills : (totalKills || 1);
-    const contributionRate = (myContribution / actualSquadKills) * 100;
+    // Kill contribution only over matches that recorded squad kills — a missing squadKills (legacy
+    // capture / 0 team kills) used to fall back to the player's own kills and pin this at 100%.
+    let contribNumerator = 0;
+    let contribDenominator = 0;
+    for (const m of usable) {
+        const squad = Number(m.squadKills) || 0;
+        if (squad <= 0) continue;
+        const kills = m.kills || 0;
+        contribNumerator += kills + (m.assists || 0) * 0.5;
+        contribDenominator += Math.max(squad, kills);
+    }
+    const contributionRate = contribDenominator > 0 ? (contribNumerator / contribDenominator) * 100 : null;
+    // Knocks: only matches that recorded them (null = untrusted/legacy capture).
+    const knockMatches = usable.filter((m) => m.knocks != null);
+    const totalKnocks = knockMatches.reduce((sum, m) => sum + (m.knocks || 0), 0);
+    const knockMatchKills = knockMatches.reduce((sum, m) => sum + (m.kills || 0), 0);
 
     return {
         matches: totalMatches,
@@ -592,8 +606,13 @@ export const calculateStats = (matches: MatchHistory[]) => {
         avgKills: (totalKills / totalMatches).toFixed(1),
         avgPlacement: (totalPlacement / totalMatches).toFixed(1),
         maxKills,
+        /** null when no match recorded knocks. */
+        avgKnocks: knockMatches.length > 0 ? (totalKnocks / knockMatches.length).toFixed(1) : null,
+        /** Kills ÷ knocks (%), capped at 100 — kills on teammate knocks can push it over. */
+        knockToKillRate: totalKnocks > 0 ? Math.min((knockMatchKills / totalKnocks) * 100, 100).toFixed(1) : null,
         squadKills: totalsquadKills,
         assists: totalAssists,
-        lograte: Math.min(contributionRate, 100).toFixed(1)
+        /** null when no match in the set recorded squad kills. */
+        lograte: contributionRate === null ? null : Math.min(contributionRate, 100).toFixed(1),
     };
 };

@@ -98,7 +98,8 @@ export interface OverviewStatsInput {
     kd: number | string;
     kda: number | string;
     avgPlacement: number | string;
-    lograte: number | string;
+    /** null when no match recorded squad kills. */
+    lograte: number | string | null;
     avgDamage: number;
     avgTimeSec: number;
 }
@@ -122,17 +123,21 @@ export const computeOverviewAnalytics = (
     const scoreSurvTime = logScore(stats.avgTimeSec, 180, 1020);
     const scoreMacro = strictify(scorePlace * 0.65 + scoreSurvTime * 0.35);
 
-    const scoreTeam = Math.max(0, Math.min(100, killContrib));
+    // No squad-kill data → team axis unknown: draw it at 0 but leave it out of the total.
+    const hasTeam = Number.isFinite(killContrib);
+    const scoreTeam = hasTeam ? Math.max(0, Math.min(100, killContrib)) : 0;
 
     const { match: bestPeakMatch, score: scorePeak } = findBestPeakMatch(matches);
 
-    const weightedScore = Math.max(0, Math.min(100,
+    const teamWeight = hasTeam ? SCORE_WEIGHTS.team : 0;
+    const weightSum = SCORE_WEIGHTS.combat + SCORE_WEIGHTS.damage + SCORE_WEIGHTS.macro + teamWeight + SCORE_WEIGHTS.peak;
+    const weightedScore = Math.max(0, Math.min(100, (
         scoreCombat * SCORE_WEIGHTS.combat +
         scoreDamage * SCORE_WEIGHTS.damage +
         scoreMacro * SCORE_WEIGHTS.macro +
-        scoreTeam * SCORE_WEIGHTS.team +
-        scorePeak * SCORE_WEIGHTS.peak,
-    ));
+        scoreTeam * teamWeight +
+        scorePeak * SCORE_WEIGHTS.peak
+    ) / weightSum));
 
     let tier = 'None';
     if (weightedScore >= 97) tier = 'SSS';

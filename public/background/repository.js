@@ -46,7 +46,7 @@
             const PROXY_BASE_URL = getProxyBaseUrl();
             if (!name || name.trim().length < 1) return [];
             
-            const cleanName = window.Utils ? window.Utils.cleanName(name) : name;
+            const cleanName = window.Utils ? window.Utils.stripNameDecorations(name) : name;
             
             try {
                 const encodedName = encodeURIComponent(cleanName);
@@ -80,7 +80,7 @@
             };
 
             if (name && name.trim().length > 0) {
-                updateData.name = window.Utils ? window.Utils.cleanName(name) : name;
+                updateData.name = window.Utils ? window.Utils.stripNameDecorations(name) : name;
             }
 
             if (stats.linked_uid) updateData.linked_uid = String(stats.linked_uid);
@@ -104,7 +104,7 @@
             const updates = [];
     
             rosterList.forEach(u => {
-                const cleanName = window.Utils ? window.Utils.cleanName(u.name) : u.name;
+                const cleanName = window.Utils ? window.Utils.stripNameDecorations(u.name) : u.name;
                 if (cleanName && cleanName.trim().length > 0) {
                     updates.push({
                         uid: String(u.uid),
@@ -168,6 +168,10 @@
             const result = await requestProxy('/history', 'POST', { uid, match: matchData });
             
             if (result && result.success) {
+                // GEP RP that arrived before this upload (pending_rp) was pinned server-side.
+                if (result.rpApplied && typeof window.CoreController?.onRemoteRpApplied === 'function') {
+                    window.CoreController.onRemoteRpApplied(result.rpApplied);
+                }
                 window.Utils.matchLog('Saved via proxy', {
                     matchId: matchData?.matchId,
                     missingSignals: matchData?.missingSignals,
@@ -222,7 +226,35 @@
         }
     };
 
+    /** GEP player_stats snapshots of the local player (POST/GET /account-stats). */
+    const AccountStatsModule = {
+        save: async (uid, { name = null, legend = null, snapshot } = {}) => {
+            if (!uid || !snapshot) return null;
+            try {
+                const res = await fetch(`${getProxyBaseUrl()}/account-stats`, {
+                    method: 'POST',
+                    // Simple request (no CORS preflight), same as /rank-snapshots.
+                    headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
+                    body: JSON.stringify({ uid: String(uid), name, legend, snapshot }),
+                });
+                if (res.status === 404) return null; // proxy not deployed yet
+                return await res.json().catch(() => null);
+            } catch (e) {
+                console.warn('[Repository] account-stats save failed:', e);
+                return null;
+            }
+        },
+
+        fetch: async (uid) => {
+            if (!uid) return null;
+            const res = await requestProxy(`/account-stats?uid=${encodeURIComponent(uid)}`, 'GET');
+            return res?.success ? (res.data ?? null) : null;
+        },
+    };
+
     window.CloudRepository = {
+        saveAccountStats: AccountStatsModule.save,
+        fetchAccountStats: AccountStatsModule.fetch,
         findUidByName: async (name) => {
             const candidates = await AddressBookModule.findCandidatesByName(name);
             return candidates.length > 0 ? candidates[0].uid : null;

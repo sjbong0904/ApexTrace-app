@@ -1,8 +1,18 @@
 import React, { useEffect, useRef } from 'react';
 
+/** Overwolf ads SDK (owads.min.js) — only the members this wrapper uses. */
+interface OwAdInstance {
+    shutdown(): void | Promise<void>;
+}
+type OwAdConstructor = new (
+    container: HTMLElement,
+    options: { size: { width: number; height: number }; containerId?: string },
+) => OwAdInstance;
+
 declare global {
     interface Window {
-        OwAd: any;
+        /** Set by owads.min.js once it loads. */
+        OwAd?: OwAdConstructor;
     }
 }
 
@@ -26,7 +36,7 @@ const OWADS_READY = 'owads-ready';
 const OWADS_FAILED = 'owads-failed';
 
 type WaitHandle = {
-    promise: Promise<typeof window.OwAd>;
+    promise: Promise<OwAdConstructor>;
     cancel: () => void;
 };
 
@@ -43,7 +53,7 @@ function waitForOwAd(timeoutMs = 15000): WaitHandle {
     const onReady = () => finish(true);
     const onFail = () => finish(false);
 
-    let resolveFn: (value: typeof window.OwAd) => void = () => {};
+    let resolveFn: (value: OwAdConstructor) => void = () => {};
     let rejectFn: (reason?: unknown) => void = () => {};
 
     const finish = (ok: boolean) => {
@@ -56,7 +66,7 @@ function waitForOwAd(timeoutMs = 15000): WaitHandle {
         else rejectFn(new Error('OwAd SDK failed to load'));
     };
 
-    const promise = new Promise<typeof window.OwAd>((resolve, reject) => {
+    const promise = new Promise<OwAdConstructor>((resolve, reject) => {
         resolveFn = resolve;
         rejectFn = reject;
         timer = window.setTimeout(() => finish(typeof window.OwAd !== 'undefined'), timeoutMs);
@@ -87,7 +97,7 @@ const AdUnit: React.FC<AdUnitProps> = ({
     paused = false,
 }) => {
     const adContainerRef = useRef<HTMLDivElement>(null);
-    const adInstance = useRef<any>(null);
+    const adInstance = useRef<OwAdInstance | null>(null);
 
     useEffect(() => {
         let cancelled = false;

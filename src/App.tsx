@@ -3,24 +3,28 @@ import ResizeHandles from './components/ResizeHandle';
 import { CONTENT_MAX_WIDTH, NARROW_LAYOUT_WIDTH, useWindowAutoResize } from './hooks/useWindowAutoResize';
 import Navigation from './components/Navigation';
 import InlineProfileSection from './components/InlineProfileSection';
-import type { Match, User } from './types';
-import MapVisualizer from './components/MapVisualizer';
-import CombatLog from './components/CombatLog';
-import MatchDetailTabs, { MatchLoadoutPanel, MatchStatsPanel } from './components/MatchDetailTabs';
+import type { Match, PlayerCandidate, User } from './types';
 import StatisticsTab from './components/StatisticsTab';
+import MatchDetailBody from './components/MatchDetailBody';
+import MatchAccordion from './components/MatchAccordion';
 import TierTableTab from './components/TierTableTab';
-import { formatRelativeTime, getRankColor, getRelativeTime, normalizeMapDisplayName } from './utils/helpers';
-import { FaSync, FaQuestionCircle, FaList, FaStar, FaChartBar, FaCog, FaThList } from 'react-icons/fa';
+import { formatFullRankName, formatRelativeTime, getAvgDamageColor, getRankColor, getRelativeTime, normalizeMapDisplayName } from './utils/helpers';
+import { FaSync, FaQuestionCircle, FaList, FaStar, FaChartBar, FaCog, FaThList, FaUser } from 'react-icons/fa';
 import { isIncompleteMatchStats } from './utils/match';
 import PlayerSelectionModal from './components/PlayerSelectionModal';
 import AdsRail, { ADS_RAIL_WIDTH } from './components/AdsRail';
+import PremiumDialog from './components/PremiumDialog';
+import FirstRunPanel from './components/FirstRunPanel';
+import DemoBanner, { type DemoTask } from './components/DemoBanner';
+import { isDemoEligible, loadDemoProfile, retireDemo, reviveDemo, REPLAY_PLAYED_EVENT, type DemoProfile } from './utils/demoMode';
+import { buildRecentComparison, type RecentComparison } from './utils/matchComparison';
 import SettingsTab from './components/SettingsTab';
 import SearchBar from './components/SearchBar';
-import { startTutorial } from './utils/tutorial';
+import { startDemoTour, startTutorial } from './utils/tutorial';
 import WindowControls from './components/WindowControls';
 import { LocalDB } from './utils/LocalDB';
 import { normalizeHistoryForFrontend, normalizeMatchForFrontend } from './utils/matchNormalizer';
-import { hasMatchDetail, mergeMatchDetail, markMatchDetailLoaded } from './utils/matchDetail';
+import { isMatchDetailFresh, mergeMatchDetail, markMatchDetailLoaded } from './utils/matchDetail';
 import { invalidatePlayerStatsCache } from './utils/playerStatsApi';
 import {
     getOldestMatchTime,
@@ -29,6 +33,8 @@ import {
     MATCH_SAVED_MESSAGE,
     mergeAndSortHistory,
     preferRicherMatch,
+    reuseUnchangedHistory,
+    shallowEqualRecord,
     type MatchSavedPayload,
     withLiveMatchProtection,
 } from './utils/historySync';
@@ -40,7 +46,10 @@ import HotkeyReminder from './components/HotkeyReminder';
 import AppSelect from './components/AppSelect';
 import { useTranslation } from 'react-i18next';
 import { APP_LANGUAGES } from './constants/languages';
-import { getSelectableSeasons, resolveCurrentSeasonId, resolveSeasonEndMs } from './utils/seasons';
+import { resolveCurrentSeasonId } from './utils/seasons';
+import { useSeasonsWithData } from './utils/seasonAvailability';
+import { groupSeasons, getSelectionRange, readWholeSeason, storeWholeSeason } from './utils/seasonGroups';
+import SeasonPicker from './components/SeasonPicker';
 import {
     clearRecentSearches,
     loadRecentSearches,
@@ -84,34 +93,21 @@ const ProfileLoadingOverlay = ({ label }: { label: string }) => (
     </div>
 );
 
-const getTabStyle = (isActive: boolean): React.CSSProperties => ({
-    padding: '8px 16px',
-    cursor: 'pointer',
-    fontSize: '13px',
-    fontWeight: 'bold',
-    color: isActive ? 'var(--color-text-primary)' : 'var(--color-text-faint)',
-    borderTop: 'none',
-    borderLeft: 'none',
-    borderRight: 'none',
-    borderBottom: isActive ? '2px solid var(--color-text-primary)' : '2px solid transparent',
-    background: 'transparent',
-    outline: 'none',
-    boxShadow: 'none',
-    transition: 'all 0.2s',
-});
 
 const App = () => {
     const { t, i18n } = useTranslation();
     const [SEASONS, setSeasons] = useState<Season[]>(FALLBACK_SEASONS);
     /** TEMP local preview — set back to false before store QA / commit. */
-    const isPremium = false;
+    const isPremium = true;
     /** false until window name is known — avoids mounting AdsRail on in-game briefly */
     const [isDesktopWindow, setIsDesktopWindow] = useState(false);
-    const [history, setHistory] = useState<any[]>([]);
+    const [history, setHistory] = useState<Match[]>([]);
     const [user, setUser] = useState<User>({ name: t('search.defaultName'), level: 0, prestige: 0, rankName: '-', rankScore: 0, legend: 'unknown', avatar: null, uid: null });
     const [selectedSeasonId, setSelectedSeasonId] = useState<number>(
         () => resolveCurrentSeasonId(FALLBACK_SEASONS) ?? FALLBACK_SEASONS[0].id,
     );
+    /** Split buttons: false = the split in selectedSeasonId, true = every split of that season. */
+    const [wholeSeason, setWholeSeason] = useState<boolean>(readWholeSeason);
     const [expandedMatchIds, setExpandedMatchIds] = useState<string[]>([]);
     const [loadingDetailMatchId, setLoadingDetailMatchId] = useState<string | null>(null);
     const detailPrefetchRef = useRef<Map<string, Promise<Match | null>>>(new Map());
@@ -149,7 +145,7 @@ const App = () => {
 
         const tryLoadSeasons = () => {
             if (cancelled) return;
-            const bg = overwolf.windows.getMainWindow() as any;
+            const bg = overwolf.windows.getMainWindow();
             if (bg?.SEASONS && bg.SEASONS.length > 0) {
                 setSeasons(bg.SEASONS);
                 return;
@@ -172,17 +168,22 @@ const App = () => {
         }
     }, [SEASONS]);
 
-    const selectableSeasons = useMemo(
-        () => getSelectableSeasons(SEASONS),
-        [SEASONS],
-    );
+    const seasonGroups = useMemo(() => groupSeasons(SEASONS), [SEASONS]);
+
+    /** Dropdown seasons: only those where the viewed player has stored matches (+ the current season). */
+    const pickerSeasons = useSeasonsWithData(user.uid, SEASONS);
+    useEffect(() => {
+        if (pickerSeasons.some((s) => s.id === selectedSeasonId)) return;
+        const next = resolveCurrentSeasonId(pickerSeasons);
+        if (next != null) setSelectedSeasonId(next);
+    }, [pickerSeasons, selectedSeasonId]);
 
     useEffect(() => {
         setCurrentPage(1);
         if (mainScrollRef.current) {
             mainScrollRef.current.scrollTo({ top: 0, behavior: 'smooth' });
         }
-    }, [activeTab, selectedSeasonId, user.uid]);
+    }, [activeTab, selectedSeasonId, wholeSeason, user.uid]);
 
     useWindowAutoResize(1680, 920);
 
@@ -193,11 +194,11 @@ const App = () => {
     const profileLoadGenerationRef = useRef(0);
     const historyFlushEnabledRef = useRef(false);
     const handleSelectUserRef = useRef<(
-        selectedUser: any,
+        selectedUser: SelectableProfile,
         skipTabSwitch?: boolean,
-        preloaded?: { data: any; history?: any[] },
+        preloaded?: { data: BgProfile; history?: unknown[] },
     ) => Promise<void>>(async () => {});
-    const [searchCandidates, setSearchCandidates] = useState<any[]>([]); 
+    const [searchCandidates, setSearchCandidates] = useState<PlayerCandidate[]>([]);
     const [showSearchModal, setShowSearchModal] = useState(false);
     const [pinnedUid, setPinnedUid] = useState<string | null>(localStorage.getItem('apex_pinned_uid'));
     const [favorites, setFavorites] = useState<User[]>(() => {
@@ -275,30 +276,30 @@ const App = () => {
     };
 
     const mergeHistoryForUser = useCallback((
-        prev: any[],
-        freshUser: any,
-        rawHistory: any[],
+        prev: Match[],
+        freshUser: { uid: string | null },
+        rawHistory: unknown[],
         previousUserUid?: string | null
     ) => {
         const newMatches = normalizeHistoryForFrontend(rawHistory);
         if (prev.length > 0 && previousUserUid && String(previousUserUid) !== String(freshUser.uid)) {
-            return newMatches.sort((a: any, b: any) => (b.startTime || b.endTime) - (a.startTime || a.endTime));
+            return newMatches.sort((a, b) => (b.startTime || b.endTime) - (a.startTime || a.endTime));
         }
 
-        const uniqueMap = new Map<string, any>();
+        const uniqueMap = new Map<string, Match>();
         prev.forEach(m => uniqueMap.set(m.matchId, m));
-        newMatches.forEach((m: any) => {
+        newMatches.forEach((m) => {
             uniqueMap.set(m.matchId, preferRicherMatch(uniqueMap.get(m.matchId), m));
         });
 
-        return Array.from(uniqueMap.values()).sort((a: any, b: any) =>
+        return Array.from(uniqueMap.values()).sort((a, b) =>
             (b.startTime || b.endTime) - (a.startTime || a.endTime)
         );
     }, []);
 
     const applyProfileToUi = useCallback((
-        freshUser: any,
-        rawHistory: any[] = [],
+        freshUser: BgProfile,
+        rawHistory: unknown[] = [],
         options?: { skipTabSwitch?: boolean }
     ) => {
         const previousUserUid = userRef.current?.uid ?? null;
@@ -358,7 +359,7 @@ const App = () => {
         });
 
         // Only this window — in-game minimize must not pause desktop 2nd-screen ads (STORE-QA #2)
-        const onWindowStateChanged = (state: any) => {
+        const onWindowStateChanged = (state: overwolf.windows.WindowStateChangedEvent) => {
             if (currentWindowId && state.window_id && state.window_id !== currentWindowId) return;
             const stateEx = String(state.window_state_ex || state.window_state || '').toLowerCase();
             if (stateEx === 'maximized') {
@@ -390,7 +391,8 @@ const App = () => {
     }, [mainTab]);
 
     useEffect(() => {
-        if (!user?.uid || (user.level ?? 0) > 0) return;
+        // While handleSelectUser / refresh is loading, its own ALS call is in flight — don't add a second.
+        if (!user?.uid || (user.level ?? 0) > 0 || isProfileLoading) return;
 
         const fetchDetail = async () => {
             const requestUid = userRef.current?.uid;
@@ -418,7 +420,7 @@ const App = () => {
         void fetchDetail();
         const intervalId = setInterval(fetchDetail, 300000);
         return () => clearInterval(intervalId);
-    }, [user.uid, user.level, applyProfileToUi, isViewingUid]);
+    }, [user.uid, user.level, isProfileLoading, applyProfileToUi, isViewingUid]);
 
     const handleTogglePin = () => {
         if (!user || !user.uid) return;
@@ -431,8 +433,10 @@ const App = () => {
         }
     };
 
-    const handleToggleFavorite = (arg?: any) => {
-        const targetUser = (arg && arg.uid) ? arg : user;
+    /** Click handler (arg = the click event → current profile) or called with a profile to toggle. */
+    const handleToggleFavorite = (arg?: unknown) => {
+        const candidate = arg as Partial<User> | undefined;
+        const targetUser = (candidate && candidate.uid) ? candidate as User : user;
         if (!targetUser || !targetUser.uid) return;
         setFavorites(prevFavs => {
             const exists = prevFavs.some(f => String(f.uid) === String(targetUser.uid));
@@ -450,7 +454,7 @@ const App = () => {
     }, [favorites, user.uid]);
 
     const fetchData = useCallback(() => {
-        const bg = window.overwolf?.windows?.getMainWindow() as any;
+        const bg = window.overwolf?.windows?.getMainWindow();
         const currentUser = userRef.current;
 
         if (!bg?.apexData) return;
@@ -473,8 +477,18 @@ const App = () => {
                             ...bgUser,
                             uid: bgUser.uid ?? prev.uid,
                         };
-                        if ((prev.level ?? 0) > (bgUser.level ?? 0)) merged.level = prev.level;
-                        if ((prev.rankScore ?? 0) > (bgUser.rankScore ?? 0)) merged.rankScore = prev.rankScore;
+                        // Compare total level: level resets to 1 on prestige.
+                        const totalOf = (u: { level?: number; prestige?: number } | null | undefined) =>
+                            (u?.prestige ?? 0) * 500 + (u?.level ?? 0);
+                        if (totalOf(prev) > totalOf(bgUser)) {
+                            merged.level = prev.level;
+                            merged.prestige = prev.prestige;
+                        }
+                        // RP can drop (losses), so never keep the higher one — only cover a missing value.
+                        const bgRp = Number(bgUser.rankScore);
+                        if (!Number.isFinite(bgRp) || (bgRp === 0 && (prev.rankScore ?? 0) > 0)) {
+                            merged.rankScore = prev.rankScore;
+                        }
                         if (
                             prev.name
                             && prev.name !== 'Search for a player...'
@@ -482,7 +496,8 @@ const App = () => {
                         ) {
                             merged.name = prev.name;
                         }
-                        return merged;
+                        // Same profile as before → keep the old object (no App re-render on every poll).
+                        return shallowEqualRecord(prev as unknown as Record<string, unknown>, merged as unknown as Record<string, unknown>) ? prev : merged;
                     });
                 }
             }
@@ -497,14 +512,15 @@ const App = () => {
 
         if (!canSyncHistory) return;
 
-        const liveMatches = (bg.apexData.getHistory() || []).filter((m: any) => isSupportedMode(m.mode));
+        const liveMatches = (bg.apexData.getHistory() || []).filter((m) => isSupportedMode(m.mode));
         if (liveMatches.length === 0) return;
 
-        setHistory((prev) => withLiveMatchProtection(
+        // 30s poll: keep the same array/objects when nothing changed, so the list doesn't re-render.
+        setHistory((prev) => reuseUnchangedHistory(prev, withLiveMatchProtection(
             mergeAndSortHistory(prev, liveMatches),
             prev,
             viewingUid,
-        ));
+        )));
     }, []);
 
     useEffect(() => {
@@ -530,18 +546,18 @@ const App = () => {
         try {
             const bg = window.overwolf?.windows?.getMainWindow();
             if (bg && bg.apexData) {
-                const timeoutPromise = new Promise((_, reject) => 
+                const timeoutPromise = new Promise<never>((_, reject) =>
                     setTimeout(() => reject(new Error("TIMEOUT")), 8000)
                 );
 
                 const query = submittedQuery.trim().toLowerCase();
                 const isNumeric = /^\d+$/.test(query);
 
-                let finalCandidates: any[] = [];
-                let exactMatchUser: any = null;
+                let finalCandidates: PlayerCandidate[] = [];
+                let exactMatchUser: BgProfile | null = null;
 
                 if (isNumeric) {
-                    const uidResult: any = await Promise.race([
+                    const uidResult = await Promise.race([
                         bg.apexData.getUserDetail(query),
                         timeoutPromise
                     ]);
@@ -558,7 +574,7 @@ const App = () => {
                     return;
                 } else {
                     const searchPromise = bg.apexData.searchUser(query);
-                    const result: any = await Promise.race([searchPromise, timeoutPromise]);
+                    const result = await Promise.race([searchPromise, timeoutPromise]);
 
                     if (result.success) {
                         exactMatchUser = result.data;
@@ -593,7 +609,7 @@ const App = () => {
                     String(exactMatchUser.uid) === query
                 );
 
-                if (isValidExactMatch) {
+                if (isValidExactMatch && exactMatchUser) {
                     await handleSelectUser(exactMatchUser);
                 } 
                 else if (uniqueCandidates.length === 1) {
@@ -607,15 +623,15 @@ const App = () => {
                     showTemporaryStatus(t('search.notFoundExact'));
                 }
             }
-        } catch (error: any) {
+        } catch (error) {
             console.error("Search Logic Error:", error);
-            setStatusMessage(error.message === "TIMEOUT" ? t('search.serverTimeout') : t('search.error'));
+            setStatusMessage((error as Error | undefined)?.message === "TIMEOUT" ? t('search.serverTimeout') : t('search.error'));
         } finally {
             setIsSearching(false);
         }
     };
 
-    const stageSelectedUserForLoad = (selectedUser: any) => {
+    const stageSelectedUserForLoad = (selectedUser: SelectableProfile) => {
         if (!selectedUser?.uid) return;
 
         const previousUserUid = userRef.current?.uid ?? null;
@@ -632,16 +648,37 @@ const App = () => {
             level: selectedUser.level ?? (uidChanged ? 0 : prev.level),
             prestige: selectedUser.prestige ?? prev.prestige ?? 0,
             rankScore: selectedUser.rankScore ?? selectedUser.rank_score ?? (uidChanged ? 0 : prev.rankScore),
-            rankName: selectedUser.rankName ?? selectedUser.rank_name ?? prev.rankName,
-            legend: selectedUser.legend ?? prev.legend ?? 'unknown',
-            avatar: selectedUser.avatar ?? prev.avatar ?? null,
+            rankName: selectedUser.rankName ?? selectedUser.rank_name ?? (uidChanged ? 'Unranked' : prev.rankName),
+            legend: selectedUser.legend ?? (uidChanged ? 'unknown' : prev.legend ?? 'unknown'),
+            avatar: selectedUser.avatar ?? (uidChanged ? null : prev.avatar ?? null),
         }));
     };
 
+    /** Paint legend/rank from the stored global_profiles row while ALS is still in flight. */
+    const applyStoredProfilePreview = (uid: string, row: StoredProfileRow | null) => {
+        if (!row) return;
+        setUser((prev) => {
+            if (String(prev.uid) !== String(uid)) return prev;
+            const rowLevel = Number(row.level) || 0;
+            const rowScore = row.rank_score ?? row.rankScore;
+            return {
+                ...prev,
+                level: prev.level > 0 ? prev.level : rowLevel,
+                prestige: prev.level > 0 ? prev.prestige : (Number(row.prestige) || 0),
+                rankScore: prev.rankScore > 0 ? prev.rankScore : (Number(rowScore) || 0),
+                rankName: prev.rankName && prev.rankName !== 'Unranked'
+                    ? prev.rankName
+                    : formatFullRankName(row.rank_name ?? row.rankName, row.rank_div ?? row.rankDiv),
+                legend: prev.legend && prev.legend !== 'unknown' ? prev.legend : (row.legend ?? prev.legend),
+                avatar: prev.avatar ?? row.avatar ?? null,
+            };
+        });
+    };
+
     const handleSelectUser = async (
-        selectedUser: any,
+        selectedUser: SelectableProfile,
         skipTabSwitch: boolean = false,
-        preloaded?: { data: any; history?: any[] }
+        preloaded?: { data: BgProfile; history?: unknown[] }
     ) => {
         setShowSearchModal(false);
         setIsSearching(true);
@@ -668,8 +705,8 @@ const App = () => {
                 }
 
                 const historyPromise = bg.apexData.fetchUserHistory?.(selectedUser.uid)
-                    ?? Promise.resolve([] as any[]);
-                historyPromise.then((earlyHistory: any[]) => {
+                    ?? Promise.resolve([] as unknown[]);
+                historyPromise.then((earlyHistory) => {
                     if (loadGeneration !== profileLoadGenerationRef.current) return;
 
                     const normalized = normalizeHistoryForFrontend(earlyHistory ?? [])
@@ -686,9 +723,20 @@ const App = () => {
                     void LocalDB.saveMatches(selectedUser.uid, normalized);
                 });
 
+                // Teammate / pinned clicks carry only { uid, name }: show the stored row first.
+                let profileSettled = false;
+                const storedProfilePromise: Promise<StoredProfileRow | null> | undefined =
+                    bg.apexData.fetchStoredProfile?.(selectedUser.uid);
+                storedProfilePromise?.then((row) => {
+                    if (profileSettled || loadGeneration !== profileLoadGenerationRef.current) return;
+                    applyStoredProfilePreview(selectedUser.uid, row);
+                });
+
                 const result = await bg.apexData.getUserDetail(selectedUser.uid, selectedUser, {
                     preloadedHistory: historyPromise,
+                    ...(storedProfilePromise ? { preloadedDbInfo: storedProfilePromise } : {}),
                 });
+                profileSettled = true;
 
                 if (loadGeneration !== profileLoadGenerationRef.current) return;
                 
@@ -701,7 +749,8 @@ const App = () => {
                             rankScore: selectedUser.rankScore || selectedUser.rank_score || 0,
                             rankName: selectedUser.rankName || selectedUser.rank_name || "Unknown",
                             _source: 'UI_CACHE'
-                        }, [], { skipTabSwitch: true });
+                        // UI-cache fallback: may lack prestige/legend/avatar, exactly as before typing.
+                        } as BgProfile, [], { skipTabSwitch: true });
                         loadedSuccessfully = true;
                         return; 
                     } else {
@@ -710,7 +759,7 @@ const App = () => {
                     }
                 }
 
-                let freshUser = result.data;
+                const freshUser = result.data;
 
                 if (!freshUser.name || freshUser.name.trim() === "") {
                     if (selectedUser.name) {
@@ -760,7 +809,8 @@ const App = () => {
                     showTemporaryStatus(t('search.notFoundApi'));
                 }
             }
-        } catch (e) {
+        } catch {
+            // Fallback search failed: nothing to show, the spinner just stops.
         } finally {
             setIsSearching(false);
         }
@@ -771,7 +821,7 @@ const App = () => {
         if (!uid) return null;
 
         const existing = historyRef.current.find((m) => m.matchId === matchId);
-        if (existing && hasMatchDetail(existing)) {
+        if (existing && isMatchDetailFresh(existing)) {
             return existing;
         }
 
@@ -808,9 +858,15 @@ const App = () => {
 
     const prefetchMatchDetail = useCallback((matchId: string) => {
         const existing = historyRef.current.find((m) => m.matchId === matchId);
-        if (existing && hasMatchDetail(existing)) return;
+        if (existing && isMatchDetailFresh(existing)) return;
         void ensureMatchDetail(matchId);
     }, [ensureMatchDetail]);
+
+    /** After a match opens, bring its whole row (header + detail) into view. */
+    const scrollMatchIntoView = useCallback((accordionEl: HTMLElement) => {
+        const row = accordionEl.closest('[data-match-id]') ?? accordionEl;
+        row.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }, []);
 
     const handleMatchToggle = useCallback(async (matchId: string) => {
         if (expandedMatchIds.includes(matchId)) {
@@ -821,30 +877,120 @@ const App = () => {
         setLoadingDetailMatchId(matchId);
         try {
             await ensureMatchDetail(matchId);
+            // MatchAccordion scrolls the row into view once its open animation ends.
             setExpandedMatchIds((prev) => [...prev, matchId]);
         } finally {
             setLoadingDetailMatchId((current) => (current === matchId ? null : current));
         }
     }, [expandedMatchIds, ensureMatchDetail]);
+
+    /**
+     * First recorded match ever on this device: celebrate it once and open it.
+     * Only when history goes from empty to exactly one match (existing users load many at once).
+     */
+    const [firstRecordId, setFirstRecordId] = useState<string | null>(null);
+    useEffect(() => {
+        if (history.length === 0) return;
+        let seen = false;
+        try { seen = localStorage.getItem('first_record_seen') === '1'; } catch { /* ignore */ }
+        if (seen) return;
+        try { localStorage.setItem('first_record_seen', '1'); } catch { /* ignore */ }
+        if (history.length !== 1 || !history[0]?.matchId) return;
+        setFirstRecordId(history[0].matchId);
+        void handleMatchToggle(history[0].matchId);
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- fire once when the first match lands
+    }, [history.length]);
     const collapseAll = () => setExpandedMatchIds([]);
+
+    /**
+     * First-run sample profile (view-only). Shown while no profile is loaded at all; the real
+     * `user`/`history` stay untouched, so account detection / search / pin replace it as usual.
+     */
+    const [demoProfile, setDemoProfile] = useState<DemoProfile | null>(null);
+    const [demoOff, setDemoOff] = useState(() => !isDemoEligible());
+    const [demoTasks, setDemoTasks] = useState<Record<DemoTask, boolean>>({ open: false, replay: false, stats: false });
+    const [demoHandoff, setDemoHandoff] = useState(false);
+    const isDemo = !demoOff && !!demoProfile && !user.uid;
+    const viewUser = isDemo && demoProfile ? demoProfile.user : user;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- same loose shape as `history`
+    const viewHistory: any[] = isDemo && demoProfile ? demoProfile.history : history;
+    /** Premium views are unlocked while exploring the sample. */
+    const effectivePremium = isPremium || isDemo;
+    const wasDemoRef = useRef(false);
+
+    useEffect(() => {
+        if (demoOff || demoProfile || user.uid) return;
+        let cancelled = false;
+        loadDemoProfile()
+            .then((profile) => { if (!cancelled) setDemoProfile(profile); })
+            .catch((e) => console.error('Demo profile failed to load:', e));
+        return () => { cancelled = true; };
+    }, [demoOff, demoProfile, user.uid]);
+
+    // Own account showed up → the sample is done on this device.
+    useEffect(() => {
+        if (!isViewingOwnAccount || demoOff) return;
+        retireDemo();
+        setDemoOff(true);
+    }, [isViewingOwnAccount, demoOff]);
+
+    // Leaving the sample (account detected or a search): drop its open rows, say what happened.
+    useEffect(() => {
+        if (isDemo) {
+            wasDemoRef.current = true;
+            return;
+        }
+        if (!wasDemoRef.current) return;
+        wasDemoRef.current = false;
+        setExpandedMatchIds((prev) => prev.filter((id) => !id.startsWith('demo_')));
+        if (user.uid && isViewingOwnAccount) {
+            setDemoHandoff(true);
+            const timer = window.setTimeout(() => setDemoHandoff(false), 8000);
+            return () => window.clearTimeout(timer);
+        }
+    }, [isDemo, user.uid, isViewingOwnAccount]);
+
+    useEffect(() => {
+        if (!isDemo) return;
+        const onReplay = () => setDemoTasks((prev) => (prev.replay ? prev : { ...prev, replay: true }));
+        window.addEventListener(REPLAY_PLAYED_EVENT, onReplay);
+        return () => window.removeEventListener(REPLAY_PLAYED_EVENT, onReplay);
+    }, [isDemo]);
+
+    useEffect(() => {
+        if (!isDemo) return;
+        if (mainTab === 'STATISTICS') setDemoTasks((prev) => (prev.stats ? prev : { ...prev, stats: true }));
+        if (expandedMatchIds.length > 0) setDemoTasks((prev) => (prev.open ? prev : { ...prev, open: true }));
+    }, [isDemo, mainTab, expandedMatchIds.length]);
+
+    const dismissDemo = () => {
+        retireDemo();
+        setDemoOff(true);
+        setExpandedMatchIds([]);
+    };
+    const reopenDemo = () => {
+        reviveDemo();
+        setDemoOff(false);
+    };
+
     const filteredHistory = useMemo(() => {
-        return history.filter(match => {
+        return viewHistory.filter(match => {
             if (!matchesHistoryTab(match.mode, activeTab as 'BR' | 'RANKED' | 'TRIO' | 'DUO')) {
                 return false;
             }
 
             const matchTime = match.startTime || match.endTime || 0;
-            const currentSeason = SEASONS.find(s => s.id === selectedSeasonId);
+            const range = getSelectionRange(SEASONS, seasonGroups, selectedSeasonId, wholeSeason);
 
-            if (!currentSeason) return true;
+            // Sample games are re-timed to "recent"; keep them visible whatever season is picked.
+            if (!range || isDemo) return true;
 
-            const seasonEnd = resolveSeasonEndMs(SEASONS, selectedSeasonId);
-            const isAfterStart = matchTime >= currentSeason.startTime;
-            const isBeforeEnd = seasonEnd != null ? matchTime < seasonEnd : true;
+            const isAfterStart = matchTime >= (range.startTime ?? 0);
+            const isBeforeEnd = range.endTime != null ? matchTime < range.endTime : true;
 
             return isAfterStart && isBeforeEnd;
         });
-    }, [history, activeTab, selectedSeasonId, SEASONS]);
+    }, [viewHistory, isDemo, activeTab, selectedSeasonId, wholeSeason, SEASONS, seasonGroups]);
 
     const totalPages = useMemo(() => {
         const base = Math.max(1, Math.ceil(filteredHistory.length / MATCHES_PER_PAGE));
@@ -860,6 +1006,16 @@ const App = () => {
         const startIndex = (effectiveCurrentPage - 1) * MATCHES_PER_PAGE;
         return filteredHistory.slice(startIndex, startIndex + MATCHES_PER_PAGE);
     }, [filteredHistory, effectiveCurrentPage]);
+
+    /** Each visible match vs the user's earlier games in the same tab (detail strip + row highlight). */
+    const recentComparisons = useMemo(() => {
+        const out = new Map<string, RecentComparison>();
+        currentMatches.forEach((m: Match) => {
+            const cmp = buildRecentComparison(m, filteredHistory);
+            if (cmp) out.set(m.matchId, cmp);
+        });
+        return out;
+    }, [currentMatches, filteredHistory]);
 
     useEffect(() => {
         if (currentPage > totalPages) {
@@ -1181,7 +1337,7 @@ const App = () => {
     useEffect(() => {
         if (!user.uid || !historyFlushEnabledRef.current) return;
         void flushHistoryFromLocal(user.uid);
-    }, [mainTab, currentPage, activeTab, selectedSeasonId, flushHistoryFromLocal, user.uid]);
+    }, [mainTab, currentPage, activeTab, selectedSeasonId, wholeSeason, flushHistoryFromLocal, user.uid]);
 
     const handleHeaderDoubleClick = () => {
         if (typeof overwolf === 'undefined') return;
@@ -1224,7 +1380,7 @@ const App = () => {
                         if (result.success && result.window) overwolf.windows.dragMove(result.window.id);
                     });
                 }}
-                style={{ height: '35px', background: 'var(--color-bg-top-bar)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'default', flexShrink: 0, userSelect: 'none', position: 'relative', zIndex: 100000001 } as any }>
+                style={{ height: '35px', background: 'var(--color-bg-top-bar)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'default', flexShrink: 0, userSelect: 'none', position: 'relative', zIndex: 100000001 } as React.CSSProperties }>
                 
                 <div style={{ paddingLeft: '15px', fontSize: '12px', fontWeight: 'bold', color: 'var(--color-text-muted)', letterSpacing: '1px', display: 'flex', alignItems: 'center' }}>
                     <img src="/icons/IconMouseOver.png" style={{ width: '18px', height: '18px', marginRight: '8px', objectFit: 'contain' }} />
@@ -1257,6 +1413,9 @@ const App = () => {
                     <Navigation
                         activeTab={mainTab}
                         onTabChange={setMainTab}
+                        mergeRecords
+                        showLabels
+                        showPremiumEntry={!isPremium}
                     />
                 </div>
 
@@ -1267,10 +1426,13 @@ const App = () => {
                     <div style={{ height: '60px', borderBottom: '1px solid var(--color-border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: isNarrowLayout ? '0 12px' : '0 30px', background: 'var(--color-bg-sub-header)', gap: '8px', flexShrink: 0, minWidth: 0 }}>    
                         <div style={{ fontWeight: 'bold', fontSize: isNarrowLayout ? '15px' : '20px', color: 'var(--color-text-secondary)', display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, overflow: 'hidden' }}>
                             <span style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' }}>
-                            {mainTab === "DASHBOARD" ? <><FaList color="var(--color-text-muted)"/> {t('nav.matchHistory')}</> : 
-                             mainTab === "FAVORITES" ? <><FaStar color="#e1b12c"/> {t('nav.favorites')}</> :
-                             mainTab === "STATISTICS" ? <><FaChartBar color="#e17055"/> {t('nav.statistics')}</> :
-                             mainTab === "TIER_TABLE" ? <><FaThList color="#a29bfe"/> {t('nav.tierTable')}</> :
+                            {(mainTab === "DASHBOARD" || mainTab === "STATISTICS") ? (
+                                <>
+                                    <FaUser color="var(--color-text-muted)" /> {t('nav.records', { defaultValue: 'Records' })}
+                                </>
+                            ) :
+                             mainTab === "FAVORITES" ? <><FaStar color="var(--color-text-muted)"/> {t('nav.favorites')}</> :
+                             mainTab === "TIER_TABLE" ? <><FaThList color="var(--color-text-muted)"/> {t('nav.tierTable')}</> :
                              <><FaCog color="var(--color-text-muted)"/> {t('nav.settings')}</>}
                             </span>
                         </div>
@@ -1337,11 +1499,14 @@ const App = () => {
                         )}
                     <div ref={mainScrollRef} style={{
                         padding: isNarrowLayout ? '16px' : '30px',
-                        overflowY: (
-                            mainTab === 'TIER_TABLE'
-                            || (isProfileLoading && (mainTab === 'DASHBOARD' || mainTab === 'STATISTICS'))
-                        ) ? 'hidden' : 'auto',
+                        // Not toggled while a profile loads: flipping hidden ↔ auto tears down and
+                        // rebuilds the scroll layer (full re-raster). ProfileLoadingOverlay sits over
+                        // this scroller outside it, so wheel input can't scroll it meanwhile.
+                        overflowY: mainTab === 'TIER_TABLE' ? 'hidden' : 'auto',
                         overflowX: 'hidden',
+                        // Opaque on purpose: tiles of this scroll layer that aren't rastered yet are
+                        // filled with its background — transparent made CEF show them white.
+                        background: 'var(--color-bg-main)',
                         flex: 1,
                         height: '100%',
                         minHeight: 0,
@@ -1358,81 +1523,97 @@ const App = () => {
                         minWidth: 0,
                         height: mainTab === 'TIER_TABLE' ? '100%' : undefined,
                     }} data-catalog-bounds="content">
+                        {isDemo && (mainTab === "DASHBOARD" || mainTab === "STATISTICS") && (
+                            <DemoBanner done={demoTasks} onStartTour={startDemoTour} onDismiss={dismissDemo} />
+                        )}
+                        {demoHandoff && (mainTab === "DASHBOARD" || mainTab === "STATISTICS") && (
+                            <div role="status" style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16, padding: '10px 16px', borderRadius: 12, border: '1px solid color-mix(in srgb, var(--color-success) 45%, var(--color-border))', background: 'color-mix(in srgb, var(--color-success) 10%, var(--color-bg-card))', fontSize: 13, color: 'var(--color-text-secondary)' }}>
+                                <span style={{ flex: 1, minWidth: 0 }}>
+                                    {t('demo.handoff', { defaultValue: 'Your account was detected — showing your own records now.' })}
+                                </span>
+                                <button type="button" onClick={() => setDemoHandoff(false)} aria-label={t('controls.close', { defaultValue: 'Close' })} style={{ border: 'none', background: 'transparent', color: 'var(--color-text-muted)', cursor: 'pointer', fontSize: 14 }}>✕</button>
+                            </div>
+                        )}
                         {(mainTab === "DASHBOARD" || mainTab === "STATISTICS") && (
                             <InlineProfileSection
                                 modeTabsSlot={(
                                     <div style={{
                                         display: 'flex',
                                         justifyContent: 'space-between',
-                                        alignItems: 'flex-end',
-                                        gap: 12,
-                                        borderBottom: '1px solid var(--color-border)',
-                                        paddingBottom: 0,
+                                        alignItems: 'center',
+                                        flexWrap: 'wrap',
+                                        rowGap: 8,
+                                        columnGap: 12,
                                         minWidth: 0,
                                     }}>
-                                        {mainTab === 'DASHBOARD' ? (
-                                            <div style={{ display: 'flex', gap: 5, minWidth: 0, flexWrap: 'wrap' }}>
-                                                {(["BR", "RANKED", "TRIO", "DUO"] as const).map(tab => (
+                                        {/* Primary: Matches ↔ Statistics segmented control. Filters (mode + season)
+                                            sit on the right for both views so they never move when switching. */}
+                                        <div role="tablist" style={{ display: 'inline-flex', padding: 3, gap: 2, borderRadius: 8, background: 'var(--color-bg-card)', border: '1px solid var(--color-border)', flexShrink: 0 }}>
+                                            {([
+                                                { id: 'DASHBOARD', domId: 'records-matches', icon: <FaList size={12} />, label: t('records.matches', { defaultValue: 'Matches' }) },
+                                                { id: 'STATISTICS', domId: 'nav-statistics', icon: <FaChartBar size={12} />, label: t('nav.statistics') },
+                                            ] as const).map(({ id, domId, icon, label }) => {
+                                                const active = mainTab === id;
+                                                return (
                                                     <button
-                                                        key={tab}
-                                                        className="btn-tab"
+                                                        key={id}
+                                                        id={domId}
+                                                        role="tab"
+                                                        aria-selected={active}
                                                         onMouseDown={(e) => e.preventDefault()}
-                                                        onClick={() => setActiveTab(tab)}
-                                                        style={getTabStyle(activeTab === tab)}
+                                                        onClick={() => setMainTab(id)}
+                                                        style={{
+                                                            display: 'inline-flex', alignItems: 'center', gap: 6,
+                                                            padding: isNarrowLayout ? '6px 12px' : '7px 16px',
+                                                            borderRadius: 6, border: 'none', cursor: 'pointer',
+                                                            fontSize: 13, fontWeight: 700, whiteSpace: 'nowrap',
+                                                            background: active ? 'var(--color-accent)' : 'transparent',
+                                                            color: active ? 'var(--color-text-primary)' : 'var(--color-text-muted)',
+                                                            outline: 'none', boxShadow: 'none',
+                                                            transition: 'background 0.15s, color 0.15s',
+                                                        }}
                                                     >
-                                                        {t(`statistics.modes.${tab.toLowerCase()}`)}
+                                                        {icon}{label}
                                                     </button>
-                                                ))}
-                                            </div>
-                                        ) : (
-                                            <div style={{ minWidth: 0, flex: 1 }} />
-                                        )}
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: isNarrowLayout ? 8 : 12, flexShrink: 0, paddingBottom: 4 }}>
-                                            <AppSelect
-                                                sizeVariant="md"
-                                                value={selectedSeasonId}
-                                                onChange={(e) => {
-                                                    setSelectedSeasonId(Number(e.target.value));
+                                                );
+                                            })}
+                                        </div>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: isNarrowLayout ? 8 : 10, flexShrink: 0, marginLeft: 'auto', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                                                <div style={{ display: 'flex', gap: 5, background: 'var(--color-bg-deep)', padding: 4, borderRadius: 6, flexShrink: 0 }}>
+                                                    {(["BR", "RANKED", "TRIO", "DUO"] as const).map(tab => (
+                                                        <button
+                                                            key={tab}
+                                                            className="btn-tab"
+                                                            onMouseDown={(e) => e.preventDefault()}
+                                                            onClick={() => setActiveTab(tab)}
+                                                            style={{
+                                                                padding: '6px 12px', fontSize: 11, fontWeight: 'bold',
+                                                                border: 'none', borderRadius: 4, cursor: 'pointer',
+                                                                background: activeTab === tab ? 'var(--color-bg-card-hover)' : 'transparent',
+                                                                color: activeTab === tab ? 'var(--color-text-primary)' : 'var(--color-text-faint)',
+                                                                outline: 'none', boxShadow: 'none',
+                                                                whiteSpace: 'nowrap', flexShrink: 0,
+                                                            }}
+                                                        >
+                                                            {/* BR covers every BR mode — show the same "All" wording as Statistics. */}
+                                                            {t(`statistics.modes.${tab === 'BR' ? 'all' : tab.toLowerCase()}`)}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            <SeasonPicker
+                                                seasons={pickerSeasons}
+                                                selectedSeasonId={selectedSeasonId}
+                                                wholeSeason={wholeSeason}
+                                                compact={isNarrowLayout}
+                                                onChange={({ seasonId, wholeSeason: whole }) => {
+                                                    setSelectedSeasonId(seasonId);
+                                                    setWholeSeason(whole);
+                                                    storeWholeSeason(whole);
                                                     if (mainScrollRef.current) {
                                                         mainScrollRef.current.scrollTo({ top: 0, behavior: 'smooth' });
                                                     }
                                                 }}
-                                            >
-                                                {selectableSeasons.map(season => (
-                                                    <option key={season.id} value={season.id}>{season.name}</option>
-                                                ))}
-                                            </AppSelect>
-                                            <button
-                                                onClick={handleManualRefresh}
-                                                disabled={refreshCooldown > 0}
-                                                style={{
-                                                    background: 'transparent',
-                                                    border: 'none',
-                                                    cursor: refreshCooldown > 0 ? 'not-allowed' : 'pointer',
-                                                    color: refreshCooldown > 0 ? 'var(--color-border-light)' : 'var(--color-text-dim)',
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    justifyContent: 'center',
-                                                    padding: '5px',
-                                                    transition: 'color 0.2s, transform 0.2s',
-                                                    fontSize: '16px',
-                                                }}
-                                                onMouseEnter={(e) => {
-                                                    if (refreshCooldown === 0) {
-                                                        e.currentTarget.style.color = 'var(--color-text-primary)';
-                                                        e.currentTarget.style.transform = 'scale(1.1) rotate(180deg)';
-                                                    }
-                                                }}
-                                                onMouseLeave={(e) => {
-                                                    if (refreshCooldown === 0) {
-                                                        e.currentTarget.style.color = 'var(--color-text-dim)';
-                                                        e.currentTarget.style.transform = 'scale(1) rotate(0deg)';
-                                                    }
-                                                }}
-                                                title={refreshCooldown > 0 ? t('controls.waitSec', { sec: refreshCooldown }) : t('controls.refresh')}
-                                            >
-                                                <FaSync size={18} />
-                                            </button>
+                                            />
                                         </div>
                                     </div>
                                 )}
@@ -1458,16 +1639,20 @@ const App = () => {
                                     />
                                 }
                                 statusMessage={statusMessage}
-                                user={user}
-                                history={history}
-                                trendHistory={filteredHistory.slice(0, 20)}
+                                user={viewUser}
+                                history={viewHistory}
+                                trendHistory={filteredHistory}
                                 isFavorite={isCurrentFavorite}
                                 isPinned={user.uid !== null && user.uid === pinnedUid}
                                 hasPinnedUser={!!pinnedUid}
                                 onReturnToPinned={() => { if (pinnedUid) handleSelectUser({ uid: pinnedUid }); }}
                                 onToggleFavorite={handleToggleFavorite}
                                 onTogglePin={handleTogglePin}
+                                onRefresh={handleManualRefresh}
+                                refreshCooldown={refreshCooldown}
                                 compact={isNarrowLayout}
+                                isPremium={effectivePremium}
+                                showFavoritePin={!isDemo}
                             />
                         )}
                         {mainTab === "FAVORITES" ? (
@@ -1477,9 +1662,9 @@ const App = () => {
                                 ) : (
                                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '15px' }}>
                                         {favorites.map(fav => (
-                                            <div key={fav.uid} onClick={() => handleSelectUser(fav)} style={{ background: 'var(--color-bg-card)', padding: '20px', borderRadius: '10px', border: '1px solid var(--color-border)', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', transition: 'transform 0.2s, background 0.2s', position: 'relative' }} onMouseEnter={e => { e.currentTarget.style.background = 'var(--color-bg-card-hover)'; e.currentTarget.style.transform = 'translateY(-2px)'; }} onMouseLeave={e => { e.currentTarget.style.background = 'var(--color-bg-card)'; e.currentTarget.style.transform = 'translateY(0)'; }}>
+                                            <div key={fav.uid} onClick={() => { if (fav.uid) void handleSelectUser({ ...fav, uid: fav.uid }); }} style={{ background: 'var(--color-bg-card)', padding: '20px', borderRadius: '10px', border: '1px solid var(--color-border)', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', transition: 'transform 0.2s, background 0.2s', position: 'relative' }} onMouseEnter={e => { e.currentTarget.style.background = 'var(--color-bg-card-hover)'; e.currentTarget.style.transform = 'translateY(-2px)'; }} onMouseLeave={e => { e.currentTarget.style.background = 'var(--color-bg-card)'; e.currentTarget.style.transform = 'translateY(0)'; }}>
                                                 <div onClick={(e) => { e.preventDefault(); e.stopPropagation(); if (fav.uid) handleRemoveFavorite(fav.uid); }} style={{ position: 'absolute', top: '10px', right: '10px', width: '24px', height: '24px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.3)', color: 'var(--color-text-muted)', fontSize: '14px', transition: 'all 0.2s', zIndex: 100 }} onMouseEnter={e => { e.currentTarget.style.background = 'var(--color-accent-hover)'; e.currentTarget.style.color = 'var(--color-text-primary)'; }} onMouseLeave={e => { e.currentTarget.style.background = 'rgba(0,0,0,0.4)'; e.currentTarget.style.color = 'var(--color-text-dim)'; }}>✕</div>
-                                                <img src={`https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/${(fav.legend || 'unknown').toLowerCase()}.png`} alt={fav.name} style={{ width: '60px', height: '60px', borderRadius: '50%', objectFit: 'cover', marginBottom: '10px', border: '2px solid var(--color-border-light)', background: 'var(--color-bg-deep)' }} onError={(e) => { (e.target as HTMLImageElement).src = 'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/unknown.png'; }} />
+                                                <img src={`/images/${(fav.legend || 'unknown').toLowerCase()}.png`} alt={fav.name} style={{ width: '60px', height: '60px', borderRadius: '50%', objectFit: 'cover', marginBottom: '10px', border: '2px solid var(--color-border-light)', background: 'var(--color-bg-deep)' }} onError={(e) => { (e.target as HTMLImageElement).src = '/images/unknown.png'; }} />
                                                 <div style={{ fontSize: '16px', fontWeight: 'bold', color: 'var(--color-text-primary)', marginBottom: '5px', textAlign: 'center', width: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{fav.name}</div>
                                                 <div style={{ fontSize: '12px', color: 'var(--color-text-muted)' }}> Lv.{fav.level + 500 * fav.prestige} / {fav.rankScore} RP / {fav.rankName==='Apex Predator' ? t('favorites.predator') : fav.rankName || t('favorites.unranked')}</div>
                                             </div>
@@ -1489,12 +1674,15 @@ const App = () => {
                             </>
                         ) : mainTab === "STATISTICS" ? (
                             <StatisticsTab 
-                                isPremium={isPremium} 
+                                isPremium={effectivePremium} 
                                 selectedSeasonId={selectedSeasonId}
+                                wholeSeason={wholeSeason}
                                 seasons={SEASONS}
-                                profileUid={user.uid}
-                                profileName={user.name}
+                                profileUid={isDemo ? null : user.uid}
+                                profileName={viewUser.name}
                                 statsRefreshToken={statsRefreshToken}
+                                demoMatches={isDemo && demoProfile ? demoProfile.history : null}
+                                mode={activeTab === 'BR' ? 'ALL' : (activeTab as 'RANKED' | 'TRIO' | 'DUO')}
                             />
                         ) : mainTab === "TIER_TABLE" ? (
                             <div style={{ width: '100%', height: '100%', minHeight: 0, overflow: 'hidden' }}>
@@ -1505,24 +1693,42 @@ const App = () => {
                         ) : (
                             <>
                                 {expandedMatchIds.length > 0 && (
-                                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
+                                    // Sticky: follows the scroll so a long expanded list can be collapsed from anywhere.
+                                    // Wrapper ignores pointer events so the cards scrolling under it stay clickable.
+                                    <div style={{ position: 'sticky', top: 8, zIndex: 30, display: 'flex', justifyContent: 'flex-end', marginBottom: 12, pointerEvents: 'none' }}>
                                         <button
                                             onClick={collapseAll}
                                             style={{
-                                                background: 'transparent',
+                                                pointerEvents: 'auto',
+                                                background: 'var(--color-bg-card)',
                                                 border: '1px solid var(--color-border-light)',
-                                                color: 'var(--color-text-muted)',
-                                                padding: '4px 10px',
+                                                color: 'var(--color-text-secondary)',
+                                                padding: '5px 12px',
                                                 cursor: 'pointer',
-                                                borderRadius: 4,
+                                                borderRadius: 999,
                                                 fontSize: 11,
+                                                fontWeight: 700,
+                                                boxShadow: '0 4px 12px rgba(0,0,0,0.35)',
                                             }}
                                         >
                                             {t('controls.collapseAll')}
                                         </button>
                                     </div>
                                 )}
-                                {filteredHistory.length === 0 ? (
+                                {firstRecordId && mainTab === 'DASHBOARD' && history[0]?.matchId === firstRecordId && (
+                                    <div role="status" style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 12, padding: '12px 16px', borderRadius: 12, border: '1px solid color-mix(in srgb, var(--color-accent) 45%, var(--color-border))', background: 'color-mix(in srgb, var(--color-accent) 12%, var(--color-bg-card))' }}>
+                                        <span style={{ fontSize: 12, fontWeight: 900, color: 'var(--color-accent)', whiteSpace: 'nowrap' }}>
+                                            {t('firstRun.recordedTitle', { defaultValue: 'First match recorded!' })}
+                                        </span>
+                                        <span style={{ flex: 1, minWidth: 0, fontSize: 13, color: 'var(--color-text-secondary)' }}>
+                                            {t('firstRun.recordedDesc', { defaultValue: 'Every match from now on lands here automatically. Use the share button to post it.' })}
+                                        </span>
+                                        <button type="button" onClick={() => setFirstRecordId(null)} aria-label={t('controls.close', { defaultValue: 'Close' })} style={{ border: 'none', background: 'transparent', color: 'var(--color-text-muted)', cursor: 'pointer', fontSize: 14 }}>✕</button>
+                                    </div>
+                                )}
+                                {!isDemo && history.length === 0 && (!user.uid || isViewingOwnAccount) ? (
+                                    <FirstRunPanel onStartTutorial={startTutorial} onTryDemo={!user.uid ? reopenDemo : undefined} />
+                                ) : filteredHistory.length === 0 ? (
                                     <div
                                         onMouseDown={(e) => {
                                             const target = e.target as HTMLElement;
@@ -1548,7 +1754,7 @@ const App = () => {
                                         )}
                                     {/* pt: room for incomplete badge poking above the first card corner */}
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', paddingTop: '8px' }}>
-                                        {currentMatches.map((match: any) => {
+                                        {currentMatches.map((match) => {
                                             const isIncomplete = isIncompleteMatchStats(match);
                                             const displayRank = (match.placement === 1 || match.placement === '1') ? 1 : match.placement;
                                             const isExpanded = expandedMatchIds.includes(match.matchId);
@@ -1557,6 +1763,7 @@ const App = () => {
                                             const timeLabel = formatRelativeTime(timePart, t);
                                             const gameMode = getModeDisplayLabel(match.mode);
                                             const modeColor = getModeColor(match.mode);
+                                            const rowComparison = recentComparisons.get(match.matchId) ?? null;
                                             const formatStat = (value: number | null | undefined) =>
                                                 isIncomplete || value == null ? '-' : value;
                                             const incompleteSignals = Array.isArray(match.missingSignals)
@@ -1569,7 +1776,7 @@ const App = () => {
                                                 ? t('match.dataQualityTooltip', { signals: incompleteSignals })
                                                 : t('match.dataQualityIncomplete');
                                             return (
-                                                <div key={match.matchId} style={{ position: 'relative', borderRadius: '8px' }}>
+                                                <div key={match.matchId} data-match-id={match.matchId} style={{ position: 'relative', borderRadius: '8px' }}>
                                                     {isIncomplete && (
                                                         <span
                                                             title={incompleteTooltip}
@@ -1607,9 +1814,9 @@ const App = () => {
                                                     >
                                                         <div style={{ position: 'relative', width: isNarrowLayout ? '42px' : '50px', height: isNarrowLayout ? '42px' : '50px', marginRight: isNarrowLayout ? 0 : '20px', flexShrink: 0 }}>
                                                             <div style={{ width: '100%', height: '100%', borderRadius: '10px', background: 'var(--color-bg-sub-header)', overflow: 'hidden', border: '2px solid var(--color-border-light)' }}>
-                                                                <img src={`https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/${legendFile}.png`} alt={match.legend || "?"} style={{ width: '100%', height: '100%', objectFit: 'cover', transform: 'scale(1.1)' }} onError={(e) => { (e.target as HTMLImageElement).src = 'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/unknown.png'; }} />
+                                                                <img src={`/images/${legendFile}.png`} alt={match.legend || "?"} style={{ width: '100%', height: '100%', objectFit: 'cover', transform: 'scale(1.1)' }} onError={(e) => { (e.target as HTMLImageElement).src = '/images/unknown.png'; }} />
                                                             </div>
-                                                            <div style={{ position: 'absolute', top: 0, left: 0, background: 'color-mix(in srgb, var(--color-bg-deep) 80%, transparent)', color: 'var(--color-text-secondary)', fontSize: '9px', padding: '2px 4px', borderBottomRightRadius: '5px', fontWeight: 'bold', lineHeight: '1', whiteSpace: 'nowrap', backdropFilter: 'blur(2px)', pointerEvents: 'none' }}>{timeLabel}</div>
+                                                            <div style={{ position: 'absolute', top: 0, left: 0, background: 'color-mix(in srgb, var(--color-bg-deep) 80%, transparent)', color: 'var(--color-text-secondary)', fontSize: '10px', padding: '2px 4px', borderBottomRightRadius: '5px', fontWeight: 'bold', lineHeight: '1', whiteSpace: 'nowrap', pointerEvents: 'none' }}>{timeLabel}</div>
                                                         </div>
                                                         <div style={{
                                                             flex: 1,
@@ -1627,14 +1834,33 @@ const App = () => {
                                                                 <div style={{
                                                                     fontWeight: 'bold',
                                                                     fontSize: isNarrowLayout ? '14px' : '16px',
-                                                                    color: isIncomplete ? 'var(--color-text-faint)' : 'var(--color-text-primary)',
+                                                                    // Same tier color as the row's left bar, so the bar reads as "placement".
+                                                                    color: isIncomplete ? 'var(--color-text-faint)' : getRankColor(displayRank),
                                                                 }}>
                                                                     {isIncomplete || displayRank == null || displayRank === '' ? '-' : `#${displayRank}`}
                                                                 </div>
+                                                                {/* Ranked RP change — server fills it from GEP player_stats after the match. */}
+                                                                {match.rpProcessed && typeof match.rpChange === 'number' && String(match.mode || '').toLowerCase().includes('ranked') ? (
+                                                                    <div
+                                                                        title={typeof match.rankScore === 'number' ? `${match.rankScore.toLocaleString()} RP` : undefined}
+                                                                        style={{
+                                                                            fontSize: '10px',
+                                                                            fontWeight: 700,
+                                                                            lineHeight: 1.2,
+                                                                            whiteSpace: 'nowrap',
+                                                                            fontVariantNumeric: 'tabular-nums',
+                                                                            color: match.rpChange > 0
+                                                                                ? 'var(--color-success)'
+                                                                                : match.rpChange < 0 ? 'var(--color-danger)' : 'var(--color-text-muted)',
+                                                                        }}
+                                                                    >
+                                                                        {match.rpChange > 0 ? `+${match.rpChange}` : match.rpChange} RP
+                                                                    </div>
+                                                                ) : null}
                                                             </div>
                                                             <div style={{ minWidth: 0 }}><div style={{ fontSize: '10px', color: 'var(--color-text-muted)' }}>{t('match.gamemode')}</div><div style={{ fontWeight: 'bold', fontSize: isNarrowLayout ? '12px' : '14px', color: modeColor, textTransform: 'uppercase', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={gameMode}>{gameMode}</div></div>
                                                             <div style={{ overflow: 'hidden', minWidth: 0 }}><div style={{ fontSize: '10px', color: 'var(--color-text-muted)' }}>{t('match.map')}</div><div style={{ fontWeight: 'bold', color: 'var(--color-text-dim)', fontSize: isNarrowLayout ? '12px' : '14px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }} title={normalizeMapDisplayName(match.map)}>{normalizeMapDisplayName(match.map)}</div></div>
-                                                            <div style={{ minWidth: 0 }}><div style={{ fontSize: '10px', color: 'var(--color-text-muted)' }}>{t('match.damage')}</div><div style={{ fontWeight: 'bold', color: isIncomplete ? 'var(--color-text-faint)' : 'var(--color-danger)', fontSize: isNarrowLayout ? '14px' : '16px' }}>{isIncomplete || match.damage == null ? '-' : Math.round(match.damage)}</div></div>
+                                                            <div style={{ minWidth: 0 }}><div style={{ fontSize: '10px', color: 'var(--color-text-muted)' }}>{t('match.damage')}</div><div style={{ fontWeight: 'bold', color: isIncomplete || match.damage == null ? 'var(--color-text-faint)' : getAvgDamageColor(match.damage), fontSize: isNarrowLayout ? '14px' : '16px' }}>{isIncomplete || match.damage == null ? '-' : Math.round(match.damage)}</div></div>
                                                             <div style={{ minWidth: 0 }}><div style={{ fontSize: '10px', color: 'var(--color-text-muted)' }}>{t('match.kills')}</div><div style={{ fontWeight: 'bold', color: isIncomplete ? 'var(--color-text-faint)' : 'var(--color-text-primary)', fontSize: isNarrowLayout ? '14px' : '16px' }}>{formatStat(match.kills)}</div></div>
                                                             {!isNarrowLayout && (
                                                                 <>
@@ -1646,92 +1872,20 @@ const App = () => {
                                                         <div style={{ fontSize: '12px', color: 'var(--color-text-faint)', marginLeft: '10px', flexShrink: 0, transition: 'transform 0.3s', transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)' }}>▼</div>
                                                     </div>
 
-                                                    <div className={`match-accordion ${isExpanded ? 'open' : ''}`}>
-                                                        <div className="match-accordion-inner">
-                                                            <div style={{
-                                                                height: isNarrowLayout ? 'auto' : '420px',
-                                                                display: 'flex',
-                                                                flexDirection: isNarrowLayout ? 'column' : 'row',
-                                                                borderTop: '1px solid var(--color-border)',
-                                                                background: 'var(--color-bg-sub-header)',
-                                                                minWidth: 0,
-                                                            }}>
-                                                                {isNarrowLayout ? (
-                                                                    /* Narrow: 2×2 (+) — Map | Combat / Loadout | Stats */
-                                                                    <div style={{
-                                                                        display: 'grid',
-                                                                        gridTemplateColumns: '1fr 1fr',
-                                                                        gridTemplateRows: 'minmax(260px, 300px) minmax(260px, 300px)',
-                                                                        minWidth: 0,
-                                                                        width: '100%',
-                                                                    }}>
-                                                                        <div style={{
-                                                                            minWidth: 0,
-                                                                            position: 'relative',
-                                                                            borderRight: '1px solid var(--color-border)',
-                                                                            borderBottom: '1px solid var(--color-border)',
-                                                                            overflow: 'hidden',
-                                                                        }}>
-                                                                            {isExpanded && <MapVisualizer match={match} />}
-                                                                        </div>
-                                                                        <div style={{
-                                                                            minWidth: 0,
-                                                                            display: 'flex',
-                                                                            flexDirection: 'column',
-                                                                            borderBottom: '1px solid var(--color-border)',
-                                                                            zIndex: 10,
-                                                                            overflow: 'hidden',
-                                                                        }}>
-                                                                            <CombatLog match={match} />
-                                                                        </div>
-                                                                        <div style={{
-                                                                            minWidth: 0,
-                                                                            borderRight: '1px solid var(--color-border)',
-                                                                            overflow: 'hidden',
-                                                                        }}>
-                                                                            <MatchLoadoutPanel match={match} />
-                                                                        </div>
-                                                                        <div style={{ minWidth: 0, overflow: 'hidden' }}>
-                                                                            <MatchStatsPanel match={match} onUserSelect={handleSelectUser} />
-                                                                        </div>
-                                                                    </div>
-                                                                ) : (
-                                                                    <>
-                                                                        <div style={{
-                                                                            flex: 4,
-                                                                            minWidth: 0,
-                                                                            position: 'relative',
-                                                                            borderRight: '1px solid var(--color-border)',
-                                                                            overflow: 'hidden',
-                                                                        }}>
-                                                                            {isExpanded && <MapVisualizer match={match} />}
-                                                                        </div>
-                                                                        <div style={{
-                                                                            flex: 3,
-                                                                            minWidth: 0,
-                                                                            borderRight: '1px solid var(--color-border)',
-                                                                            display: 'flex',
-                                                                            flexDirection: 'column',
-                                                                            zIndex: 10,
-                                                                            overflow: 'hidden',
-                                                                        }}>
-                                                                            <CombatLog match={match} />
-                                                                        </div>
-                                                                        <div style={{
-                                                                            flex: 5,
-                                                                            minWidth: 0,
-                                                                            display: 'flex',
-                                                                            flexDirection: 'column',
-                                                                            background: 'var(--color-bg-sub-header)',
-                                                                            overflow: 'hidden',
-                                                                        }}>
-                                                                            <MatchDetailTabs match={match} onUserSelect={handleSelectUser} />
-                                                                        </div>
-                                                                    </>
-                                                                )}
-                                                            </div>
-                                                        </div>
-                                                    </div>
+                                                    <MatchAccordion open={isExpanded} onOpened={scrollMatchIntoView}>
+                                                        {(settled) => (
+                                                            <MatchDetailBody
+                                                                match={match}
+                                                                isPremium={effectivePremium}
+                                                                isExpanded={isExpanded}
+                                                                mapReady={settled}
+                                                                modeLabel={gameMode}
+                                                                modeColor={modeColor}
+                                                                comparison={rowComparison}
+                                                                onUserSelect={isDemo ? undefined : handleSelectUser}
+                                                            />
+                                                        )}
+                                                    </MatchAccordion>
                                                     </div>
                                                 </div>
                                             );
@@ -1739,9 +1893,25 @@ const App = () => {
                                         {(totalPages > 1 || isFetchingHistoryPage) && (
                                             <div style={{ 
                                                 display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '15px', 
-                                                marginTop: '10px', padding: '15px 0', borderTop: '1px solid var(--color-border)' 
+                                                marginTop: '10px', padding: '15px 0', borderTop: '1px solid var(--color-border)'
                                             }}>
-                                                <button 
+                                                <button
+                                                    onClick={() => {
+                                                        setCurrentPage(1);
+                                                        mainScrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+                                                    }}
+                                                    disabled={effectiveCurrentPage === 1}
+                                                    style={{
+                                                        padding: '8px 14px', background: effectiveCurrentPage === 1 ? 'var(--color-bg-card-hover)' : 'var(--color-border-light)',
+                                                        color: effectiveCurrentPage === 1 ? 'var(--color-text-faint)' : 'var(--color-text-primary)', border: 'none',
+                                                        borderRadius: '6px', cursor: effectiveCurrentPage === 1 ? 'not-allowed' : 'pointer',
+                                                        fontWeight: 'bold', transition: 'background 0.2s'
+                                                    }}
+                                                >
+                                                    {t('controls.first', { defaultValue: '« First' })}
+                                                </button>
+
+                                                <button
                                                     onClick={() => {
                                                         setCurrentPage(p => Math.max(1, p - 1));
                                                         mainScrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
@@ -1789,6 +1959,7 @@ const App = () => {
                     </div>
                 </div>
                 {showDesktopAds && <AdsRail paused={adsPaused} />}
+                <PremiumDialog />
             </div>
             {showSearchModal && (
                 <PlayerSelectionModal 

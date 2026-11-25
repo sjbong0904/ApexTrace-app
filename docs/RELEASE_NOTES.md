@@ -1,6 +1,122 @@
 # ApexTrace Release Notes
 
-## Unreleased
+## v1.0.0 — 2026-11-25
+
+v0.0.15(Overwolf QA 제출본) 이후 전체 변경. 0.0.16은 태그·배포 없이 이 버전에 합쳐졌고, 변경량(87개 파일 수정 + 새 파일 70여 개)이 커서 1.0.0으로 올림. 파일 단위 전수조사: [CHANGES-1.0.0.md](./CHANGES-1.0.0.md). 브랜치 `update`.
+
+> **배포 전 확인:** `src/App.tsx`의 `isPremium`은 로컬 미리보기 값(`true`)으로 커밋됨 — 스토어 빌드 전 `false`. 언어 팩 v21 시딩, 아래 [서버·DB](#서버db-적용-순서) 적용, OW 실기 확인(최소 높이 720·부트 셸·하드웨어 가속 끈 상태의 캔버스) 필요.
+
+### 새 기능
+
+- **링 수집 + 지도 링 표시** — GEP `ring`(`next_ring`/`active_ring`)을 라운드별로 저장(`ringRounds`, 수축 샘플 `activeSamples`). 지도 보기를 경로 → 경로+링 → 리플레이로 순환. Free는 각 라운드가 닫힌 링을 정적으로 겹쳐 표시. GEP `next_ring` 중심 좌표는 쓰레기 값이라 버리고, 수축이 끝난 시점의 active 중심으로 채움(단위 = 위치 m × 100, [GEP-BUGS.md](./GEP-BUGS.md)).
+- **맵 리플레이 (Premium, Free 하루 1회)** — 이동 마커와 실시간 링, 재생/일시정지·배속·진행 바, 약 30fps. 전투 로그·로드아웃 행을 누르면 그 시점으로 이동하고 행을 강조.
+- **계정 스탯 (GEP `player_stats`)** — 로컬 플레이어의 계정 스냅샷을 받아 바뀐 키만 `POST /account-stats`로 업로드. 프로필 카드 레벨·RP 실시간 반영, 랭크 RP 변화를 끝난 랭크 경기에 바로 표시(서버 `rpApplied`로 확정). Premium: 사이드바 프로필 ↔ 계정 기록(앱 없이 한 경기 포함) 전환, 통계에 계정 시즌 카드.
+- **매치 공유 이미지** — 펼친 매치 탭 바의 버튼으로 요약 카드를 PNG로 만들어 클립보드에 복사(미지원 시 저장). 공개 게시를 고려해 팀원 이름은 넣지 않음.
+- **첫 실행 경험** — 계정 감지 전에는 익명화한 실제 경기 23개로 만든 샘플 프로필(Premium 보기 해제, 해 볼 것 3가지 체크, 가이드 투어). 계정이 잡히면 자동으로 내 기록으로 전환. 내 계정·매치 0개면 설치 진행 단계 + 첫 매치 미리보기, 첫 매치가 기록되면 축하 후 자동으로 열기.
+- **Premium 안내** — Free vs Premium 비교 시트, 출시 알림 토글(기기별), 좌측 메뉴 금색 Premium 항목. 잠긴 탭은 탭별 가치 문구 + 내 데이터 1행 미리보기. 결제는 아직 없음.
+- **시즌 선택기** — 시즌 드롭다운 + Split 1 / Split 2 / Season 버튼. 드롭다운에는 이 플레이어 기록이 있는 시즌(+현재 시즌)만. 웹 셸에도 적용.
+
+### 화면 개편
+
+- **매치 상세** — 아코디언으로 접힌 행은 상세를 마운트하지 않음(목록 DOM 2,871 → 978). 지도가 중심이 되는 레이아웃(넓으면 옆, 좁으면 위), 데스크톱 4탭(Overview / Details / Combat log / Loadout). Overview에 "최근 경기 대비" 막대(가운데 = 내 평균, 양끝 = 최근 20경기 최저·최고).
+- **매치 상세 DETAILS 탭 지표 재구성** — 2개씩 짝지어 5줄: 생존 시간·이동 거리 / 킬 관여율·녹다운당 대미지 / 헤드샷 비율·수류탄 대미지(비중 %) / 기절 횟수·부활·리스폰 / 궁극기 사용·링 밖 체류 시간. 헤드샷 적중 수·킬당 대미지·넉→킬 전환율·분당 대미지·평균 이동 속도·총 녹다운·총 어시스트 카드 제거(계산은 플레이스타일 판정용으로 유지). 수집되지 않은 값은 0 대신 `-`로 표시. 계산: `src/utils/matchDetailStats.ts`.
+- **전투 로그** — 킬피드형 고정 열(공격자 · 무기 실루엣 · 이벤트 아이콘 · 피해자).
+- **프로필·사이드바** — 실제 RP 기준 차트(티어 색·티어 하한선·RP 축), 최근 20경기 순위 블록, 이름 옆 수동 새로고침. 랭크 티어 하한(S28–S31: Bronze 1000 · Silver 3000 · Gold 5500 · Platinum 8500 · Diamond 12000 · Master 16000).
+- **내비게이션** — 데스크톱은 Matches + Statistics를 "Records" 하나로 통합, 아이콘 아래 라벨, 구분선.
+- **통계 탭** — 공통 카드·이미지 헤더·분석 패널·2열 그리드로 전 하위 탭 재구성, 카드에서 다른 탭으로 이동(맵 카드의 레전드 → 레전드 탭).
+- **무기 이미지** — 게임 HUD 흰색 실루엣 + 탄약색 타일(통계·티어표·전투 로그), 크기 배율 1×로 통일.
+- **테마 대비** — 보조 텍스트 ≥ 4.5:1, 흐린 힌트 ≥ 3.5:1.
+
+### 개선
+
+- **팀메이트 프로필 초상화·랭크 지연** — 매치 상세 팀메이트 클릭 시 `{uid, name}`만 넘어와 이름만으로 캐시로 판정, ALS를 건너뛰고 레벨 0 감지 effect의 두 번째 로드에서야 레전드·RP가 채워지던 문제. 이름만 있는 경우 캐시로 보지 않고, ALS 응답 전에 주소록 DB 행으로 먼저 그림. 로딩 중에는 레벨 0 effect가 ALS를 중복 호출하지 않으며, 클라이언트 `/apex-stats` 동시 요청은 하나로 합침. 다른 유저로 바뀔 때 이전 유저 레전드·랭크명이 잠깐 남던 것도 수정.
+- **ALS 호출 절감 (서버)** — `global_profiles.als_synced_at` 추가(`20261117090000_global_profiles_als_synced_at.sql`). `/apex-stats` uid 조회에 DB 캐시(10분) 추가, 닉네임 DB 캐시 판단도 `updated_at` 대신 이 컬럼 사용. keep-alive는 `als_synced_at` 오래된 순(미동기 우선). `/apex-stats` upsert에 `prestige` 누락 수정. **마이그레이션 적용 후 프록시 배포.**
+- **흰 화면 깜박임 제거** — 네이티브 창은 `changeSize`/`changePosition` 호출만으로 흰색으로 다시 그려짐. 모니터 식별에서 너비·높이를 빼고(전체화면·DPI로 흔들림), 크기·위치가 실제로 바뀔 때만 호출, 화면 밖으로 나간 창만 구조, 최대화·숨김 창은 크기 조정 안 함, 포커스·해상도 이벤트로는 창을 건드리지 않음. 사이드바 배지의 무한 반짝임 애니메이션(유휴 중 초당 ~270프레임, 고주사율 모니터에서 흰 깜박임)을 1회 + hover로 변경.
+- **목록 재렌더 감소** — 30초 폴링이 같은 내용이면 이전 배열·객체를 그대로 재사용해 매치 목록이 다시 그려지지 않음.
+- **이미지 디스크 캐시** — 이미지를 처음 한 번 Supabase에서 받아 Overwolf 앱 데이터에 저장하고 재사용. 프로필(새 기기) 5.1MB → 1.8MB, 재방문 4.7MB → 0.57MB. 없는 파일은 깨진 이미지 대신 투명 처리.
+- **첫 화면 장식 지도 14.5MB → 76KB** — 첫 실행 패널·광고 레일 배경이 `previewImageUrl('worlds_edge_s30.png')`를 썼는데, 미리보기 파일을 패키지에서 뺀 뒤로 4096² 원본(14.5MB)을 받고 있었음(시작 벤치마크로 발견). 1024px webp(`src/assets/worlds-edge-decor.webp`)를 번들에 넣어 네트워크 요청 없이 표시. 첫 화면 네트워크 15.5MB → 1.0MB, 안정화 774 → 517ms, JS 힙 27.0 → 12.8MB. 맵 리플레이 등 실제 지도는 원본 그대로.
+- **광고 레일을 Overwolf 광고 영역 배치(440×670)에 맞춤 / 최소 창 높이 780 → 720** — 레일 안 "Go ad-free with Premium" 버튼 제거(좌측 메뉴 Premium 유지), 400×60 ↔ 400×600 사이 간격을 빈 요소+gap 두 번(28px) → 한 번(10px), 상단 여백 12 → 10px. 400×600 하단이 창 기준 775 → 716px로 올라와 1366×768(Win11 작업 영역 720px)에서도 두 광고가 온전히 보임(헤드리스 측정, 715px부터 잘림). 레일 너비 433 → 441px(High Impact 광고 영역 최소 440px 충족). 1366×720은 타이틀바+두 광고만으로 695px이라 여전히 불가.
+- **시작 화면 (Overwolf QA: 실행 후 바로 창 표시, 로더 허용)** — `index.html`에 JS 없이 그려지는 부트 셸(타이틀바·최소화·닫기·드래그 + 로딩 표시) 추가, React 첫 렌더가 덮어씀(`src/bootShell.ts`). 첫 페인트 428 → 48ms(시작 벤치마크), 번역 팩 로딩이 느려도 빈 창이 보이지 않음.
+- **첫 실행 오프라인 화면** — 번역 캐시가 없는 상태로 오프라인 실행 시 텍스트 한 줄만 남고 타이틀바·닫기가 없던 문제. 부트 셸 안에 "인터넷 연결 확인" 안내 + 다시 시도 버튼, 온라인 복귀 시 자동 재시도. 창 이동·최소화·닫기(닫기 설정 hide/quit 따름) 동작.
+- **세컨드 스크린 플래그** — 데스크톱 창에 `disable_hardware_acceleration: true` (Overwolf 세컨드 스크린 가이드). 맵 리플레이 등 캔버스 렌더링 성능은 OW 실기 확인 필요.
+- **인게임 창 외부 링크 확인** — 인게임 오버레이의 설정에서 Discord·로그 폴더(브라우저 대체 경로)를 열 때 "브라우저에서 열까요?" 확인 후 기본 브라우저로 염(Overwolf QA: 인게임 링크는 OW 브라우저 또는 사용자 확인 후 기본 브라우저). 데스크톱 창은 기존처럼 바로 열림.
+- **디버그 로그** — 매치·GEP 원본(`[GEP]`·`[Ring]`·`[PlayerStats]`)은 기본 켜짐, 위치(`[Location]`, ~2Hz)는 기본 꺼짐. 백그라운드 DevTools에서 `__APEX_DEBUG__` / `__APEX_DEBUG_MATCH__` / `__APEX_DEBUG_LOCATION__`로 전환. 구독에서 빠진 GEP 기능은 플래그와 무관하게 WARN.
+
+### 수정
+
+- **GEP 구독 누락 (ring / player_stats / match_summary / damage)** — Supabase `game_constants.gep_features`가 코드의 구독 목록을 통째로 대체해, 앱을 게임보다 먼저 켠 경우 원격 목록(14개, `ring` 없음)으로 구독되어 링·플레이어 스탯이 저장되지 않던 문제. 구독 목록은 이제 코드(`GEP_BASE_FEATURES`)가 소유하고, 원격 설정은 `gep_features_disabled`로 **끄기만** 가능(전체 또는 `minVersion`/`maxVersion` 범위). 구독 후 설정이 바뀌면 재구독하고, 누락·차단된 기능은 항상 `[GEP] subscription incomplete` WARN으로 남김. `gep_features`는 v0.0.15 이하 호환용으로만 남김.
+- **미수집 매치 컬럼 기록 시작**
+  - `headshots` — GEP `damage` 이벤트 `headshot:"true"` 히트 수(헤드샷 **킬** 수 아님).
+  - `grenade_damage` — `grenade:"true"` 히트의 `amount` 합(실드 포함, 반올림). 이 버전부터 0 시작 → null은 미수집 빌드.
+  - `damage_hits` — GEP `damage` 히트 전체 수(헤드샷 비율의 분모). null = 미수집 빌드. **프록시에 `damageHits` ↔ `damage_hits` 매핑 필요.**
+  - `ultimates_used` — `me.ultimate_cooldown`이 JSON 문자열(`{"ultimate_cooldown":"15"}`)인데 `parseInt`로 읽어 항상 NaN이던 파싱 버그 수정. 단 현재 GEP가 값을 보내지 않음(Provider `Missing feature ultimate_cooldown`).
+- **킬리더 제거** — 문서화된 GEP 키가 없고(HUD 현지화 텍스트뿐, `hud` 미구독) 전 행 null이던 `is_kill_leader` 제거. 프록시(`9462a69`)·타입·테스트 데이터 정리.
+- **등수 오판 (stale `match_summary`)** — GEP가 직전 판 `{"rank","squadKills"}`를 다시 보내 분대 전멸 시점의 생존 팀 수보다 낮은 등수가 저장되던 문제. 불가능한 등수는 payload 전체(squadKills 포함)를 무시.
+- **닉네임 깨짐** — 평범한 닉네임("HiRo", "RAMIN256" 등)이 base64처럼 보이면 디코드되어 제어문자로 저장되던 문제. 출력 가능한 문자가 아니면 디코드 거절, 두 번 적용해도 같은 결과. 기존 행 복구: `supabase/manual/repair_mangled_profile_names.sql`.
+- **레벨 이중 합산** — 검색 후보의 총 레벨(level + prestige×500)을 주소록에 다시 저장해 `global_profiles.level`에 500씩 쌓이던 문제(`normalizeLevelPair`). 복구: `supabase/manual/repair_double_counted_levels.sql`.
+- **드롭쉽 경로가 지상 경로로 그려짐** — GEP가 한 경기 내내 `phase`를 안 보내면 이전 판 값(`landed`)이 남아 드롭쉽 구간까지 그려지던 문제. 이번 세션에서 PHASE 이벤트를 받은 경우만 신뢰하고, 아니면 속도로 낙하 구간을 잘라냄(`groundPath.ts`, 지도·리플레이·공유 카드 공통).
+- **무기 귀속** — 적이 나를 넉다운한 행의 적 무기를 내 무기로 킬·어시스트에 귀속하던 문제. 케어패키지 Mozambique(`mp_weapon_shotgun_pistol_crate`) 인식.
+- **킬 관여율 100% 고정** — squadKills가 없는 경기(구버전 수집·팀 킬 0)에서 내 킬로 대체되던 것을 해당 경기 제외로 변경. 넉 지표(`avgKnocks`·`knockToKillRate`) 추가, 넉 미수집 경기는 제외.
+- **로컬 DB 병합 손실** — 같은 `matchId`가 한 배치에 두 번 오면 앞의 병합이 사라지던 문제. 배치 내 중복을 먼저 합치고 읽기·쓰기를 한 트랜잭션으로.
+- **오래된 상세 캐시** — 상세 버전 v2(`ring_rounds`)보다 오래된 로컬 캐시는 열 때 한 번 재요청.
+- **공백 있는 이미지 경로** — 따옴표 없는 CSS `url()`이 "mad maggie" 같은 경로에서 무시되던 문제.
+- **티어표 모드 전환 시 저장 순서** — 모드를 바꾸는 순간 이전 모드의 표가 새 모드 키로 한 번 저장되던 문제(로드 effect와 저장 effect가 같은 커밋에서 실행). 모드 전환 시 렌더 중에 새 모드 표를 읽도록 변경.
+- **프로필 태그 아이콘 깜박임** — 아이콘 id가 바뀌면 effect(페인트 후)에서 초기화해 이전 아이콘이 한 프레임 보이던 것을 렌더 중 초기화로 변경.
+- **린트 오류 120 → 0** (`npm run lint`: src 115 + admin 5, admin 경고 1건 남음) — `any` 93건을 실제 타입으로 교체: 백그라운드 창 API(`vite-env.d.ts`의 `BgProfile`·`BgSearchResult`·`SelectableProfile` 등), 검색 후보 `PlayerCandidate`, 기록 동기화·LocalDB 제네릭, `MapConfig`. React 훅 규칙 17건은 "props 변경 시 effect에서 state 초기화" 패턴을 렌더 중 조정으로 바꾸는 식으로 정리(검색창·랭크 차트·이미지 훅·통계 탭·무기 탭 등). `useApexRunning`은 `src/hooks/`, `useTheme`는 `src/theme/useTheme.ts`로 분리(Fast Refresh). ESLint에 `ignoreRestSiblings` 허용. 동작 변경 없음은 골든 스냅샷·시작 벤치마크·헤드리스 화면 순회로 확인.
+
+### 서버·DB (적용 순서)
+
+프록시(`trace-proxy-server`)는 별도 레포. 이 레포의 마이그레이션은 아래 순서로 적용.
+
+1. **보안** `20261020090000_fix_global_profiles_write_rls.sql` + `20261020090100_revoke_global_profiles_extra_client_grants.sql` — `global_profiles` 쓰기 정책이 PUBLIC(anon 포함)에 열려 있던 것을 막고 불필요 권한 회수. 쓰기는 프록시(service_role)만.
+2. `20261114184658_player_account_stats.sql` → 프록시 `/account-stats` 배포.
+3. `20261117090000_global_profiles_als_synced_at.sql` → 프록시 `/apex-stats` DB 캐시 배포.
+4. `20261116130000_add_matches_damage_hits.sql` → 프록시 `damageHits` 매핑.
+5. `20261116120000_drop_matches_is_kill_leader.sql` — 프록시 `9462a69` 배포 **후**.
+6. 수동(`supabase/manual/`): `fix_seasons_from_game_data.sql`(시즌 표를 게임 일정에 맞춤), `repair_double_counted_levels.sql`, `repair_mangled_profile_names.sql` — 각 파일의 미리보기 쿼리로 확인 후 실행.
+
+언어 팩: version 17(QA 제출본) → **21**(공유·첫 실행·데모·Premium·시즌 선택·리플레이·DETAILS 지표·`controls.first`·`settings.externalLink.*` 등, 기존 키·보간 변수 유지). **`npm run seed:languages` 필요**(미실행 시 영어 기본 문구). 클라이언트 언어 캐시 키 `languages_cache_v5`로 올려 새 팩을 다시 받음.
+
+### 테스트·측정 도입
+
+- **vitest 테스트 84개** — `src/utils/__tests__/`: 단위 테스트 + 익명화 실제 경기 23개(`demoMatches.json`) 골든 스냅샷(통계·레전드/무기/위협/맵 집계·종합 티어·팀원·최근 비교·경기 상세·리플레이/링). `npm test`, `npm run test:coverage`.
+- **버전 지표 `npm run metrics`** — 테스트·커버리지·TS/린트 오류·번들 크기·시작 벤치마크를 측정해 `metrics/history/<버전>.json`, `metrics/HISTORY.md`, `metrics/diffs/<버전>.md`에 기록. `--ref <태그>`로 과거 버전을 같은 기준(현재 테스트 포함)으로 재측정.
+- **시작 벤치마크** — 헤드리스 Edge + Overwolf API 대체 + 녹화 네트워크 재생(80ms). 시나리오: 빈 첫 화면 / 데모 / 저장 프로필 새 기기 / 재방문. 사용법·해석: [METRICS.md](METRICS.md).
+
+### 개발 도구·문서
+
+- 스크립트: `build-demo-matches.mjs`(데모 데이터 생성·익명화), `game-icons/*.py`(설치된 게임에서 아이콘·시즌 일정 추출 → Supabase), `fetch-local-images.mjs`·`make-image-previews.py`(로컬 이미지).
+- 새 문서: [METRICS.md](./METRICS.md), [SEASON-ROLLOVER.md](./SEASON-ROLLOVER.md), [GEP-REQUESTS.md](./GEP-REQUESTS.md), [DB-OPTIMIZATION.md](./DB-OPTIMIZATION.md)·[RING-HEATMAP.md](./RING-HEATMAP.md)(미구현 설계), [CHANGES-1.0.0.md](./CHANGES-1.0.0.md). GEP-BUGS(링)·ROADMAP·NICKNAME-SEARCH·ARCHITECTURE·QA 갱신.
+
+### 측정 (2026-11-24, 커밋 전 작업 트리 — 버전 1.0.0으로 올리기 직전)
+
+비교 대상은 v0.0.15. 시작 수치는 7회 중앙값, ±5–10%는 잡음. 이후 바뀐 것은 광고 레일 간격·부트 셸·인게임 링크 확인·버전 번호뿐이며, 부트 셸의 첫 페인트(428 → 48ms)는 별도 측정.
+
+| 항목 | v0.0.15 | v1.0.0 | |
+| --- | ---: | ---: | --- |
+| 테스트 (현재 기준) | 42/47 통과 | **84/84** | |
+| 커버리지 (`src/utils` 줄) | 46.5% (1,739줄) | 46.9% (2,470줄) | 대상 줄 3,736 → 5,272 |
+| TS / 린트 오류 (`src`) | 0 / 113 | 0 / **0** | |
+| JS 번들 (gzip) | 1,788KB (481) | 2,635KB (629) | +692KB는 데모 데이터(지연 청크) |
+| 데스크톱 초기 로드 gzip | 384KB | 414KB | +8% |
+| 첫 화면 90% 렌더링 / 안정화 | 331 / 476ms | 358 / 519ms | 소폭 증가 |
+| 첫 화면 외부 요청 / 바이트 | 9 / 0.86MB | 10 / 1.0MB | |
+| 프로필(새 기기) 요청 / 바이트 | 39 / 5.1MB | **30 / 1.8MB** | 이미지 디스크 캐시 |
+| 프로필(새 기기) JS 실행 / 안정화 | 214 / 846ms | **145 / 753ms** | |
+| 프로필(재방문) 요청 / 바이트 | 42 / 4.7MB | **17 / 0.57MB** | |
+| 프로필(재방문) 안정화 | 685ms | **575ms** | |
+| 프로필 화면 DOM 노드 | 2,871 | **978** | |
+| 데모 화면 (신규) | — | 90% 482ms, DOM 974 | |
+
+- 골든 스냅샷: `calculateStats`에 `avgKnocks`·`knockToKillRate` 추가. 그 외 집계 결과는 v0.0.15와 동일.
+- 첫 화면 장식 지도 수정 전 측정치: 네트워크 15.5MB, 안정화 774ms, 힙 27.0MB.
+- 상세: [metrics/diffs/v0.0.16.md](../metrics/diffs/v0.0.16.md) (측정 당시 버전 표기 0.0.16)
+
+---
+
+## v0.0.16 — 미배포
+
+태그·배포 없이 [v1.0.0](#v100--2026-11-25)에 합쳐짐(GEP 구독 누락·미수집 컬럼·킬리더 제거).
 
 ---
 
@@ -25,6 +141,28 @@ Statistics 탭 레이아웃/시각 정리, 모드 라벨 정비, 무기 실루�
 
 - [RELEASE_NOTES.md](RELEASE_NOTES.md) — `v0.0.15` 릴리즈 내역 추가.
 - [WEAPON-STATS.md](WEAPON-STATS.md) — 기준 버전 `v0.0.15`로 갱신.
+
+### 측정 (2026-11-24 재측정, `v0.0.15` 태그)
+
+태그 코드를 그대로 빌드해 현재 테스트 세트·같은 녹화 네트워크로 측정. 비교 대상은 v0.0.14.
+
+| 항목 | v0.0.14 | v0.0.15 | |
+| --- | ---: | ---: | --- |
+| 테스트 (현재 기준) | 39/47 통과 | 42/47 통과 | 실패 5 → 2 |
+| 린트 오류 | 119 | 113 | |
+| JS 번들 (gzip) | 1,779KB (478) | 1,788KB (481) | |
+| 첫 화면 90% 렌더링 / 안정화 | 330 / 475ms | 331 / 476ms | 변화 없음 |
+| 프로필(새 기기) JS 실행 / 안정화 | 182 / 819ms | 214 / 846ms | JS +18% |
+| 프로필(재방문) 안정화 | 547ms | 685ms | +25% (아래 주의) |
+
+- **릴리즈 노트에 없던 집계 변화 (골든 스냅샷으로 확인)**
+  - 무기 매치 수: 교체만 하고 킬·어시스트·qualify가 없는 무기는 그 경기 사용으로 세지 않음(`weaponHasMatchCredit`). 데모 데이터에서 NEMESIS 14 → 13경기 등.
+  - Paired weapons: "가장 오래 든 다른 무기 1개" → **같은 시간에 다른 슬롯에 든 무기**, K/D/A도 그 동시 구간만(`computePairedPartnerCombatWhileSelected`).
+  - 맵 통계: 경기 수·승률만 → K/D·평균 대미지·평균 순위·랭크 점수 추가, 정렬도 랭크 점수 기준으로 바뀜.
+  - 순위 색: HEX(`#fdcb6e` 등) → 테마 CSS 변수(`var(--color-rank-first)` …).
+- 현재 테스트 대비 남은 차이: `calculateStats`에 넉 지표 없음(작업 트리 v0.0.16/Unreleased에서 추가), `getRankTierNameFromRp` 없음.
+- 주의: 재방문 시나리오에서 녹화에 없던 아이콘 요청 8건이 503으로 응답되어, 재방문 수치는 다른 버전보다 덜 정확함.
+- 상세: [metrics/diffs/v0.0.15.md](../metrics/diffs/v0.0.15.md), 스냅샷 diff 원문 `metrics/diffs/v0.0.15.behavior.txt`
 
 ---
 
@@ -58,6 +196,25 @@ Statistics 탭 레이아웃/시각 정리, 모드 라벨 정비, 무기 실루�
 
 - [WEAPON-STATS.md](WEAPON-STATS.md) — 지표·킬/데스 모델·배포 메모.
 
+### 측정 (2026-11-24 재측정, `v0.0.14` 태그)
+
+비교 대상은 v0.0.13.
+
+| 항목 | v0.0.13 | v0.0.14 | |
+| --- | ---: | ---: | --- |
+| 테스트 (현재 기준) | 38/47 통과 | 39/47 통과 | |
+| 린트 오류 | 119 | 119 | |
+| JS 번들 (gzip) | 1,774KB (477) | 1,779KB (478) | |
+| 첫 화면 외부 요청 / 바이트 | 20 / 15.0MB | **9 / 0.86MB** | |
+| 첫 화면 90% 렌더링 / 안정화 | 389 / 504ms | **330** / 475ms | 90% −15% |
+| 프로필(새 기기) 요청 / 바이트 | 49 / 19.2MB | **39 / 5.1MB** | |
+| 프로필(재방문) 안정화 | 695ms | **547ms** | −21% |
+
+- 첫 화면에서 원본 지도 이미지(`worlds_edge_s30.png`, 14.5MB) 1건과 광고 SDK 관련 요청 10건(`content.overwolf.com` 8, `www.overwolf.com` 2)이 사라짐 → 첫 화면 바이트 −94%.
+- **무기 집계 개편 확인 (골든 스냅샷)**: 같은 데모 23경기에서 대표 무기(`mostWeapon`)가 L-STAR → **EVA-8**, Top Weapons 순서·K/D가 크게 바뀜 — 위 "킬 귀속/데스 귀속" 변경의 실제 영향.
+- 현재 테스트 대비 남은 차이: 무기·맵 집계(v0.0.15에서 다시 바뀜), 순위 색 HEX, 넉 지표 없음.
+- 상세: [metrics/diffs/v0.0.14.md](../metrics/diffs/v0.0.14.md)
+
 ---
 
 ## v0.0.13 — 2026-09-06
@@ -77,6 +234,26 @@ Statistics 탭 레이아웃/시각 정리, 모드 라벨 정비, 무기 실루�
 - 매치를 정규화 컬럼만으로 저장. `legacy_match` / `schema_version` / `dataQuality` / `confidence` 제거. `player_name`, `missing_signals` 컬럼으로 불완전 배지 툴팁 유지.
 - 주소록 POST는 기존 행과 name/hw/platform 등이 같으면 upsert를 건너뜀.
 - GET 읽기 엔드포인트에 짧은 엣지 캐시 (`history` 30s, `search-candidates` 60s, `seasons` 1h, `apex-stats` 180s).
+
+### 측정 (2026-11-24 재측정, `v0.0.13` 태그 — 측정 기준선)
+
+측정을 시작한 첫 버전. 이후 버전 비교의 기준선. 서버 쪽 변경(엣지 캐시 등)은 녹화 네트워크 재생이라 이 수치에 반영되지 않음.
+
+| 항목 | 값 |
+| --- | ---: |
+| 테스트 (현재 기준) | 38/47 통과, 실패 5, 스킵 4 |
+| 커버리지 (`src/utils` 줄) | 29.1% (886 / 3,041줄) |
+| TS / 린트 오류 | 0 / 119 (경고 3) |
+| JS 번들 (gzip) | 1,774KB (477KB) |
+| 초기 로드 gzip (데스크톱 / 백그라운드) | 383KB / 252KB |
+| 첫 화면 FCP / 90% 렌더링 / 안정화 | 392 / 389 / 504ms |
+| 첫 화면 외부 요청 / 바이트 | 20 / 15.0MB (원본 지도 14.5MB 포함) |
+| 프로필(새 기기) 90% / 안정화 / JS 실행 | 509 / 802 / 178ms |
+| 프로필(새 기기) 요청 / 바이트 / DOM | 49 / 19.2MB / 2,883 |
+| 프로필(재방문) 안정화 / 요청 / 바이트 | 695ms / 41 / 18.8MB |
+
+- 현재 테스트 실패는 버그가 아니라 이후 버전에서 바뀐 동작: 무기 집계(v0.0.14), 맵 집계·순위 색(v0.0.15), 넉 지표(v0.0.16/Unreleased), 이후 추가된 모듈(스킵).
+- 상세: [metrics/diffs/v0.0.13.md](../metrics/diffs/v0.0.13.md)
 
 ---
 

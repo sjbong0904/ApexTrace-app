@@ -18,7 +18,9 @@ const MatchFactory = {
             // Never seed from profile/ALS — GEP select or prev-match fallback only.
             legend: null,
             placement: 20,
-            kills: 0, assists: 0, deaths: 0, damage: 0, knocks: 0, squadKills: 0, ultimatesUsed: 0, headshots: 0,
+            // grenadeDamage 0 (not null) marks "collected by a build that records it" (>= 0.0.16).
+            // damageHits 0 (not null) likewise marks a build that counts every damage hit (headshot-rate denominator).
+            kills: 0, assists: 0, deaths: 0, damage: 0, knocks: 0, squadKills: 0, ultimatesUsed: 0, headshots: 0, grenadeDamage: 0, damageHits: 0,
             isDead: false,
             rank: {
                 name: initialUser?.rankName || "-",
@@ -28,7 +30,7 @@ const MatchFactory = {
             startTime: Date.now(), endTime: 0,
             loadout: { primary: null, secondary: null },
             weaponCombat: {},
-            path: [], events: [], teamStats: [], weaponTimeline: [],
+            path: [], events: [], teamStats: [], weaponTimeline: [], ringRounds: [],
             _lastLocationTime: 0, _lastKnownTeams: 20, _guessedRank: null,
             _rosterCache: [], _isVictory: false,
             _squadNames: new Set(initialUser?.name ? [initialUser.name] : []),
@@ -69,6 +71,7 @@ class MatchService {
             }
 
             case 'CHECK_ROSTER_AGAIN': this.processRoster(match); break;
+            case 'RING': MatchService.recordRing(match, data); break;
             case 'PHASE': match._currentPhase = data; break;
             case 'SET_DEAD': {
                 const wasDead = !!match.isDead;
@@ -94,6 +97,18 @@ class MatchService {
             case 'DAMAGE':{
                 const hitDmg = parseFloat(data.amount || data);
                 if (!isNaN(hitDmg)) match.damage += hitDmg;
+                break;
+            }
+            // GEP `damage` event flags. headshots = headshot hits (not kills);
+            // grenadeDamage = summed amount incl. armor, rounded (column is integer).
+            case 'DAMAGE_HIT_FLAGS':{
+                const amount = parseFloat(data?.amount);
+                match.damageHits = (match.damageHits || 0) + 1;
+                if (data?.headshot) match.headshots = (match.headshots || 0) + 1;
+                if (data?.grenade && !isNaN(amount)) {
+                    match._grenadeDamageRaw = (match._grenadeDamageRaw || 0) + amount;
+                    match.grenadeDamage = Math.round(match._grenadeDamageRaw);
+                }
                 break;
             }
             case 'LEGEND': match.legend = data; break;
@@ -210,7 +225,19 @@ class MatchService {
                 if (!data || (data.x === 0 && data.y === 0)) return;
                 if (match.isDead || match._pathRecording === false) return;
 
-                const phase = String(data.phase || match._currentPhase || '').toLowerCase();
+                // GEP can stop sending `phase` for whole matches; getInfo then keeps serving the
+                // previous match's value ("landed"), which would tag dropship points as ground.
+                // Trust a phase only once this session received a live PHASE event.
+                const phase = match._currentPhase
+                    ? String(data.phase || match._currentPhase).toLowerCase()
+                    : '';
+                if (!phase && !match._loggedNoLivePhase) {
+                    match._loggedNoLivePhase = true;
+                    window.Utils?.locationLog?.('No live phase this session — path points tagged unknown', {
+                        matchId: match.matchId,
+                        polledPhase: data.phase || null,
+                    });
+                }
                 // Pre-drop phases only ever carry the previous match's cached coordinate.
                 if (MatchService.PRE_MATCH_PHASES.has(phase)) return;
 
@@ -246,7 +273,14 @@ class MatchService {
             }
 
             case 'ULTIMATE_COOLDOWN':{
-                const current = parseInt(data);
+                // GEP sends a JSON string: {"ultimate_cooldown":"15"} (0-100). Plain numbers
+                // are accepted too. parseInt on the raw JSON was always NaN (< 0.0.16).
+                let raw = data;
+                if (typeof raw === 'string' && raw.trim().startsWith('{')) {
+                    try { raw = JSON.parse(raw); } catch (e) { raw = null; }
+                }
+                if (raw && typeof raw === 'object') raw = raw.ultimate_cooldown;
+                const current = parseInt(raw, 10);
                 const last = match._lastUltValue || 0;
                 if (!isNaN(current) && !match.isDead) {
                     if (last >= 90 && current <= 5) match.ultimatesUsed++;
@@ -450,7 +484,7 @@ class MatchService {
         const stale = Math.abs(prev.x - point.x) <= 1 && Math.abs(prev.y - point.y) <= 1;
         if (stale && !match._loggedStaleStart) {
             match._loggedStaleStart = true;
-            window.Utils?.matchLog?.('Rejected stale first location (previous session end)', {
+            window.Utils?.locationLog?.('Rejected stale first location (previous session end)', {
                 matchId: match.matchId,
                 point,
                 prev: { x: prev.x, y: prev.y },
@@ -498,6 +532,113 @@ class MatchService {
         return isUnknownLegend && isEmptyStats;
     }
     
+    /**
+     * GEP `ring` feature (312.0+): `next_ring` / `active_ring` = { x, y, radius } as strings.
+     * Units are NOT the same as `location` (meters) — stored raw; calibrate on the client.
+     *
+     * ringRounds[] = one entry per distinct next_ring (RingRound shape) plus `activeSamples`
+     * [{ t, x, y, r, d }] (d = 1 while the local player is dead) so a player can replay
+     * shrink timing. GEP has no timestamps → `t` is Date.now() on receipt (same clock as path.t).
+     */
+    static recordRing(match, data) {
+        if (!match || !data || !data.kind) return;
+        const x = Number(data.x);
+        const y = Number(data.y);
+        const r = Number(data.radius);
+        if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(r)) return;
+
+        const now = Date.now();
+        const dead = match.isDead ? 1 : 0;
+        const rounds = match.ringRounds || (match.ringRounds = []);
+        const stats = match._ringStats || (match._ringStats = { next: 0, active: 0, dupes: 0, whileDead: 0 });
+        const sig = `${x.toFixed(1)}|${y.toFixed(1)}|${r.toFixed(1)}`;
+
+        if (data.kind === 'next') {
+            stats.next += 1;
+            if (match._ringLastNext === sig) { stats.dupes += 1; return; }
+            match._ringLastNext = sig;
+            // GEP bug: next_ring x/y are garbage; only radius is real. 317.4 sent denormals
+            // (1.38986e-40, 1.79548e-41); 318.0 sends x ≈ -2.0, y ≈ 1.44e-41, which passes any
+            // "near zero" check. Never trust them (docs/GEP-BUGS.md) — always store null and let
+            // finalizeRingRounds fill the center from the shrink's final active_ring.
+            stats.badNextCenter = (stats.badNextCenter || 0) + 1;
+            rounds.push({
+                round: rounds.length,
+                revealedAt: now,
+                nextRingCenterX: null,
+                nextRingCenterY: null,
+                gepCenterRaw: [x, y],
+                nextRingRadius: r,
+                activeSamples: [],
+                revealedWhileDead: !!dead,
+            });
+            if (dead) stats.whileDead += 1;
+            window.Utils?.ringLog?.('next_ring', { round: rounds.length - 1, x, y, r, dead, offsetS: Math.round((now - match.startTime) / 1000) });
+            return;
+        }
+
+        if (data.kind !== 'active') return;
+        stats.active += 1;
+        // Lobby/match-end reset value ({0,0,100000}) — not a real ring.
+        if (x === 0 && y === 0) { stats.resets = (stats.resets || 0) + 1; return; }
+        if (match._ringLastActive?.sig === sig) { stats.dupes += 1; return; }
+        if (dead) stats.whileDead += 1;
+
+        // active_ring before any next_ring → keep it in a placeholder round.
+        if (rounds.length === 0) {
+            rounds.push({
+                round: 0, revealedAt: null,
+                nextRingCenterX: null, nextRingCenterY: null, nextRingRadius: null,
+                activeSamples: [],
+            });
+        }
+        const round = rounds[rounds.length - 1];
+        const samples = round.activeSamples || (round.activeSamples = []);
+        const MAX_SAMPLES_PER_ROUND = 1500;
+        if (samples.length < MAX_SAMPLES_PER_ROUND) {
+            samples.push({ t: now, x: Math.round(x * 10) / 10, y: Math.round(y * 10) / 10, r: Math.round(r * 10) / 10, d: dead });
+        }
+
+        // GEP only streams active_ring while it changes (~every 2 s during a shrink).
+        // Shrink start = previous sample only if it belongs to this round; else this sample.
+        const prev = match._ringLastActive;
+        if (prev && r < prev.r - 0.5) {
+            if (!round.startTime) round.startTime = prev.round === round.round ? prev.t : now;
+            round.endTime = now;
+        }
+        match._ringLastActive = { sig, r, t: now, round: round.round };
+
+        // Log the first few per round only — active_ring may stream while shrinking.
+        if (samples.length <= 3) {
+            window.Utils?.ringLog?.('active_ring', { round: round.round, x, y, r, dead, n: samples.length, offsetS: Math.round((now - match.startTime) / 1000) });
+        }
+    }
+
+    /**
+     * Post-match fill-in: when next_ring's center was invalid, use the active ring center at
+     * the end of that round's shrink (active ring converges onto the announced next ring).
+     * Only when the shrink actually reached the announced radius; otherwise left null.
+     * Also records the unit relation verified from logs: ring units = location meters × 100.
+     */
+    static finalizeRingRounds(match) {
+        const rounds = Array.isArray(match?.ringRounds) ? match.ringRounds : [];
+        rounds.forEach((rd) => {
+            if (rd.centerSource === 'active_end') return;
+            // Any center not derived from active_ring came from GEP next_ring → garbage.
+            rd.nextRingCenterX = null;
+            rd.nextRingCenterY = null;
+            const samples = rd.activeSamples || [];
+            const last = samples[samples.length - 1];
+            if (!last || rd.nextRingRadius == null) return;
+            if (Math.abs(last.r - rd.nextRingRadius) > Math.max(5, rd.nextRingRadius * 0.01)) return;
+            rd.nextRingCenterX = last.x;
+            rd.nextRingCenterY = last.y;
+            rd.centerSource = 'active_end';
+        });
+        if (rounds.length > 0) match.ringUnitsPerMeter = 100;
+        return rounds;
+    }
+
     static stripRuntimeFields(match) {
         const runtimeKeys = [
             'isDead', '_ending', '_saved', '_isVictory', '_guessedRank', '_lastLocationTime',
@@ -505,7 +646,8 @@ class MatchService {
             '_unknownKillers', 'startPos', 'endPos', '_pathSegment', '_pathRecording',
             '_squadEliminated', '_lastTeamsAlive', '_minTeamsAlive',
             '_matchSummaryRank', '_estimatedPlacement', '_placementEstimateFrozen', '_summaryWhileSquadAlive',
-            '_lastSeenLoc', '_firstLocationSample', '_loggedStaleStart',
+            '_rejectedSummaryKey',
+            '_lastSeenLoc', '_firstLocationSample', '_loggedStaleStart', '_loggedNoLivePhase',
             '_pendingKnocks', '_combatPairs', '_squadCombatPairs', '_assistVictimQueue', '_lastDamageLogAt', '_gepPseudoMatchId',
             '_boundaryLastKills', '_boundaryLastDamage', '_boundaryLastTeams',
             '_discardUpload', '_uploadQueuedAt', '_hadLocalLegendSelect',
@@ -515,6 +657,7 @@ class MatchService {
             '_sawGepPseudo', '_boundaryInferred', '_missingMatchStart',
             '_uploadHoldUntil', '_continuationHold', '_boundarySquadSnapshot',
             '_lastRespawnOrReviveAt', '_squadRosterFrozen',
+            '_ringLastActive', '_ringLastNext', '_ringStats', '_grenadeDamageRaw',
         ];
         runtimeKeys.forEach((k) => { delete match[k]; });
         if (match.teamStats) {

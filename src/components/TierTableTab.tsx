@@ -13,6 +13,7 @@ import {
     reorderTierRow,
     saveLastMode,
     saveTableState,
+    getTierItemBackground,
     TIER_FALLBACK_IMG,
     TIER_LABEL_MAX_LENGTH,
     TIER_COLOR_CYCLE,
@@ -65,10 +66,13 @@ const TierTableTab: React.FC = () => {
     const items = useMemo(() => (mode ? getItemsForMode(mode) : []), [mode]);
     const itemMap = useMemo(() => new Map(items.map((item) => [item.id, item])), [items]);
 
-    useEffect(() => {
-        if (!mode) return;
-        setTableState(loadTableState(mode));
-    }, [mode]);
+    // Mode switch: load that mode's saved table during render, so the save effect below never
+    // writes the previous mode's table under the new mode's key.
+    const [loadedMode, setLoadedMode] = useState(mode);
+    if (loadedMode !== mode) {
+        setLoadedMode(mode);
+        if (mode) setTableState(loadTableState(mode));
+    }
 
     useEffect(() => {
         if (!mode) return;
@@ -130,7 +134,8 @@ const TierTableTab: React.FC = () => {
     const removeTierRow = (tierId: string) => {
         setTableState((prev) => {
             if (prev.tiers.length <= 1) return prev;
-            const { [tierId]: _removed, ...restAssignments } = prev.assignments;
+            const restAssignments = { ...prev.assignments };
+            delete restAssignments[tierId];
             return {
                 tiers: prev.tiers.filter((tier) => tier.id !== tierId),
                 assignments: restAssignments,
@@ -391,7 +396,7 @@ const TierTableTab: React.FC = () => {
                     height: poolItemSize.h,
                     borderRadius: mode === 'legend' ? '50%' : 8,
                     border: `2px solid ${isPlaced ? 'var(--color-accent)' : 'var(--color-border-light)'}`,
-                    background: 'var(--color-bg-card)',
+                    background: getTierItemBackground(mode, item.id, 'var(--color-bg-card)'),
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
@@ -434,7 +439,7 @@ const TierTableTab: React.FC = () => {
                 height: tierSize.h,
                 borderRadius: mode === 'legend' ? '50%' : 6,
                 border: '1px solid var(--color-border-light)',
-                background: 'var(--color-bg-sub-header)',
+                background: getTierItemBackground(mode, item.id, 'var(--color-bg-sub-header)'),
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',

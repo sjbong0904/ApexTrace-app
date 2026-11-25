@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import type { Match } from '../types';
 import { formatMatchElapsedTime } from '../utils/helpers';
 import { getEventIconUrl } from '../utils/eventIcons';
@@ -6,7 +6,24 @@ import { FaHandshake } from 'react-icons/fa';
 import { GiCrossedSwords } from 'react-icons/gi';
 
 import { useTranslation } from 'react-i18next';
+import { getWeaponDisplayName, getWeaponSilhouetteUrl, WHITE_SILHOUETTE_FILTER } from '../utils/weaponTheme';
 import { MATCH_PANEL_BODY_PADDING, MATCH_PANEL_HEADER, matchTimelineContentStyle, matchTimelineRowGap, matchTimelineRowStyle, matchTimelineTimeStyle } from './matchPanelStyles';
+
+/**
+ * Fixed kill-feed columns: attacker | weapon | event icon | victim.
+ * The middle slots keep the same width whether or not a weapon is known, and both
+ * names get an equal share, so every row lines up regardless of event type or name length.
+ */
+const EVENT_ICON_SLOT = 20;
+const WEAPON_SLOT = 48;
+const killFeedGridStyle: React.CSSProperties = {
+    flex: 1,
+    minWidth: 0,
+    display: 'grid',
+    gridTemplateColumns: `minmax(0, 1fr) ${WEAPON_SLOT}px ${EVENT_ICON_SLOT}px minmax(0, 1fr)`,
+    columnGap: 6,
+    alignItems: 'center',
+};
 
 const formatEventTypeLabel = (type: string) =>
     type.length > 0 ? type.charAt(0).toUpperCase() + type.slice(1) : type;
@@ -41,7 +58,33 @@ const formatLogName = (
     return name ?? unknownLabel;
 };
 
-const CombatLog = ({ match }: { match: Match }) => {
+/** Small white silhouette of the weapon used in an event; hidden when unknown or the image is missing. */
+const EventWeapon = ({ weapon }: { weapon?: string | null }) => {
+    const [failed, setFailed] = useState(false);
+    if (!weapon || failed || weapon.toLowerCase() === 'unknown') return null;
+    const name = getWeaponDisplayName(weapon);
+    return (
+        <img
+            src={getWeaponSilhouetteUrl(weapon)}
+            alt={name}
+            title={name}
+            onError={() => setFailed(true)}
+            style={{ display: 'block', height: 14, maxWidth: '100%', objectFit: 'contain', filter: WHITE_SILHOUETTE_FILTER, opacity: 0.85, transform: 'scaleX(-1)' }}
+        />
+    );
+};
+
+interface CombatLogProps {
+    match: Match;
+    /** Used inside a tab strip that already names the panel. */
+    hideHeader?: boolean;
+    /** Row clicked → move the map replay to this epoch-ms moment. */
+    onSeek?: (timestamp: number) => void;
+    /** Highlight the row last sent to the replay. */
+    activeTimestamp?: number | null;
+}
+
+const CombatLog = ({ match, hideHeader = false, onSeek, activeTimestamp = null }: CombatLogProps) => {
     const { t } = useTranslation();
     const events = match.events || [];
     const startTime = match.startTime;
@@ -49,7 +92,7 @@ const CombatLog = ({ match }: { match: Match }) => {
     const unknownLabel = t('combatLog.unknown');
     const myName = match.playerName && match.playerName !== 'Unknown' ? match.playerName : '';
 
-    const validEvents = events.filter((e: any) => 
+    const validEvents = events.filter((e) => 
         ['kill', 'death', 'knockdown', 'assist', 'revive', 'respawn'].includes(e.type)
     );
 
@@ -73,13 +116,13 @@ const CombatLog = ({ match }: { match: Match }) => {
             overflow: 'hidden',
         }}>
             
-            <div style={MATCH_PANEL_HEADER}>
+            {!hideHeader && <div style={MATCH_PANEL_HEADER}>
                 <span>{t('combatLog.title')}</span>
                 <span style={{ fontWeight: 400 }}>{t('combatLog.eventsCount', { count: validEvents.length })}</span>
-            </div>
+            </div>}
 
             <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: MATCH_PANEL_BODY_PADDING }}>
-                {validEvents.map((event: any, index: number) => {
+                {validEvents.map((event, index) => {
                     const attackerDisplay = formatLogName(
                         event.attacker, event.type, 'attacker', myName, meLabel, unknownLabel,
                     );
@@ -120,7 +163,6 @@ const CombatLog = ({ match }: { match: Match }) => {
                     }
 
                     const nameStyle: React.CSSProperties = {
-                        flex: 1,
                         minWidth: 0,
                         overflow: 'hidden',
                         textOverflow: 'ellipsis',
@@ -130,55 +172,59 @@ const CombatLog = ({ match }: { match: Match }) => {
                     return (
                         <div
                             key={index}
+                            role={onSeek ? 'button' : undefined}
+                            tabIndex={onSeek ? 0 : undefined}
+                            title={onSeek ? t('combatLog.seekHint', { defaultValue: 'Show this moment in the replay' }) : undefined}
+                            onClick={onSeek ? () => onSeek(event.timestamp) : undefined}
+                            onKeyDown={onSeek ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSeek(event.timestamp); } } : undefined}
                             style={{
                                 ...matchTimelineRowStyle({
                                     background: rowBg,
                                     borderLeft: `4px solid ${borderColor}`,
                                 }),
                                 ...matchTimelineRowGap(index === validEvents.length - 1),
+                                cursor: onSeek ? 'pointer' : undefined,
+                                outline: activeTimestamp === event.timestamp ? '1px solid var(--color-rank-first)' : undefined,
+                                outlineOffset: -1,
                             }}
                         >
                             <div style={matchTimelineTimeStyle}>
                                 {timeLabel}
                             </div>
 
-                            <div style={matchTimelineContentStyle}>
-                                
-                                {/* Empty attacker cells still occupy flex space so rows stay aligned. */}
+                            <div style={{ ...matchTimelineContentStyle, ...killFeedGridStyle }}>
+                                {/* Attacker hugs the icon from the left, victim from the right — a kill-feed layout. */}
                                 <span style={{
                                     ...nameStyle,
-                                    textAlign: 'center',
+                                    textAlign: 'right',
                                     fontWeight: 'normal',
                                     color: isAttackerMe ? 'var(--color-success)' : 'var(--color-text-dim)',
                                 }} title={attackerDisplay || undefined}>
                                     {attackerDisplay}
                                 </span>
-                                
-                                <div style={{ 
-                                    flex: '0 0 auto',
-                                    margin: '0 5px',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    gap: '4px',
-                                    color: 'var(--color-text-subtle)',
-                                }} title={formatEventTypeLabel(event.type)}>
+
+                                {/* Always rendered (empty when no weapon) so the icon and victim columns never shift. */}
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minWidth: 0 }}>
+                                    <EventWeapon weapon={event.weapon} />
+                                </div>
+
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }} title={formatEventTypeLabel(event.type)}>
                                     {eventIconUrl ? (
                                         <img
                                             src={eventIconUrl}
                                             alt=""
-                                            width={20}
-                                            height={20}
-                                            style={{ display: 'block', objectFit: 'contain', flexShrink: 0 }}
+                                            width={EVENT_ICON_SLOT}
+                                            height={EVENT_ICON_SLOT}
+                                            style={{ display: 'block', objectFit: 'contain' }}
                                         />
                                     ) : (
-                                        <FallbackIcon size={10} color={fallbackColor} />
+                                        <FallbackIcon size={12} color={fallbackColor} />
                                     )}
                                 </div>
-    
-                                <span style={{ 
+
+                                <span style={{
                                     ...nameStyle,
-                                    textAlign: 'center',
+                                    textAlign: 'left',
                                     fontWeight: 'normal',
                                     color: isMySupportEvent
                                         ? 'var(--color-success)'

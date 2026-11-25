@@ -30,10 +30,6 @@ const WindowController = {
     _workerWindowId: null,
     _lastGameMonitorHandle: null,
 
-    _normalizeMonitorHandle: (handle) => (
-        handle === undefined || handle === null || handle === '' ? null : String(handle)
-    ),
-
     _displayArea: (display) => (Number(display?.width || 0) * Number(display?.height || 0)),
 
     _displayMatchesHandle: (display, monitorHandle) => {
@@ -49,21 +45,57 @@ const WindowController = {
             .some((value) => String(value) === handle);
     },
 
+    /** Map a raw monitor handle (number or object) onto one display. Unresolved handles must not move the window. */
+    _resolveDisplayByHandle: (displays, handle) => {
+        if (!Array.isArray(displays) || displays.length === 0 || handle == null || handle === '') return null;
+        const keys = [];
+        const push = (value) => {
+            if (value === undefined || value === null || value === '') return;
+            keys.push(String(value));
+        };
+        if (typeof handle === 'object') {
+            push(handle.value);
+            push(handle.handle);
+            push(handle.id);
+            push(handle.monitorHandle);
+            push(handle.monitor_handle);
+            push(handle.name);
+        } else {
+            push(handle);
+        }
+        if (keys.length === 0) return null;
+        return displays.find((display) =>
+            keys.some((key) => WindowController._displayMatchesHandle(display, key))
+        ) || null;
+    },
+
+    /**
+     * Identity of a monitor, ignoring width/height.
+     * Fullscreen and DPI make those numbers wobble; treating that as a new monitor
+     * called changeSize and flashed the native window white.
+     */
+    _displayKey: (display) => {
+        if (!display) return null;
+        const id = display.id ?? display.handle ?? display.name;
+        if (id != null && id !== '') return `id:${id}`;
+        const x = Math.round((Number(display.x) || 0) / 50) * 50;
+        const y = Math.round((Number(display.y) || 0) / 50) * 50;
+        return `pos:${x}:${y}`;
+    },
+
     _selectSecondScreen: (displays, gameInfo) => {
         const primaryDisplay = displays.find((d) => d.is_primary) || displays[0];
         if (!displays || displays.length <= 1) return primaryDisplay;
 
         const gameRunning = gameInfo && gameInfo.isRunning && isApexGame(gameInfo.classId);
-        const gameMonitorHandle = gameInfo?.monitorHandle;
+        const gameMonitorHandle = gameInfo?.monitorHandle ?? gameInfo?.monitor_handle;
 
         const pickLargest = (list) => (
             [...list].sort((a, b) => WindowController._displayArea(b) - WindowController._displayArea(a))[0]
         );
 
         if (gameRunning) {
-            const gameDisplay = displays.find((display) =>
-                WindowController._displayMatchesHandle(display, gameMonitorHandle)
-            );
+            const gameDisplay = WindowController._resolveDisplayByHandle(displays, gameMonitorHandle);
 
             const nonGameDisplays = gameDisplay
                 ? displays.filter((display) => display !== gameDisplay)
@@ -99,7 +131,11 @@ const WindowController = {
     _sameDisplay: (a, b) => {
         if (!a || !b) return false;
         if (a === b) return true;
-        return a.x === b.x && a.y === b.y && a.width === b.width && a.height === b.height;
+        const idA = a.id ?? a.handle ?? a.name;
+        const idB = b.id ?? b.handle ?? b.name;
+        if (idA != null && idB != null && String(idA) !== '' && String(idA) === String(idB)) return true;
+        return Math.abs((Number(a.x) || 0) - (Number(b.x) || 0)) < 80
+            && Math.abs((Number(a.y) || 0) - (Number(b.y) || 0)) < 80;
     },
 
     /** Work area inset — keep clear of the Windows taskbar (usually bottom). */
@@ -142,14 +178,79 @@ const WindowController = {
     },
 
     /**
+     * Native changeSize / changePosition repaint the whole window white, even when
+     * the numbers did not change. Skip the call unless size or position actually moves.
+     * @param {string} windowId
+     * @param {object | null | undefined} current
+     * @param {{ width: number, height: number, left: number, top: number }} next
+     * @param {() => void} [done]
+     */
+    _commitBounds: (windowId, current, next, done) => {
+        const finish = () => {
+            if (typeof done === 'function') done();
+        };
+        const state = String(current?.stateEx || current?.state || '').toLowerCase();
+        if (state === 'maximized') {
+            finish();
+            return;
+        }
+
+        const width = Math.floor(Number(next.width));
+        const height = Math.floor(Number(next.height));
+        const left = Math.round(Number(next.left));
+        const top = Math.round(Number(next.top));
+        if (![width, height, left, top].every(Number.isFinite)) {
+            finish();
+            return;
+        }
+
+        const hasCurrent = current
+            && Number.isFinite(Number(current.width))
+            && Number.isFinite(Number(current.height))
+            && Number.isFinite(Number(current.left))
+            && Number.isFinite(Number(current.top));
+        const sizeChanged = !hasCurrent
+            || Math.abs(Number(current.width) - width) > 4
+            || Math.abs(Number(current.height) - height) > 4;
+        const posChanged = !hasCurrent
+            || Math.abs(Number(current.left) - left) > 4
+            || Math.abs(Number(current.top) - top) > 4;
+
+        if (!sizeChanged && !posChanged) {
+            finish();
+            return;
+        }
+
+        const move = () => {
+            if (!posChanged) {
+                finish();
+                return;
+            }
+            overwolf.windows.changePosition(windowId, left, top, finish);
+        };
+
+        if (!sizeChanged) {
+            move();
+            return;
+        }
+
+        overwolf.windows.changeSize({
+            window_id: windowId,
+            width,
+            height,
+        }, move);
+    },
+
+    /**
      * Resize (optional preferred size) and center a window inside a display's work area.
      * @param {string} windowId
      * @param {object} display
      * @param {number} preferredWidth
      * @param {number} preferredHeight
      * @param {() => void} [done]
+     * @param {object} [currentWindow] live bounds — required to skip a no-op repaint
      */
-    _applySizeAndCenter: (windowId, display, preferredWidth, preferredHeight, done) => {
+    _applySizeAndCenter: (windowId, display, preferredWidth, preferredHeight, done, currentWindow) => {
         const work = WindowController._displayWorkArea(display);
         const { width, height } = WindowController._clampToWorkArea(
             preferredWidth,
@@ -157,24 +258,18 @@ const WindowController = {
             work,
         );
         const { left, top } = WindowController._centerInWorkArea(width, height, work);
-
-        overwolf.windows.changeSize({
-            window_id: windowId,
-            width,
-            height,
-        }, () => {
-            overwolf.windows.changePosition(windowId, left, top, () => {
-                if (typeof done === 'function') done();
-            });
-        });
+        WindowController._commitBounds(windowId, currentWindow, { width, height, left, top }, done);
     },
 
     /**
-     * Fit a window to the display it currently sits on (or preferred second screen).
+     * Rescue a window that is no longer on any display.
+     * A window already on a monitor is left alone: changeSize/changePosition flash a native window white.
      * Called from the desktop/in-game UI via getMainWindow().WindowController.
      */
-    resizeWindowToDisplay: (windowInfo, preferredWidth, preferredHeight) => {
+    resizeWindowToDisplay: (windowInfo, _preferredWidth, _preferredHeight) => {
         if (!windowInfo?.id) return;
+        const state = String(windowInfo.stateEx || windowInfo.state || '').toLowerCase();
+        if (state === 'maximized' || state === 'minimized') return;
 
         WindowController._getMonitorsList((res) => {
             const displays = res.success && res.displays?.length ? res.displays : [];
@@ -186,20 +281,18 @@ const WindowController = {
                 width: windowInfo.width,
                 height: windowInfo.height,
             }, displays);
-
-            const apply = (display) => {
-                const targetW = preferredWidth || windowInfo.width || 1540;
-                const targetH = preferredHeight || windowInfo.height || 850;
-                WindowController._applySizeAndCenter(windowInfo.id, display, targetW, targetH);
-            };
-
-            if (boundsDisplay) {
-                apply(boundsDisplay);
-                return;
-            }
+            if (boundsDisplay) return;
 
             overwolf.games.getRunningGameInfo((gameRes) => {
-                apply(WindowController._selectSecondScreen(displays, gameRes));
+                const display = WindowController._selectSecondScreen(displays, gameRes);
+                WindowController._applySizeAndCenter(
+                    windowInfo.id,
+                    display,
+                    Number(windowInfo.width) || 1540,
+                    Number(windowInfo.height) || 850,
+                    undefined,
+                    windowInfo,
+                );
             });
         });
     },
@@ -207,9 +300,52 @@ const WindowController = {
     _repositionDesktopIfVisible: () => {
         overwolf.windows.obtainDeclaredWindow("desktop", (res) => {
             if (res.status !== "success") return;
-            if (WindowController._isWindowVisible(res.window)) {
-                WindowController.centerWindow(res.window.id);
-            }
+            const windowInfo = res.window;
+            if (!WindowController._isWindowVisible(windowInfo)) return;
+            const state = String(windowInfo.stateEx || windowInfo.state || '').toLowerCase();
+            if (state === 'maximized') return;
+
+            WindowController._getMonitorsList((monitors) => {
+                const displays = monitors.success && monitors.displays?.length ? monitors.displays : [];
+                if (displays.length === 0) return;
+
+                overwolf.games.getRunningGameInfo((gameRes) => {
+                    const targetDisplay = WindowController._selectSecondScreen(displays, gameRes);
+                    const currentDisplay = WindowController._boundsDisplay(windowInfo, displays);
+                    // Already on that screen. Re-centering calls changeSize and flashes the window white.
+                    if (WindowController._sameDisplay(currentDisplay, targetDisplay)) return;
+
+                    WindowController._applySizeAndCenter(
+                        windowInfo.id,
+                        targetDisplay,
+                        windowInfo.width || 1540,
+                        windowInfo.height || 850,
+                        undefined,
+                        windowInfo,
+                    );
+                });
+            });
+        });
+    },
+
+    /**
+     * Remember which display the game is on. Move the desktop window only when that
+     * monitor changes. Resolution and DPI updates keep the same id and must not resize.
+     */
+    _noteGameMonitor: (gameInfo) => {
+        const rawHandle = gameInfo?.monitorHandle ?? gameInfo?.monitor_handle;
+        if (rawHandle == null || rawHandle === '') return;
+
+        WindowController._getMonitorsList((res) => {
+            const displays = res.success && res.displays?.length ? res.displays : [];
+            const display = WindowController._resolveDisplayByHandle(displays, rawHandle);
+            const key = WindowController._displayKey(display);
+            if (!key) return;
+
+            const previous = WindowController._lastGameMonitorHandle;
+            if (previous === key) return;
+            WindowController._lastGameMonitorHandle = key;
+            if (previous) WindowController._repositionDesktopIfVisible();
         });
     },
 
@@ -239,6 +375,8 @@ const WindowController = {
                             targetDisplay,
                             winWidth,
                             winHeight,
+                            undefined,
+                            winRes.window,
                         );
                     });
                 });
@@ -356,12 +494,9 @@ const WindowController = {
                     top = Math.min(Math.max(top, work.y), maxTop);
                 }
 
-                overwolf.windows.changeSize({
-                    window_id: windowId,
-                    width,
-                    height,
-                }, () => {
-                    overwolf.windows.changePosition(windowId, left, top);
+                overwolf.windows.obtainDeclaredWindow("desktop", (liveRes) => {
+                    const current = liveRes.status === "success" ? liveRes.window : null;
+                    WindowController._commitBounds(windowId, current, { width, height, left, top });
                 });
             });
         });
@@ -684,7 +819,12 @@ const ConfigController = {
             if (!constants || constants.length === 0) return;
 
             constants.forEach(({ key, value }) => {
-                if (key === 'gep_features') window.GEP_FEATURES = value;
+                // `gep_features` (full list) is legacy: read only by <= 0.0.15. This build owns its
+                // list (GEP_BASE_FEATURES); remote config can only switch features off.
+                if (key === 'gep_features_disabled') {
+                    window.GEP_FEATURES_DISABLED = value;
+                    GameProcessMonitor.refreshFeatures?.('config');
+                }
                 if (key === 'platform_map') window.PLATFORM_MAP = value;
                 if (key === 'proxy_base_url') window.PROXY_BASE_URL = value;
                 if (key === 'junk_match_thresholds') window.JUNK_MATCH_THRESHOLDS = value;
@@ -934,11 +1074,29 @@ const mapSearchCandidate = (c) => ({
     updated_at: c.updated_at ?? c.updatedAt ?? null,
 });
 
+/**
+ * Profile `level` is 1..500 within `prestige` (ALS shape). Search candidates carry
+ * total level (level + prestige*500) for display; without this, re-saving them through
+ * updateAddressBook stacked another prestige*500 onto global_profiles.level each time.
+ */
+const normalizeLevelPair = (level, prestige) => {
+    const lv = Number(level) || 0;
+    const pr = Number(prestige) || 0;
+    if (lv <= 500) return { level: lv, prestige: pr };
+    const derivedPrestige = Math.min(Math.floor((lv - 1) / 500), 3);
+    return { level: ((lv - 1) % 500) + 1, prestige: Math.max(pr, derivedPrestige) };
+};
+
+/** How long a GEP-synced profile RP outranks ALS in loadUserProfile. */
+const GEP_RP_PREFERRED_MS = 30 * 60 * 1000;
+
+const totalLevelOf = (p) =>(Number(p?.prestige) || 0) * 500 + (Number(p?.level) || 0);
+
 const canUseCachedStats = (uid, cached) => {
     if (!cached || String(cached.uid) !== String(uid)) return false;
     if (cached.rank_score != null || cached.rankScore != null) return true;
-    if (cached.level != null && Number(cached.level) > 0) return true;
-    return !!(cached.name && cached.name !== 'Unknown');
+    // A bare { uid, name } (teammate click, pinned uid) has no stats to reuse: fetch ALS.
+    return cached.level != null && Number(cached.level) > 0;
 };
 
 const CoreController = {
@@ -955,12 +1113,16 @@ const CoreController = {
                 ? Promise.resolve(options.preloadedHistory)
                 : window.CloudRepository.fetchHistoryFile(uid);
 
+            const dbTask = options.preloadedDbInfo !== undefined
+                ? Promise.resolve(options.preloadedDbInfo)
+                : (window.CloudRepository.fetchUserByUid
+                    ? window.CloudRepository.fetchUserByUid(uid)
+                    : Promise.resolve(null));
+
             const [apiStats, remoteHistory, dbInfo] = await Promise.all([
                 statsTask,
                 remoteHistoryTask,
-                window.CloudRepository.fetchUserByUid
-                    ? window.CloudRepository.fetchUserByUid(uid)
-                    : Promise.resolve(null),
+                dbTask,
             ]);
 
             let finalData = apiStats;
@@ -996,19 +1158,55 @@ const CoreController = {
                     finalData.rankDiv ?? finalData.rank_div,
                 );
                 
+                let levelPair = normalizeLevelPair(finalData.level, finalData.prestige);
+                // Local player's own GEP player_stats (via /account-stats) is fresher than ALS.
+                const gepSynced = !!dbInfo?.gep_synced_at;
+                if (gepSynced) {
+                    const dbPair = normalizeLevelPair(dbInfo.level, dbInfo.prestige);
+                    if (totalLevelOf(dbPair) >= totalLevelOf(levelPair)) levelPair = dbPair;
+                }
+
                 const normalizedUser = {
                     uid: finalData.uid,
-                    name: finalData.name, 
-                    level: finalData.level || 0,
-                    prestige: finalData.prestige || 0,
+                    name: finalData.name,
+                    level: levelPair.level,
+                    prestige: levelPair.prestige,
                     rankName: fullRankName,
                     rankScore: finalData.rankScore || finalData.rank_score || 0,
                     legend: finalData.legend || null,
                     avatar: finalData.avatar || null,
                     updated_at: finalData.updated_at || null,
                     role: finalData.role || null,
-                    linked_uid: finalData.linked_uid || finalData.linkedUid || null
+                    linked_uid: finalData.linked_uid || finalData.linkedUid || null,
+                    currentXp: gepSynced ? (dbInfo.current_xp ?? null) : null,
+                    neededXp: gepSynced ? (dbInfo.needed_xp ?? null) : null,
+                    gepSyncedAt: dbInfo?.gep_synced_at ?? null,
                 };
+
+                // Recent GEP sync (/account-stats) beats ALS RP, which lags behind a match by
+                // minutes; past the window ALS may know games played while the app was off.
+                const gepSyncedMs = gepSynced ? Date.parse(dbInfo.gep_synced_at) : NaN;
+                const dbRp = Number(dbInfo?.rank_score);
+                if (apiStats && Number.isFinite(gepSyncedMs) && Date.now() - gepSyncedMs < GEP_RP_PREFERRED_MS
+                    && Number.isFinite(dbRp) && dbRp > 0) {
+                    normalizedUser.rankScore = dbRp;
+                }
+
+                // Viewing the local player: in-session GEP values beat both DB and ALS.
+                const localUid = window.Store.system?.localUser?.uid;
+                const career = window.Store.playerStats?.player_stats_career;
+                if (career && localUid && String(localUid) === String(normalizedUser.uid)) {
+                    const total = Number(career.level);
+                    if (Number.isFinite(total) && total > 0) {
+                        const pr = Math.min(Math.floor((total - 1) / 500), 3);
+                        normalizedUser.prestige = pr;
+                        normalizedUser.level = total - pr * 500;
+                    }
+                    normalizedUser.currentXp = career.current_xp ?? normalizedUser.currentXp;
+                    normalizedUser.neededXp = career.needed_xp ?? normalizedUser.neededXp;
+                    const rp = Number(window.Store.playerStats?.player_stats_br_ranked_latest?.rank_score);
+                    if (Number.isFinite(rp)) normalizedUser.rankScore = rp;
+                }
 
                 if (window.CloudRepository) {
                     window.CloudRepository.updateAddressBook(normalizedUser.name, normalizedUser.uid, normalizedUser);
@@ -1093,6 +1291,8 @@ const CoreController = {
         // Always record local identity (match recording / getLocalUid).
         if (!window.Store.system) window.Store.system = {};
         window.Store.system.localUser = { uid: identity.uid, name: identity.name };
+        // player_stats can arrive in the lobby before identity; send what was queued.
+        void window.AccountStatsSync?.flush?.();
 
         // Only overwrite Store.user when viewing local player or no profile is loaded.
         // Unconditional writes shared the same object with React state and snapped
@@ -1142,23 +1342,39 @@ const CoreController = {
         }
     },
 
-    correctPreviousMatchRP: async (currentRealRP) => {
-        if (!window.Store.history || window.Store.history.length === 0) return;
-        const lastMatch = window.Store.history[0];
+    /**
+     * POST /account-stats pinned a GEP RP delta on a stored match
+     * (replaces the never-called ALS-based correctPreviousMatchRP).
+     */
+    onRemoteRpApplied: (applied) => {
+        if (!applied?.matchId) return;
+        const rankScore = Number(applied.rankScore);
+        const rpChange = Number(applied.rpChange);
+        if (!Number.isFinite(rankScore) || !Number.isFinite(rpChange)) return;
+        // Ledger: the delta can land before the match reaches Store.history (still in
+        // the upload queue, or POST /history answered first); _prependHistory applies it.
+        const ledger = window.Store.rpByMatch || (window.Store.rpByMatch = {});
+        ledger[String(applied.matchId)] = { rankScore, rpChange, at: Date.now() };
+        CoreController._pruneRpLedger();
+        if (!Array.isArray(window.Store.history)) return;
+        const idx = window.Store.history.findIndex((m) => String(m.matchId) === String(applied.matchId));
+        if (idx === -1) return;
+        window.Store.history[idx] = { ...window.Store.history[idx], rankScore, rpChange, rpProcessed: true };
+    },
 
-        if (lastMatch.rpProcessed || !lastMatch.rank || lastMatch.rank.startScore === undefined) return;
-
-        const saveUid = lastMatch.platformId || window.Store.user?.uid;
-        if (!saveUid) return;
-
-        const actualChange = currentRealRP - lastMatch.rank.startScore;
-        lastMatch.rankScore = currentRealRP;
-        lastMatch.rpChange = actualChange;
-        lastMatch.rpProcessed = true;
-
-        if (window.CloudRepository) {
-            await window.CloudRepository.appendMatchHistory(saveUid, lastMatch);
+    _pruneRpLedger: () => {
+        const ledger = window.Store.rpByMatch;
+        if (!ledger) return;
+        const cutoff = Date.now() - 2 * 60 * 60 * 1000;
+        for (const id of Object.keys(ledger)) {
+            if (!(ledger[id]?.at >= cutoff)) delete ledger[id];
         }
+    },
+
+    _withLedgerRp: (match) => {
+        const rp = match?.matchId ? window.Store.rpByMatch?.[String(match.matchId)] : null;
+        if (!rp || match.rpProcessed) return match;
+        return { ...match, rankScore: rp.rankScore, rpChange: rp.rpChange, rpProcessed: true };
     },
 
     _shouldUpdateStoreHistory: (savedUid) => {
@@ -1199,7 +1415,7 @@ const CoreController = {
         if (!CoreController._shouldUpdateStoreHistory(savedUid)) return;
         const currentHistory = window.Store.history || [];
         if (currentHistory.some(h => h.matchId === match.matchId)) return;
-        window.Store.history = [match, ...currentHistory];
+        window.Store.history = [CoreController._withLedgerRp(match), ...currentHistory];
         CoreController._notifyMatchSaved(savedUid, match);
     },
 
@@ -1336,8 +1552,71 @@ const CoreController = {
             return;
         }
 
+        CoreController._finalizeRingAndStats(match);
         window.MatchBoundary?.rememberClosedSession?.(match);
         return CoreController._queueMatchUpload(match);
+    },
+
+    /** Verification summary for ring/player_stats capture (plans.txt GEP checks). */
+    _finalizeRingAndStats: (match) => {
+        try {
+            const rounds = window.MatchService?.constructor?.finalizeRingRounds?.(match)
+                || (Array.isArray(match.ringRounds) ? match.ringRounds : []);
+            const stats = match._ringStats || { next: 0, active: 0, dupes: 0, whileDead: 0 };
+            const lastPt = Array.isArray(match.path) && match.path.length > 0 ? match.path[match.path.length - 1] : null;
+            const lastRound = rounds[rounds.length - 1];
+            const lastActive = lastRound?.activeSamples?.[lastRound.activeSamples.length - 1] || null;
+            const offS = (t) => (t ? Math.round((t - match.startTime) / 1000) : null);
+            window.Utils?.ringLog?.('Match ring summary', {
+                matchId: match.matchId,
+                map: match.map,
+                placement: match.placement,
+                rounds: rounds.length,
+                activeSamples: rounds.reduce((n, rd) => n + (rd.activeSamples?.length || 0), 0),
+                received: stats,
+                perRound: rounds.map((rd) => ({
+                    round: rd.round,
+                    revealedS: offS(rd.revealedAt),
+                    shrinkStartS: offS(rd.startTime),
+                    shrinkEndS: offS(rd.endTime),
+                    samples: rd.activeSamples?.length || 0,
+                    deadSamples: (rd.activeSamples || []).filter((s) => s.d).length,
+                    r: rd.nextRingRadius,
+                    center: rd.nextRingCenterX != null ? [rd.nextRingCenterX, rd.nextRingCenterY] : null,
+                    centerSource: rd.centerSource || (rd.nextRingCenterX != null ? 'gep' : null),
+                })),
+                // Unit calibration: final ring center vs last path point (meters).
+                lastPath: lastPt ? { x: lastPt.x, y: lastPt.y } : null,
+                lastActive: lastActive ? { x: lastActive.x, y: lastActive.y, r: lastActive.r } : null,
+            });
+
+            const ps = window.Store?.playerStats;
+            if (ps && match.legend && match.legend !== 'Unknown') ps.lastLegend = match.legend;
+            const career = ps?.player_stats_career;
+            if (career) {
+                match.playerStats = {
+                    ...(match.playerStats || {}),
+                    level: career.level ?? null,
+                    currentXp: career.current_xp ?? null,
+                    neededXp: career.needed_xp ?? null,
+                    totalXp: career.total_xp ?? null,
+                    career,
+                    brRankedLatest: ps.player_stats_br_ranked_latest || null,
+                    brUnrankedLatest: ps.player_stats_br_unranked_latest || null,
+                    capturedAt: ps.updatedAt,
+                };
+                window.Utils?.playerStatsLog?.('Match end snapshot', {
+                    matchId: match.matchId,
+                    level: career.level,
+                    xp: `${career.current_xp}/${career.needed_xp}`,
+                    xpGained: match.playerStatsStart?.totalXp != null && career.total_xp != null
+                        ? career.total_xp - match.playerStatsStart.totalXp
+                        : null,
+                });
+            }
+        } catch (e) {
+            console.warn('[Ring] finalize failed', e);
+        }
     },
 
     startMatch: async (triggerData = null) => {
@@ -1474,6 +1753,7 @@ const CoreController = {
             return;
         }
 
+        CoreController._finalizeRingAndStats(match);
         window.MatchBoundary?.rememberClosedSession?.(match);
         return CoreController._queueMatchUpload(match);
     },
@@ -1549,19 +1829,75 @@ window.SyncManager = {
     }
 };
 
+// Every GEP feature this build parses. Owned by code so subscriptions ship with their
+// handlers; remote config (`gep_features_disabled`) can only remove entries (kill switch).
+// Apex features: https://dev.overwolf.com/ow-native/live-game-data-gep/supported-games/apex-legends
+const GEP_BASE_FEATURES = [
+    'gep_internal', 'game_info', 'match_info', 'match_summary', 'kill', 'death', 'revive',
+    'me', 'roster', 'rank', 'team', 'location', 'inventory', 'kill_feed', 'match_state', 'damage',
+    'ring', 'player_stats',
+];
+
+const compareVersions = (a, b) => {
+    const pa = String(a).split('.').map((n) => parseInt(n, 10) || 0);
+    const pb = String(b).split('.').map((n) => parseInt(n, 10) || 0);
+    for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
+        const d = (pa[i] || 0) - (pb[i] || 0);
+        if (d !== 0) return d < 0 ? -1 : 1;
+    }
+    return 0;
+};
+
+/**
+ * `gep_features_disabled` entries: "ring" (all versions) or
+ * { "feature": "ring", "minVersion": "0.0.16", "maxVersion": "0.0.17" } (inclusive, either optional).
+ * Unknown app version → ranged entries still apply (a kill switch should err on the side of off).
+ */
+const resolveDisabledGepFeatures = (disabled, appVersion) => {
+    if (!Array.isArray(disabled)) return [];
+    return disabled.map((entry) => {
+        if (typeof entry === 'string') return entry.trim();
+        if (!entry || typeof entry !== 'object' || typeof entry.feature !== 'string') return null;
+        if (appVersion) {
+            if (entry.minVersion && compareVersions(appVersion, entry.minVersion) < 0) return null;
+            if (entry.maxVersion && compareVersions(appVersion, entry.maxVersion) > 0) return null;
+        }
+        return entry.feature.trim();
+    }).filter(Boolean);
+};
+
+const resolveGepFeatures = () => {
+    const blocked = new Set(resolveDisabledGepFeatures(window.GEP_FEATURES_DISABLED, window.APP_VERSION));
+    return GEP_BASE_FEATURES.filter((f) => !blocked.has(f));
+};
+
 // PROCESS MONITOR & BOOTSTRAP
 const GameProcessMonitor = {
     _featuresRegistered: false,
     _retryTimer: null,
-    
+    /** Last list GEP accepted; compared on config refresh to decide whether to re-subscribe. */
+    _subscribedFeatures: null,
+
+    /** Re-subscribe when the resolved list changed after a successful registration (late config). */
+    refreshFeatures: (reason) => {
+        if (!GameProcessMonitor._featuresRegistered) return;
+        const next = resolveGepFeatures();
+        const prev = GameProcessMonitor._subscribedFeatures || [];
+        if (next.length === prev.length && next.every((f) => prev.includes(f))) return;
+        console.warn(`[GEP] feature list changed (${reason}) — re-subscribing ${JSON.stringify({ prev, next })}`);
+        GameProcessMonitor._featuresRegistered = false;
+        GameProcessMonitor.registerFeatures();
+    },
+
     init: () => {
         overwolf.games.onGameInfoUpdated.addListener((res) => {
             GameProcessMonitor.updateOverlayHealth(res);
-            if (res && res.gameInfo) GameProcessMonitor.checkGameStatus(res.gameInfo);
+            if (res && res.gameInfo) GameProcessMonitor.checkGameStatus(res);
         });
 
         overwolf.games.getRunningGameInfo((res) => {
-            if (res) GameProcessMonitor.checkGameStatus(res);
+            // Startup poll is a real running-state read, not a focus/resolution echo.
+            if (res) GameProcessMonitor.checkGameStatus({ gameInfo: res, runningChanged: true });
         });
 
         GameProcessMonitor.registerFeatures();
@@ -1600,11 +1936,31 @@ const GameProcessMonitor = {
         }
     },
 
-    checkGameStatus: (gameInfo) => {
+    checkGameStatus: (event) => {
+        const gameInfo = event?.gameInfo || event;
         if (!gameInfo) return;
+        // Focus and resolution updates often omit isRunning or rephrase monitorHandle.
+        // Acting on those used to restore/resize the desktop window and flash it white.
+        const runningChanged = event?.runningChanged === true;
 
         const isApex = (gameInfo.classId === TARGET_GAME_ID) || (gameInfo.title && gameInfo.title.includes("Apex Legends"));
-        const isRunning = gameInfo.isRunning;
+        const isRunning = gameInfo.isRunning === true;
+        const isExplicitlyStopped = gameInfo.isRunning === false;
+        const prevPhase = window.Store.game.phase;
+        const looksOnline = prevPhase && prevPhase !== 'OFFLINE';
+        const statusFlip = runningChanged && isApex && ((isRunning && !looksOnline) || (isExplicitlyStopped && looksOnline));
+
+        if (statusFlip && window.Utils?.gepLog) {
+            window.Utils.gepLog('gameInfoUpdated', {
+                isApex,
+                isRunning: gameInfo.isRunning ?? null,
+                runningChanged,
+                classId: gameInfo.classId ?? null,
+                processId: gameInfo.processId ?? gameInfo.process_id ?? null,
+                prevPhase,
+                title: gameInfo.title || null,
+            });
+        }
 
         if (isApex && isRunning) {
             if (gameInfo.overlayInfo?.inputFailure && !window.Store.overlayHealth?.hookError) {
@@ -1612,29 +1968,28 @@ const GameProcessMonitor = {
                 window.Store.overlayHealth = { hookError: true, at: Date.now() };
             }
             const wasOffline = window.Store.game.phase === 'OFFLINE';
-            if (wasOffline) {
+            if (wasOffline && runningChanged) {
                 window.Store.game.phase = 'LOBBY';
+                window.Utils?.gepLog?.('game detect → LOBBY (was OFFLINE)', {
+                    processId: gameInfo.processId ?? gameInfo.process_id ?? null,
+                });
                 WindowController.showSecondScreen();
             }
             if (!GameProcessMonitor._featuresRegistered) GameProcessMonitor.registerFeatures();
 
-            const currentMonitorHandle = WindowController._normalizeMonitorHandle(
-                gameInfo.monitorHandle ?? gameInfo.monitor_handle
-            );
-            if (currentMonitorHandle) {
-                const previousHandle = WindowController._lastGameMonitorHandle;
-                if (previousHandle !== currentMonitorHandle) {
-                    WindowController._lastGameMonitorHandle = currentMonitorHandle;
-                    // Only relocate when the game actually moved monitors — not on focus clicks
-                    // (handle type flicker used to re-center every time the game was focused).
-                    if (previousHandle) WindowController._repositionDesktopIfVisible();
-                }
-            }
-        } else if (isApex && !isRunning) {
+            WindowController._noteGameMonitor(gameInfo);
+        } else if (isApex && isExplicitlyStopped && runningChanged) {
             if (window.Store.overlayHealth?.hookError) {
                 window.Store.overlayHealth = { hookError: false, at: Date.now() };
             }
             if (window.Store.game.phase !== 'OFFLINE') {
+                window.Utils?.gepLog?.('game detect → OFFLINE (isRunning false)', {
+                    prevPhase,
+                    processId: gameInfo.processId ?? gameInfo.process_id ?? null,
+                    hadActiveMatch: !!window.Store.activeMatch,
+                    matchId: window.Store.activeMatch?.matchId ?? null,
+                    featuresRegistered: !!GameProcessMonitor._featuresRegistered,
+                });
                 window.Store.game.phase = 'OFFLINE';
                 WindowController._lastGameMonitorHandle = null;
                 if (window.Store.activeMatch) window.CoreController.endMatch();
@@ -1656,30 +2011,64 @@ const GameProcessMonitor = {
     registerFeatures: () => {
         if (GameProcessMonitor._featuresRegistered || GameProcessMonitor._retryTimer) return; 
 
-        // Apex Available Features: https://dev.overwolf.com/ow-native/live-game-data-gep/supported-games/apex-legends
-        const REQUIRED_FEATURES = window.GEP_FEATURES ?? [
-            'gep_internal', 'game_info', 'match_info', 'match_summary', 'kill', 'death', 'revive',
-            'me', 'roster', 'rank', 'team', 'location', 'inventory', 'kill_feed', 'match_state', 'damage'
-        ];
+        const REQUIRED_FEATURES = resolveGepFeatures();
         const RETRY_DELAY = 3000;
         const isGepSuccess = (result) =>
             !!result && (result.success === true || result.status === 'success');
 
+        window.Utils?.gepLog?.('setRequiredFeatures attempt', { requested: REQUIRED_FEATURES });
+
         overwolf.games.events.setRequiredFeatures(REQUIRED_FEATURES, (res) => {
             if (isGepSuccess(res)) {
                 GameProcessMonitor._featuresRegistered = true;
+                GameProcessMonitor._subscribedFeatures = REQUIRED_FEATURES;
+                const supported = Array.isArray(res?.supportedFeatures)
+                    ? res.supportedFeatures
+                    : [];
+                const missing = REQUIRED_FEATURES.filter((f) => !supported.includes(f));
+                const extra = supported.filter((f) => !REQUIRED_FEATURES.includes(f));
+                const disabled = GEP_BASE_FEATURES.filter((f) => !REQUIRED_FEATURES.includes(f));
+                // Always-on (WARN survives without the debug flag): a silently dropped feature
+                // looks like "GEP sent nothing" (ring 2026-11 incident).
+                if (missing.length > 0 || disabled.length > 0) {
+                    console.warn(`[GEP] subscription incomplete ${JSON.stringify({ missing, disabledByConfig: disabled })}`);
+                }
+                window.Utils?.gepLog?.('features subscribed', {
+                    requested: REQUIRED_FEATURES,
+                    supported,
+                    missing,
+                    extra,
+                    requestedCount: REQUIRED_FEATURES.length,
+                    supportedCount: supported.length,
+                });
                 if (GameProcessMonitor._retryTimer) {
                     clearTimeout(GameProcessMonitor._retryTimer);
                     GameProcessMonitor._retryTimer = null;
                 }
                 overwolf.games.events.getInfo((infoRes) => {
                     if (infoRes?.res && isGepSuccess(infoRes)) {
+                        const split = window.Utils?.splitGepInfoForLog?.(infoRes.res);
+                        if (split?.withoutLocation) {
+                            window.Utils?.gepLog?.('getInfo after features', split.withoutLocation);
+                        } else if (!split?.locationOnly) {
+                            window.Utils?.gepLog?.('getInfo after features', infoRes.res);
+                        }
+                        if (split?.locationOnly) {
+                            window.Utils?.locationLog?.('getInfo after features', split.locationOnly);
+                        }
                         if (window.EventRouter && window.EventRouter.onInfoUpdates) {
                             window.EventRouter.onInfoUpdates({ info: infoRes.res });
                         }
+                    } else {
+                        window.Utils?.gepLog?.('getInfo after features failed', infoRes);
                     }
                 });
             } else {
+                window.Utils?.gepLog?.('setRequiredFeatures failed — retry', {
+                    requested: REQUIRED_FEATURES,
+                    error: res?.error ?? null,
+                    result: res,
+                });
                 GameProcessMonitor._retryTimer = setTimeout(() => {
                     GameProcessMonitor._retryTimer = null;
                     overwolf.games.getRunningGameInfo((game) => {
@@ -1702,8 +2091,31 @@ window.apexData = {
     searchUser: CoreController.searchUser,
     getUserDetail: CoreController.loadUserProfile,
     fetchUserHistory: (uid) => window.CloudRepository.fetchHistoryFile(uid, { view: 'summary' }),
+    /** global_profiles row (snake_case) — no ALS call; used to paint a profile before ALS returns. */
+    fetchStoredProfile: (uid) => window.CloudRepository.fetchUserByUid
+        ? window.CloudRepository.fetchUserByUid(uid).catch(() => null)
+        : Promise.resolve(null),
     fetchMatchDetail: (uid, matchId) => window.CloudRepository.fetchMatchDetail(uid, matchId),
     fetchPlayerStats: (uid, seasonId, mode) => window.APIService.getPlayerStats(uid, seasonId, mode),
+    /** GEP account snapshot: live Store for the local player, DB (/account-stats) otherwise. */
+    fetchAccountStats: async (uid) => {
+        const localUid = window.Store.system?.localUser?.uid;
+        const ps = window.Store.playerStats;
+        if (uid && localUid && String(uid) === String(localUid) && ps?.player_stats_career) {
+            return {
+                uid: String(uid),
+                gep_season: ps.player_stats_br_ranked_latest?.season ?? null,
+                career: ps.player_stats_career ?? null,
+                br_ranked_latest: ps.player_stats_br_ranked_latest ?? null,
+                br_unranked_latest: ps.player_stats_br_unranked_latest ?? null,
+                br_ranked_history: ps.player_stats_br_ranked_history ?? null,
+                br_unranked_history: ps.player_stats_br_unranked_history ?? null,
+                captured_at: ps.updatedAt ? new Date(ps.updatedAt).toISOString() : null,
+                source: 'live',
+            };
+        }
+        return window.CloudRepository.fetchAccountStats(uid);
+    },
     processWorkerResult: window.SyncManager.receiveWorkerResult
 };
 
@@ -1713,6 +2125,12 @@ const initApp = () => {
         if (window.Store.pendingMatches.length > 0 && window.Store.system?.localUser) {
             CoreController.handleWorkerIdentity(window.Store.system.localUser);
         }
+        try {
+            // Used by version-scoped `gep_features_disabled` entries.
+            overwolf.extensions.current.getManifest((manifest) => {
+                window.APP_VERSION = manifest?.meta?.version || null;
+            });
+        } catch (e) { /* non-fatal: ranged kill-switch entries then apply to all versions */ }
         TrayController.init();
         WindowController.startWorker();
         WindowController.initDesktopBoundsTracking();

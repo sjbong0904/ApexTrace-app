@@ -9,7 +9,7 @@ const ResizeHandles = ({ insetRight = 0 }: ResizeHandlesProps) => {
     const onDrag = (edge: string) => {
         overwolf.windows.getCurrentWindow((result) => {
             if (result.success) {
-                overwolf.windows.dragResize(result.window.id, edge as any);
+                overwolf.windows.dragResize(result.window.id, edge as overwolf.windows.enums.WindowDragEdge);
             }
         });
     };

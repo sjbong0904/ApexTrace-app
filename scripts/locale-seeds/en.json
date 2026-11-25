@@ -26,12 +26,14 @@
     "statistics": "Statistics",
     "weapons": "Weapon Database",
     "tierTable": "Tier Table",
-    "settings": "Settings"
+    "settings": "Settings",
+    "records": "Records"
   },
   "controls": {
     "waitSec": "Wait {{sec}}s",
     "refresh": "Refresh",
     "collapseAll": "Collapse All",
+    "first": "« First",
     "prev": "◀ Prev",
     "page": "Page",
     "of": "/",
@@ -62,7 +64,8 @@
     "empty": "No favorite players yet.",
     "unranked": "Unranked",
     "predator": "Predator",
-    "level": "Lv."
+    "level": "Lv.",
+    "xpProgress": "{{current}} / {{needed}} XP"
   },
   "match": {
     "emptyTitle": "No match history recorded yet.",
@@ -87,7 +90,14 @@
       "legend_from_prev_match": "legend reused from previous match",
       "tabs_combat_mismatch": "scoreboard stats missing"
     },
-    "dataQualityIncomplete": "Partial data"
+    "dataQualityIncomplete": "Partial data",
+    "vsRecent": "vs your last {{count}} games",
+    "vsRecentTitle": "vs your recent games",
+    "vsRecentEmpty": "Shows up once {{count}}+ earlier games in this mode are recorded.",
+    "vsRecentThis": "This",
+    "vsRecentAvg": "Avg",
+    "vsRecentLow": "Worst",
+    "vsRecentHigh": "Best"
   },
   "matchDetails": {
     "stats": "Stats",
@@ -98,7 +108,9 @@
     "time": "Time",
     "before": "Before",
     "after": "After",
-    "actionLoadoutChange": "Loadout Change"
+    "actionLoadoutChange": "Loadout Change",
+    "overview": "Overview",
+    "detailStats": "Details"
   },
   "hotkeyReminder": {
     "label": "In-Game Hotkey",
@@ -113,7 +125,36 @@
     "archiveDescBold": "Archive",
     "subscribe": "Subscribe to Unlock",
     "redirecting": "Redirecting to subscription page...",
-    "comingSoon": "Premium is coming soon. Thanks for your interest!"
+    "comingSoon": "Premium is coming soon. Thanks for your interest!",
+    "nav": "Premium",
+    "removeAds": "Go ad-free with Premium",
+    "compare": {
+      "title": "Why you lost — and whether you’re improving",
+      "subtitle": "Free shows each match. Premium shows the patterns between them.",
+      "feature": "Feature",
+      "free": "Free",
+      "later": "Later",
+      "rowMatch": "Match records · damage · kills · loadout · combat log",
+      "rowMap": "Route and death spot on the map",
+      "rowShare": "Share card",
+      "rowReplay": "Match replay (ring + movement)",
+      "rowOverview": "Stats overview · last 20 games trend",
+      "rowBreakdown": "Map · legend · weapon · teammate analysis",
+      "rowHistory": "Season / career totals, past ranked seasons",
+      "rowAds": "Ads",
+      "oncePerDay": "Once a day",
+      "unlimited": "Unlimited",
+      "previewOnly": "Top pick only",
+      "full": "Full",
+      "adsOn": "Shown",
+      "adsOff": "None"
+    },
+    "notify": {
+      "hint": "Premium is coming soon. Get notified in the app when it launches.",
+      "on": "You’re on the list — we’ll tell you in the app when Premium launches.",
+      "cta": "Notify me at launch",
+      "done": "Launch alert on"
+    }
   },
   "tutorial": {
     "dashboardTitle": "Dashboard",
@@ -314,14 +355,24 @@
     "avgKnocks": "Avg Knocks",
     "avgDamage": "Avg Damage",
     "avgAssists": "Avg Assists",
-    "mostPlayed": "Most Played"
+    "mostPlayed": "Most Played",
+    "scopeRecent": "Last 20",
+    "scopeSeason": "Season",
+    "scopeCareer": "All-time",
+    "accountSeasonGames": "Ranked season · {{count}} games",
+    "accountCareerGames": "All-time BR · {{count}} games",
+    "top5Rate": "Top 5",
+    "rpNoRanked": "No ranked games with RP yet",
+    "placementBlockTip": "{{n}} games ago · #{{place}} · {{kills}} kills · {{damage}} dmg",
+    "rpTrendTitle": "RP · last {{count}} ranked"
   },
   "combatLog": {
     "noEvents": "No combat events recorded.",
-    "title": "Combat Log",
+    "title": "Combat",
     "eventsCount": "{{count}} Events",
     "me": "Me",
-    "unknown": "Unknown"
+    "unknown": "Unknown",
+    "seekHint": "Show this moment in the replay"
   },
   "gameStatus": {
     "good": "Status: Normal\nAll game events are running properly.",
@@ -456,6 +507,10 @@
     "footer": {
       "copyright": "© 2026 ApexTrace. All rights reserved.",
       "poweredBy": "Powered by Overwolf"
+    },
+    "externalLink": {
+      "title": "Open in your browser?",
+      "message": "This opens your web browser outside the game."
     }
   },
   "playstyles": {
@@ -586,7 +641,25 @@
     "totalKnocks": "Total Knocks",
     "knocksSuffix": " knocks",
     "totalAssists": "Total Assists",
-    "assistsSuffix": " assists"
+    "assistsSuffix": " assists",
+    "teammate": "Teammate",
+    "bestWeapon": "Best weapon",
+    "bestWeaponLine": "{{kills}} K · {{assists}} A",
+    "heldMinutes": "{{count}} min held",
+    "noTeammate": "No teammate",
+    "headshotHits": "Headshot hits",
+    "notCollected": "Not recorded for this match",
+    "damagePerKnock": "Damage per knock",
+    "dmgKnockSuffix": " dmg/knock",
+    "headshotRate": "Headshot rate",
+    "headshotRateHint": "{{headshots}} of {{hits}} hits",
+    "grenadeDamage": "Grenade damage",
+    "timesKnocked": "Times knocked",
+    "timesSuffix": "x",
+    "revivesRespawns": "Revived · Respawned",
+    "revivesRespawnsHint": "Revived {{revives}}x · Respawned {{respawns}}x",
+    "ultimatesUsed": "Ultimates used",
+    "timeOutsideRing": "Time outside ring"
   },
   "statistics": {
     "tabs": {
@@ -666,7 +739,16 @@
       "radarHoverModeVertex": "Stat point",
       "radarHoverModeLabel": "Category",
       "radarHoverHintVertex": "Hover stat points on the chart",
-      "radarHoverHintLabel": "Hover category labels around the chart"
+      "radarHoverHintLabel": "Hover category labels around the chart",
+      "accountSeasonTitle": "Account · Ranked Season {{season}}",
+      "accountSeasonHint": "All ranked games on this account this season, including ones played without ApexTrace.",
+      "accountTop5": "Top 5",
+      "accountCoverage": "Tracked by ApexTrace",
+      "accountCoverageValue": "{{tracked}} / {{total}} games ({{pct}}%)",
+      "accountSeasonHistory": "Previous ranked seasons",
+      "accountSeasonCol": "Season",
+      "groupMatchResults": "Match Results",
+      "groupPersonalStats": "Personal Stats"
     },
     "maps": {
       "statistics": "Statistics",
@@ -798,11 +880,31 @@
       "getDetailedInsights": "Get detailed insights on",
       "performance": "performance.",
       "upgradeToPremium": "Upgrade to Premium",
-      "comingSoonCta": "Premium — Coming Soon"
+      "comingSoonCta": "Premium — Coming Soon",
+      "freePreview": "Free preview",
+      "compare": "Compare Free and Premium",
+      "mapsHeadline": "See which maps you win — and lose — on",
+      "mapsB1": "Avg damage, placement and K/D per map",
+      "mapsB2": "Your top legends, weapons and teammate picks on each map",
+      "legendsHeadline": "Find the legends that actually fit you",
+      "legendsB1": "Win rate, damage and placement per legend",
+      "legendsB2": "Ranked by your own results, not pick rate",
+      "weaponsHeadline": "Know which guns carry your games",
+      "weaponsB1": "Kills, K/D and win rate per weapon and pairing",
+      "weaponsB2": "Which weapons you die to most",
+      "teammatesHeadline": "See who you play best with",
+      "teammatesB1": "Placement and win rate with each teammate",
+      "teammatesB2": "Your K/D and damage with each teammate vs your average",
+      "bestMap": "Your best map",
+      "bestLegend": "Your best legend",
+      "avgDamage": "Avg dmg",
+      "avgPlace": "Avg place",
+      "games": "{{count}} games"
     },
     "emptyState": {
       "title": "∅ No Data Found"
-    }
+    },
+    "wholeSeasonName": "Season {{season}} · All splits"
   },
   "networkStatus": {
     "disconnected": "Network Disconnected",
@@ -959,5 +1061,88 @@
   "overlayHealth": {
     "title": "In-game overlay input failed",
     "message": "Restart your PC, then relaunch Apex Legends and Overwolf. Desktop tracking still works."
+  },
+  "records": {
+    "matches": "Matches"
+  },
+  "map": {
+    "loading": "Loading map…",
+    "replayPremium": "Match replay",
+    "replayPremiumHint": "Watch your route and the ring close over time with Premium.",
+    "replayFreeCta": "Watch replay",
+    "replayFreeLeft": "1 free replay left today",
+    "replayFreeUsed": "Today’s free replay is used — more tomorrow",
+    "replayUnlimited": "Unlimited with Premium"
+  },
+  "share": {
+    "copy": "Copy image",
+    "save": "Save image",
+    "copied": "Image copied — paste it anywhere",
+    "saved": "Image saved",
+    "failed": "Could not create the image",
+    "copyHint": "Copy a summary image to paste into Discord or chat",
+    "legend": "Legend"
+  },
+  "firstRun": {
+    "progressLabel": "Setup progress",
+    "stepInstalled": "App installed",
+    "stepGameOn": "Apex detected",
+    "stepGameOff": "Launch Apex Legends",
+    "stepFirstMatch": "Waiting for your first match",
+    "previewTitle": "After your first match, it looks like this",
+    "sampleNote": "Sample match",
+    "featureMap": "Where and to whom you went down, on the map",
+    "featureLog": "Combat log and loadout changes",
+    "featureShare": "A one-image share card",
+    "recordedTitle": "First match recorded!",
+    "recordedDesc": "Every match from now on lands here automatically. Use the share button to post it."
+  },
+  "demo": {
+    "label": "Sample profile",
+    "badge": "SAMPLE",
+    "proUnlocked": "Premium preview",
+    "title": "Explore a sample profile while you wait for your first match",
+    "titleDone": "That's the tour. Your own games come next.",
+    "waitingAccount": "Apex detected — this switches to your account once it is recognized.",
+    "launchHint": "Launch Apex Legends and this switches to your own account automatically.",
+    "taskOpen": "Open a match",
+    "taskReplay": "Play the map replay",
+    "taskStats": "Check Statistics",
+    "startTour": "Guided tour",
+    "dismiss": "Hide sample profile",
+    "tryAgain": "Explore a sample profile",
+    "handoff": "Your account was detected — showing your own records now.",
+    "tour": {
+      "introTitle": "This is a sample profile",
+      "introDesc": "Real matches with made-up names, so you can see everything before your first game. Premium views are unlocked while you explore.",
+      "profileTitle": "Profile and recent form",
+      "profileDesc": "Rank, level and your last 20 games at a glance. The placement trend shows how your session is going.",
+      "matchTitle": "Every match, recorded",
+      "matchDesc": "Click a match to open its map, combat log, loadout changes and squad stats. Try the replay on the map.",
+      "statsTitle": "Season statistics",
+      "statsDesc": "Maps, legends, weapons and teammates, built from all your recorded games.",
+      "searchTitle": "Look up anyone",
+      "searchDesc": "Search a player by name or UID to see their records.",
+      "doneTitle": "Now play a match",
+      "doneDesc": "Launch Apex Legends. As soon as your account is detected, this screen switches to your own profile."
+    }
+  },
+  "profileRecord": {
+    "switchLabel": "Profile card view",
+    "tabProfile": "Profile",
+    "tabRecord": "Record",
+    "hint": "Whole account, including games played without ApexTrace. Filters do not apply.",
+    "careerTitle": "All-time BR",
+    "seasonTitle": "Ranked Season {{season}}",
+    "games": "{{formatted}} games",
+    "wins": "Wins",
+    "kills": "Kills"
+  },
+  "seasonPicker": {
+    "season": "Season {{season}}",
+    "split": "Split {{split}}",
+    "wholeSeason": "Season",
+    "splitGroup": "Split",
+    "splitUnavailable": "Not started yet"
   }
 }

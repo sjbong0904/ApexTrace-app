@@ -1,15 +1,17 @@
-/** In-session legend/weapon picker ids. Cleared when the app window fully closes. */
+/** In-session legend/weapon/map picker ids. Cleared when the app window fully closes. */
 
-type CatalogKind = 'legend' | 'weapon';
+type CatalogKind = 'legend' | 'weapon' | 'map';
 
 const STORAGE_KEYS: Record<CatalogKind, string> = {
     legend: 'apex_stats_selected_legend',
     weapon: 'apex_stats_selected_weapon',
+    map: 'apex_stats_selected_map',
 };
 
 const memory: Record<CatalogKind, string | null> = {
     legend: null,
     weapon: null,
+    map: null,
 };
 
 const readSession = (kind: CatalogKind): string | null => {

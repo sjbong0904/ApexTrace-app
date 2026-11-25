@@ -8,37 +8,149 @@ window.SEASONS       = window.SEASONS       || [];
 const Utils = {
 
     /**
-     * Match/GEP debug trail. Off by default for store/QA log cleanliness.
-     * Enable: window.__APEX_DEBUG_MATCH__ = true (background console).
+     * Post-QA feature work: detailed match + raw GEP trail ON by default.
+     * Location is separate (default OFF) — ~2 Hz and floods OW file logs.
+     *
+     * Flags (background DevTools):
+     * - __APEX_DEBUG__            master override (true/false)
+     * - __APEX_DEBUG_MATCH__      match + GEP raw (default on)
+     * - __APEX_DEBUG_LOCATION__   [Location] trail only (default off)
+     *
      * Overwolf file logs stringify objects as "[object Object]" — inline JSON when on.
      */
-    matchLog: (message, details) => {
-        if (!window.__APEX_DEBUG_MATCH__) return;
+    isDebugMatch: () => {
+        if (window.__APEX_DEBUG__ === false) return false;
+        if (window.__APEX_DEBUG__ === true) return true;
+        if (window.__APEX_DEBUG_MATCH__ === false) return false;
+        if (window.__APEX_DEBUG_MATCH__ === true) return true;
+        return true;
+    },
+
+    isDebugLocation: () => {
+        if (window.__APEX_DEBUG__ === false) return false;
+        if (window.__APEX_DEBUG_LOCATION__ === false) return false;
+        if (window.__APEX_DEBUG_LOCATION__ === true) return true;
+        return false;
+    },
+
+    _debugLine: (prefix, message, details) => {
         const msg = String(message || '');
-        const line = msg.startsWith('[Match]') ? msg : `[Match] ${msg}`;
+        const tagged = msg.startsWith(prefix) ? msg : `${prefix} ${msg}`;
         if (details == null) {
-            console.warn(line);
+            console.warn(tagged);
             return;
         }
         try {
-            console.warn(`${line} ${JSON.stringify(details)}`);
+            console.warn(`${tagged} ${JSON.stringify(details)}`);
         } catch (e) {
-            console.warn(line);
+            console.warn(tagged);
         }
+    },
+
+    matchLog: (message, details) => {
+        if (!Utils.isDebugMatch()) return;
+        Utils._debugLine('[Match]', message, details);
+    },
+
+    /** Raw GEP onNewEvents / onInfoUpdates2 / getInfo (same gate as matchLog). */
+    gepLog: (message, details) => {
+        if (!Utils.isDebugMatch()) return;
+        Utils._debugLine('[GEP]', message, details);
+    },
+
+    /** Ring capture verification (`[Ring]`). Same gate as matchLog. */
+    ringLog: (message, details) => {
+        if (!Utils.isDebugMatch()) return;
+        Utils._debugLine('[Ring]', message, details);
+    },
+
+    /** player_stats capture verification (`[PlayerStats]`). Same gate as matchLog. */
+    playerStatsLog: (message, details) => {
+        if (!Utils.isDebugMatch()) return;
+        Utils._debugLine('[PlayerStats]', message, details);
+    },
+
+    /** Location-only trail (`[Location]`). Independent of match/GEP; default off. */
+    locationLog: (message, details) => {
+        if (!Utils.isDebugLocation()) return;
+        Utils._debugLine('[Location]', message, details);
+    },
+
+    /**
+     * Split info-update payloads so location never floods [GEP].
+     * Returns { withoutLocation, locationOnly } — either may be null.
+     */
+    splitGepInfoForLog: (info) => {
+        if (!info || typeof info !== 'object') {
+            return { withoutLocation: info ?? null, locationOnly: null };
+        }
+        const root = info.info && typeof info.info === 'object' ? info.info : info;
+        const nested = !!(info.info && typeof info.info === 'object');
+        const locBucket = root.match_info || root.location || root;
+        const hasLocKey = !!(
+            locBucket
+            && typeof locBucket === 'object'
+            && (Object.prototype.hasOwnProperty.call(locBucket, 'location')
+                || (root.location && typeof root.location === 'object'))
+        );
+        if (!hasLocKey && !(root.location && typeof root.location === 'string')) {
+            return { withoutLocation: info, locationOnly: null };
+        }
+
+        const clone = (obj) => {
+            try { return JSON.parse(JSON.stringify(obj)); } catch (e) { return null; }
+        };
+        const stripped = clone(info);
+        const locOnly = {};
+        if (!stripped) return { withoutLocation: info, locationOnly: null };
+
+        const stripRoot = nested ? stripped.info : stripped;
+        if (stripRoot?.match_info && Object.prototype.hasOwnProperty.call(stripRoot.match_info, 'location')) {
+            locOnly.location = stripRoot.match_info.location;
+            delete stripRoot.match_info.location;
+            if (Object.keys(stripRoot.match_info).length === 0) delete stripRoot.match_info;
+        }
+        if (stripRoot?.location != null) {
+            locOnly.location = stripRoot.location;
+            delete stripRoot.location;
+        }
+        const remainingKeys = stripRoot && typeof stripRoot === 'object' ? Object.keys(stripRoot) : [];
+        const withoutLocation = remainingKeys.length === 0
+            ? null
+            : (nested ? { ...stripped, info: stripRoot } : stripped);
+        const locationOnly = Object.keys(locOnly).length > 0 ? locOnly : null;
+        return { withoutLocation, locationOnly };
     },
 
     cleanName: (name) => {
         if (!name) return "Unknown";
         let decoded = Utils.tryDecodeBase64(name);
-        return decoded.replace(/\[[^\]]+\]\s*/g, '').replace(/\0/g, '').trim();
+        return Utils.stripNameDecorations(decoded);
     },
 
+    /** Clan tags / NULs / outer whitespace only — never base64. Safe to apply repeatedly. */
+    stripNameDecorations: (name) => {
+        if (!name) return "Unknown";
+        return String(name).replace(/\[[^\]]+\]\s*/g, '').replace(/\0/g, '').trim();
+    },
+
+    /**
+     * Decode a GEP base64 name. Plain nicknames that merely look like base64
+     * ("HiRo", "RAMIN256", "TANKURO") used to decode into control-character
+     * garbage and were stored as the player's name, so reject any decode that
+     * is not printable text. This also makes cleanName() idempotent when it
+     * runs twice on the same name (roster worker → address-book bulk update).
+     */
     tryDecodeBase64: (str) => {
         if (!str || typeof str !== 'string') return str;
+        if (!/^[A-Za-z0-9+/]+={0,2}$/.test(str)) return str;
         try {
             const decoded = decodeURIComponent(
                 atob(str).split('').map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2)).join('')
             );
+            if (!decoded.trim()) return str;
+            // C0/C1 controls, DEL, U+FFFD → not a real name.
+            if (/[\u0000-\u001F\u007F-\u009F�]/.test(decoded)) return str;
             return decoded;
         } catch (e) {
             return str;
@@ -149,6 +261,9 @@ const Utils = {
         // 아킴보
         if (clean.includes('mozam') && clean.includes('akimbo')) return 'mozambique_akimbo';
         if (clean.includes('p2020') && clean.includes('akimbo')) return 'p2020_akimbo';
+        if (clean.includes('wingman') && clean.includes('akimbo')) return 'wingman_akimbo';
+        // Care-package (akimbo) Mozambique: GEP inUse `mp_weapon_shotgun_pistol_crate`.
+        if (clean.includes('shotgun_pistol') || clean.includes('mozambique_cp')) return 'mozambique_cp';
 
         // 권총 & 샷건
         if (clean.includes('r301') || clean.includes('r-301') || clean.includes('rspn101') || clean.includes('carbine')) return 'r-301';
@@ -732,6 +847,22 @@ const Utils = {
         return teams;
     },
 
+    /**
+     * Stale match_summary guard (2026-11-14: GEP replayed the previous match's
+     * `{"rank":"3","squadKills":"9"}` although the squad was eliminated with 10 teams
+     * alive). A squad's final rank equals the teams alive when it went out, and the
+     * observed minimum only falls after that — so rank can never be below it.
+     * `tabs.teams` may lag one elimination behind, hence the 1-team tolerance.
+     * Skipped when the teams-alive count looks off-scale for this lobby (> summary teams).
+     */
+    isImpossibleSummaryRank: (match, rank, summaryTeams) => {
+        const minTeams = parseInt(match?._minTeamsAlive, 10);
+        if (!match || match._isVictory || isNaN(minTeams) || !(rank > 0)) return false;
+        const lobbyTeams = parseInt(summaryTeams, 10);
+        if (!isNaN(lobbyTeams) && lobbyTeams > 0 && minTeams > lobbyTeams) return false;
+        return rank < minTeams - 1;
+    },
+
     /** tabs.teams minimum first; otherwise last alive teams + 1. Never below 2nd. */
     estimatePlacementFromTeamsAlive: (match, teamsAlive = match?._lastTeamsAlive) => {
         const floor = Utils.MIN_ESTIMATED_PLACEMENT;
@@ -1142,16 +1273,27 @@ const Utils = {
         return count;
     },
 
-    /** Prefer last combat weapon by local player; fallback to current loadout. */
+    /**
+     * Prefer last combat weapon by local player; fallback to current loadout.
+     * Victim-side knockdown rows (enemy knocked me) carry the enemy's gun — skip
+     * anything whose attacker is not me, or backfilled kills/assists get credited
+     * to a weapon I never held.
+     */
     resolveAssistWeapon: (match) => {
         if (!match) return null;
         const events = match.events || [];
-        for (let i = events.length - 1; i >= 0; i--) {
-            const event = events[i];
-            if (!event || !Utils.isUsableWeaponId(event.weapon)) continue;
-            const type = String(event.type || '').toLowerCase();
-            if (type !== 'kill' && type !== 'knockdown' && type !== 'assist') continue;
-            return event.weapon;
+        const playerName = match.playerName || '';
+        const hasName = !Utils._isBlankCombatName(playerName);
+        // Without a local name we cannot tell my rows from the enemy's — use loadout.
+        if (hasName) {
+            for (let i = events.length - 1; i >= 0; i--) {
+                const event = events[i];
+                if (!event || !Utils.isUsableWeaponId(event.weapon)) continue;
+                const type = String(event.type || '').toLowerCase();
+                if (type !== 'kill' && type !== 'knockdown' && type !== 'assist') continue;
+                if (!Utils._isSamePlayerName(event.attacker, playerName)) continue;
+                return event.weapon;
+            }
         }
         const primary = match.loadout?.primary;
         const secondary = match.loadout?.secondary;
@@ -1468,3 +1610,5 @@ const Utils = {
 
 window.Utils = Utils;
 window.matchLog = Utils.matchLog;
+window.gepLog = Utils.gepLog;
+window.locationLog = Utils.locationLog;

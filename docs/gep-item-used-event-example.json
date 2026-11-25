@@ -1,0 +1,8 @@
+[
+  {"events":[{"name":"item_used","data":"phoenix_kit"}]},
+  {"events":[{"name":"item_used","data":"shield_battery"}]},
+  {"events":[{"name":"item_used","data":"shield_cell"}]},
+  {"events":[{"name":"item_used","data":"med_kit"}]},
+  {"events":[{"name":"item_used","data":"syringe"}]},
+  {"events":[{"name":"item_used","data":"ultimate_accelerant"}]}
+]

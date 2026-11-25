@@ -32,6 +32,7 @@
     "waitSec": "Esperar {{sec}} s",
     "refresh": "Actualizar",
     "collapseAll": "Contraer todo",
+    "first": "« Inicio",
     "prev": "◀ Ant.",
     "page": "Página",
     "of": "/",
@@ -318,7 +319,7 @@
   },
   "combatLog": {
     "noEvents": "No hay eventos de combate registrados.",
-    "title": "Registro de combate",
+    "title": "Combate",
     "eventsCount": "{{count}} eventos",
     "me": "Yo",
     "unknown": "Desconocido"
@@ -445,6 +446,10 @@
     "footer": {
       "copyright": "© 2026 ApexTrace. Todos los derechos reservados.",
       "poweredBy": "Powered by Overwolf"
+    },
+    "externalLink": {
+      "title": "¿Abrir en tu navegador?",
+      "message": "Esto abrirá tu navegador web fuera del juego."
     }
   },
   "playstyles": {
@@ -575,7 +580,19 @@
     "totalKnocks": "Derribos totales",
     "knocksSuffix": " derribos",
     "totalAssists": "Asistencias totales",
-    "assistsSuffix": " asistencias"
+    "assistsSuffix": " asistencias",
+    "notCollected": "No registrado en esta partida",
+    "damagePerKnock": "Daño por derribo",
+    "dmgKnockSuffix": " daño/derribo",
+    "headshotRate": "Tasa de disparos a la cabeza",
+    "headshotRateHint": "{{headshots}} de {{hits}} impactos",
+    "grenadeDamage": "Daño de granadas",
+    "timesKnocked": "Veces derribado",
+    "timesSuffix": "x",
+    "revivesRespawns": "Reanimado · Reaparecido",
+    "revivesRespawnsHint": "Reanimado {{revives}}x · Reaparecido {{respawns}}x",
+    "ultimatesUsed": "Definitivas usadas",
+    "timeOutsideRing": "Tiempo fuera del anillo"
   },
   "statistics": {
     "tabs": {
@@ -655,7 +672,9 @@
       "radarHoverModeVertex": "Stat point",
       "radarHoverModeLabel": "Category",
       "radarHoverHintVertex": "Hover stat points on the chart",
-      "radarHoverHintLabel": "Hover category labels around the chart"
+      "radarHoverHintLabel": "Hover category labels around the chart",
+      "groupMatchResults": "Resultados de partida",
+      "groupPersonalStats": "Estadísticas personales"
     },
     "maps": {
       "statistics": "Estadísticas",

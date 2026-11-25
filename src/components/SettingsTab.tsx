@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { FaDiscord, FaInfoCircle, FaFolderOpen, FaQuestionCircle, FaChevronRight, FaKeyboard, FaPalette, FaRedo } from 'react-icons/fa';
 import { startTutorial } from '../utils/tutorial';
 import { resetAppCache } from '../utils/resetApp';
@@ -272,29 +272,6 @@ const HotkeySettingsRows = () => {
         return () => overwolf.settings.hotkeys.onChanged.removeListener(onChanged);
     }, []);
 
-    useEffect(() => {
-        if (!listeningFor) return;
-
-        const handleKeyDown = (event: KeyboardEvent) => {
-            event.preventDefault();
-            event.stopPropagation();
-
-            if (event.key === 'Escape') {
-                setListeningFor(null);
-                setFeedback(null);
-                return;
-            }
-
-            const hotkey = parseHotkeyEvent(event);
-            if (!hotkey) return;
-
-            assignHotkey(listeningFor, hotkey);
-        };
-
-        window.addEventListener('keydown', handleKeyDown, true);
-        return () => window.removeEventListener('keydown', handleKeyDown, true);
-    }, [listeningFor, t]);
-
     const assignHotkey = (hotkeyName: HotkeyName, hotkey: ParsedHotkey) => {
         const config = HOTKEY_CONFIGS.find((item) => item.name === hotkeyName);
         if (!config || typeof overwolf === 'undefined' || !overwolf.settings?.hotkeys) return;
@@ -358,6 +335,34 @@ const HotkeySettingsRows = () => {
             finish({ success: false });
         }
     };
+    // Latest assignHotkey for the key listener, without re-binding it on every render.
+    const assignHotkeyRef = useRef(assignHotkey);
+    useEffect(() => {
+        assignHotkeyRef.current = assignHotkey;
+    });
+
+    useEffect(() => {
+        if (!listeningFor) return;
+
+        const handleKeyDown = (event: KeyboardEvent) => {
+            event.preventDefault();
+            event.stopPropagation();
+
+            if (event.key === 'Escape') {
+                setListeningFor(null);
+                setFeedback(null);
+                return;
+            }
+
+            const hotkey = parseHotkeyEvent(event);
+            if (!hotkey) return;
+
+            assignHotkeyRef.current(listeningFor, hotkey);
+        };
+
+        window.addEventListener('keydown', handleKeyDown, true);
+        return () => window.removeEventListener('keydown', handleKeyDown, true);
+    }, [listeningFor, t]);
 
     return (
         <>
@@ -450,15 +455,43 @@ const SettingsTab = () => {
     const [dialog, setDialog] = useState<SettingsDialog | null>(null);
 
     useEffect(() => {
-        overwolf.extensions.current.getManifest((manifest: any) => {
+        overwolf.extensions.current.getManifest((manifest: { meta?: { version?: string } }) => {
             setAppVersion(manifest.meta?.version || 'Unknown');
         });
     }, []);
 
-    const openDiscord = () => {
+    /** Settings also renders in the in-game overlay window. */
+    const [inGameWindow, setInGameWindow] = useState(false);
+    useEffect(() => {
+        overwolf.windows.getCurrentWindow((res) => {
+            if (res.success && res.window) setInGameWindow(res.window.name === 'in_game');
+        });
+    }, []);
+
+    /**
+     * OW QA: links in the in-game window open in Overwolf's browser unless the user agrees to the
+     * default browser — so ask first there. Desktop opens straight away (force_browser: user).
+     */
+    const openExternal = (url: string) => {
         // OW runtime: 1-arg only (STORE-QA #5 — 2-arg throws in desktop.html.2.log)
-        overwolf.utils.openUrlInDefaultBrowser('https://discord.gg/vwGVAFEYyj');
+        const open = () => overwolf.utils.openUrlInDefaultBrowser(url);
+        if (!inGameWindow) {
+            open();
+            return;
+        }
+        setDialog({
+            mode: 'confirm',
+            title: t('settings.externalLink.title', { defaultValue: 'Open in your browser?' }),
+            message: t('settings.externalLink.message', { defaultValue: 'This opens your web browser outside the game.' }),
+            detail: url.startsWith('file:') ? undefined : url,
+            onConfirm: () => {
+                setDialog(null);
+                open();
+            },
+        });
     };
+
+    const openDiscord = () => openExternal('https://discord.gg/vwGVAFEYyj');
 
     const showAlert = (message: string, detail?: string, title?: string) => {
         setDialog({ mode: 'alert', message, detail, title });
@@ -472,12 +505,12 @@ const SettingsTab = () => {
         const localAppData = overwolf.io.paths.localAppData;
         const logPath = `${localAppData}\\Overwolf\\Log\\Apps\\ApexTrace`;
 
-        overwolf.utils.openWindowsExplorer(logPath, (result: any) => {
+        overwolf.utils.openWindowsExplorer(logPath, (result: { success?: boolean }) => {
             if (result?.success) return;
 
             const fileUrl = `file:///${String(logPath).replace(/\\/g, '/')}`;
             if (typeof overwolf.utils.openUrlInDefaultBrowser === 'function') {
-                overwolf.utils.openUrlInDefaultBrowser(fileUrl);
+                openExternal(fileUrl);
                 return;
             }
             showAlert(t('settings.alerts.openFolderFailed'), logPath);
@@ -642,7 +675,7 @@ const SettingsTab = () => {
                 <h3 style={styles.sectionTitle}>{t('settings.sections.appInfo')}</h3>
                 <div style={styles.card}>
                     <ActionRow
-                        icon={<FaInfoCircle color="#3498db" />}
+                        icon={<FaInfoCircle color="var(--color-text-muted)" />}
                         title={t('settings.items.versionTitle')}
                         desc={t('settings.items.versionDesc')}
                         isLast

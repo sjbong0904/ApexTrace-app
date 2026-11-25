@@ -1,0 +1,532 @@
+{
+  "label": "v0.0.15",
+  "version": "0.0.15",
+  "ref": "v0.0.15",
+  "commit": "3f5e932",
+  "dirty": false,
+  "measuredAt": "2026-11-24T16:06:20.265Z",
+  "node": "v25.2.1",
+  "source": {
+    "srcFiles": 81,
+    "srcLoc": 20963,
+    "components": 34,
+    "backgroundFiles": 11,
+    "backgroundLoc": 6704,
+    "testFiles": 0,
+    "testLoc": 0
+  },
+  "build": {
+    "ok": true,
+    "durationMs": 4679,
+    "totalBytes": 1918773,
+    "files": 33,
+    "jsBytes": 1830742,
+    "jsGzipBytes": 492311,
+    "cssBytes": 12623,
+    "cssGzipBytes": 3644,
+    "assetBytes": 72322,
+    "largestChunks": {
+      "assets/vendor.js": 614611,
+      "assets/desktop.js": 353505,
+      "assets/recharts.js": 246613,
+      "assets/supabase.js": 164111,
+      "assets/background.js": 85924,
+      "assets/icons.js": 42133,
+      "assets/repository.js": 34078,
+      "assets/worker.js": 1910,
+      "assets/modulepreload-polyfill.js": 711,
+      "assets/uninstall.js": 255
+    },
+    "initialLoad": {
+      "desktop": {
+        "files": 8,
+        "bytes": 1434307,
+        "gzipBytes": 393324,
+        "externalScripts": [
+          "https://content.overwolf.com/libs/ads/latest/owads.min.js"
+        ]
+      },
+      "background": {
+        "files": 6,
+        "bytes": 903373,
+        "gzipBytes": 259031,
+        "externalScripts": [
+          "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"
+        ]
+      }
+    }
+  },
+  "load": {
+    "scenario": "empty",
+    "network": "replay",
+    "latencyMs": 80,
+    "runs": 7,
+    "settledRuns": 7,
+    "profileShownRuns": null,
+    "perRun": [
+      {
+        "content90": 329.3,
+        "settled": 473.7,
+        "scriptMs": 72.6
+      },
+      {
+        "content90": 343.3,
+        "settled": 493,
+        "scriptMs": 74.8
+      },
+      {
+        "content90": 328.9,
+        "settled": 472.1,
+        "scriptMs": 72
+      },
+      {
+        "content90": 331,
+        "settled": 475.8,
+        "scriptMs": 74.9
+      },
+      {
+        "content90": 328.8,
+        "settled": 473.9,
+        "scriptMs": 70
+      },
+      {
+        "content90": 343.2,
+        "settled": 489.7,
+        "scriptMs": 71.7
+      },
+      {
+        "content90": 344.1,
+        "settled": 488.4,
+        "scriptMs": 73.3
+      }
+    ],
+    "median": {
+      "fcp": 396,
+      "lcp": 396,
+      "firstContent": 331,
+      "content50": 331,
+      "content90": 331,
+      "settled": 475.8,
+      "domContentLoaded": 50.7,
+      "load": 113.8,
+      "longTasks": 1,
+      "longTaskMs": 51,
+      "scriptMs": 72.6,
+      "layoutMs": 50.8,
+      "heapUsedMB": 11.9,
+      "domNodes": 120,
+      "localResources": 9,
+      "localBytes": 1451012,
+      "externalRequests": 9,
+      "externalBytes": 903507
+    },
+    "min": {
+      "content90": 328.8,
+      "settled": 472.1,
+      "scriptMs": 70
+    },
+    "byHost": {
+      "cdn.jsdelivr.net": {
+        "count": 1,
+        "failed": 0,
+        "bytes": 221695,
+        "medianMs": 100
+      },
+      "content.overwolf.com": {
+        "count": 1,
+        "failed": 0,
+        "bytes": 272249,
+        "medianMs": 92
+      },
+      "ureuzkxyyozzzluzawwr.supabase.co": {
+        "count": 6,
+        "failed": 0,
+        "bytes": 396989,
+        "medianMs": 91
+      },
+      "game-events-status.overwolf.com": {
+        "count": 1,
+        "failed": 0,
+        "bytes": 12574,
+        "medianMs": 86
+      }
+    },
+    "unmatched": [],
+    "errors": []
+  },
+  "loadDemo": {
+    "scenario": "demo",
+    "network": "replay",
+    "latencyMs": 80,
+    "runs": 7,
+    "settledRuns": 7,
+    "profileShownRuns": null,
+    "perRun": [
+      {
+        "content90": 329.4,
+        "settled": 490,
+        "scriptMs": 74.5
+      },
+      {
+        "content90": 358.5,
+        "settled": 520.7,
+        "scriptMs": 75.4
+      },
+      {
+        "content90": 329.4,
+        "settled": 473.3,
+        "scriptMs": 73.1
+      },
+      {
+        "content90": 344.8,
+        "settled": 491,
+        "scriptMs": 72.8
+      },
+      {
+        "content90": 360.5,
+        "settled": 519.1,
+        "scriptMs": 78.1
+      },
+      {
+        "content90": 344.1,
+        "settled": 490.4,
+        "scriptMs": 73.6
+      },
+      {
+        "content90": 328.9,
+        "settled": 474.7,
+        "scriptMs": 71.5
+      }
+    ],
+    "median": {
+      "fcp": 404,
+      "lcp": 404,
+      "firstContent": 344.1,
+      "content50": 344.1,
+      "content90": 344.1,
+      "settled": 490.4,
+      "domContentLoaded": 51.9,
+      "load": 116.6,
+      "longTasks": 1,
+      "longTaskMs": 52,
+      "scriptMs": 73.6,
+      "layoutMs": 52.6,
+      "heapUsedMB": 11.9,
+      "domNodes": 120,
+      "localResources": 9,
+      "localBytes": 1451012,
+      "externalRequests": 9,
+      "externalBytes": 903507
+    },
+    "min": {
+      "content90": 328.9,
+      "settled": 473.3,
+      "scriptMs": 71.5
+    },
+    "byHost": {
+      "cdn.jsdelivr.net": {
+        "count": 1,
+        "failed": 0,
+        "bytes": 221695,
+        "medianMs": 91
+      },
+      "content.overwolf.com": {
+        "count": 1,
+        "failed": 0,
+        "bytes": 272249,
+        "medianMs": 93
+      },
+      "ureuzkxyyozzzluzawwr.supabase.co": {
+        "count": 6,
+        "failed": 0,
+        "bytes": 396989,
+        "medianMs": 89
+      },
+      "game-events-status.overwolf.com": {
+        "count": 1,
+        "failed": 0,
+        "bytes": 12574,
+        "medianMs": 90
+      }
+    },
+    "unmatched": [],
+    "errors": []
+  },
+  "loadProfile": {
+    "scenario": "profile",
+    "network": "replay",
+    "latencyMs": 80,
+    "runs": 7,
+    "settledRuns": 7,
+    "profileShownRuns": 7,
+    "perRun": [
+      {
+        "content90": 543.7,
+        "settled": 894,
+        "scriptMs": 221.6
+      },
+      {
+        "content90": 520,
+        "settled": 846.6,
+        "scriptMs": 211.1
+      },
+      {
+        "content90": 518.8,
+        "settled": 844.3,
+        "scriptMs": 214.8
+      },
+      {
+        "content90": 505.4,
+        "settled": 732.4,
+        "scriptMs": 212.2
+      },
+      {
+        "content90": 506.9,
+        "settled": 860.2,
+        "scriptMs": 226.5
+      },
+      {
+        "content90": 504.7,
+        "settled": 846.4,
+        "scriptMs": 214.4
+      },
+      {
+        "content90": 533,
+        "settled": 792.9,
+        "scriptMs": 206
+      }
+    ],
+    "median": {
+      "fcp": 400,
+      "lcp": 400,
+      "firstContent": 341.7,
+      "content50": 518.8,
+      "content90": 518.8,
+      "settled": 846.4,
+      "domContentLoaded": 49.8,
+      "load": 113.4,
+      "longTasks": 1,
+      "longTaskMs": 51,
+      "scriptMs": 214.4,
+      "layoutMs": 125.7,
+      "heapUsedMB": 20.2,
+      "domNodes": 2871,
+      "localResources": 9,
+      "localBytes": 1451012,
+      "externalRequests": 39,
+      "externalBytes": 5342042
+    },
+    "min": {
+      "content90": 504.7,
+      "settled": 732.4,
+      "scriptMs": 206
+    },
+    "byHost": {
+      "cdn.jsdelivr.net": {
+        "count": 1,
+        "failed": 0,
+        "bytes": 221695,
+        "medianMs": 96
+      },
+      "content.overwolf.com": {
+        "count": 1,
+        "failed": 0,
+        "bytes": 272249,
+        "medianMs": 93
+      },
+      "ureuzkxyyozzzluzawwr.supabase.co": {
+        "count": 21,
+        "failed": 0,
+        "bytes": 4650164,
+        "medianMs": 105
+      },
+      "game-events-status.overwolf.com": {
+        "count": 1,
+        "failed": 0,
+        "bytes": 12574,
+        "medianMs": 89
+      },
+      "trace-proxy-server.vercel.app": {
+        "count": 14,
+        "failed": 0,
+        "bytes": 178306,
+        "medianMs": 101.5
+      }
+    },
+    "unmatched": [
+      "GET https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/madmaggie.png"
+    ],
+    "errors": []
+  },
+  "loadProfileWarm": {
+    "scenario": "profile-warm",
+    "network": "replay",
+    "latencyMs": 80,
+    "runs": 7,
+    "settledRuns": 7,
+    "profileShownRuns": 7,
+    "perRun": [
+      {
+        "content90": 370.1,
+        "settled": 684.9,
+        "scriptMs": 194.8
+      },
+      {
+        "content90": 379.2,
+        "settled": 664,
+        "scriptMs": 198
+      },
+      {
+        "content90": 357.2,
+        "settled": 620.3,
+        "scriptMs": 180.5
+      },
+      {
+        "content90": 356,
+        "settled": 619.9,
+        "scriptMs": 177.1
+      },
+      {
+        "content90": 388,
+        "settled": 732.3,
+        "scriptMs": 210
+      },
+      {
+        "content90": 421.6,
+        "settled": 713.2,
+        "scriptMs": 220.8
+      },
+      {
+        "content90": 389.5,
+        "settled": 695.2,
+        "scriptMs": 223.4
+      }
+    ],
+    "median": {
+      "fcp": 316,
+      "lcp": 316,
+      "firstContent": 248.5,
+      "content50": 379.2,
+      "content90": 379.2,
+      "settled": 684.9,
+      "domContentLoaded": 54.1,
+      "load": 114.1,
+      "longTasks": 2,
+      "longTaskMs": 121,
+      "scriptMs": 198,
+      "layoutMs": 135.6,
+      "heapUsedMB": 16.1,
+      "domNodes": 2871,
+      "localResources": 9,
+      "localBytes": 1451012,
+      "externalRequests": 42,
+      "externalBytes": 4906555
+    },
+    "min": {
+      "content90": 356,
+      "settled": 619.9,
+      "scriptMs": 177.1
+    },
+    "byHost": {
+      "cdn.jsdelivr.net": {
+        "count": 1,
+        "failed": 0,
+        "bytes": 221695,
+        "medianMs": 95
+      },
+      "ureuzkxyyozzzluzawwr.supabase.co": {
+        "count": 28,
+        "failed": 0,
+        "bytes": 4326390,
+        "medianMs": 97.5
+      },
+      "content.overwolf.com": {
+        "count": 1,
+        "failed": 0,
+        "bytes": 272249,
+        "medianMs": 103
+      },
+      "game-events-status.overwolf.com": {
+        "count": 1,
+        "failed": 0,
+        "bytes": 12574,
+        "medianMs": 220
+      },
+      "trace-proxy-server.vercel.app": {
+        "count": 11,
+        "failed": 0,
+        "bytes": 73647,
+        "medianMs": 187
+      }
+    },
+    "unmatched": [
+      "GET https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/madmaggie.png",
+      "GET https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/c.a.r..png",
+      "GET https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/nemesis.png",
+      "GET https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/chargerifle.png",
+      "GET https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/spitfire.png",
+      "GET https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/re-45.png",
+      "GET https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/prowler.png",
+      "GET https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/p2020.png"
+    ],
+    "errors": []
+  },
+  "tests": {
+    "total": 47,
+    "passed": 42,
+    "failed": 2,
+    "skipped": 3,
+    "suitesFailed": 7,
+    "snapshotMismatches": 1,
+    "durationMs": 1824,
+    "failures": [
+      {
+        "test": "src\\utils\\__tests__\\appState.test.ts",
+        "message": "Cannot find module '../accountRecord' imported from 'C:/Users/sjbon/AppData/Local/Temp/apex-metrics-fCPG3y/tree/src/utils/__tests__/appState.test.ts'"
+      },
+      {
+        "test": "golden: demo dataset calculateStats",
+        "message": "Error: Snapshot `golden: demo dataset > calculateStats 1` mismatched"
+      },
+      {
+        "test": "rank helpers RP floors map to tier names",
+        "message": "TypeError: (0 , getRankTierNameFromRp) is not a function"
+      },
+      {
+        "test": "src\\utils\\__tests__\\replay.test.ts",
+        "message": "Cannot find module '../groundPath' imported from 'C:/Users/sjbon/AppData/Local/Temp/apex-metrics-fCPG3y/tree/src/utils/__tests__/replay.test.ts'"
+      },
+      {
+        "test": "src\\utils\\__tests__\\seasons.test.ts",
+        "message": "Cannot find module '../seasonGroups' imported from 'C:/Users/sjbon/AppData/Local/Temp/apex-metrics-fCPG3y/tree/src/utils/__tests__/seasons.test.ts'"
+      }
+    ]
+  },
+  "coverage": {
+    "lines": 46.54,
+    "statements": 46.54,
+    "functions": 53.21,
+    "branches": 71.75,
+    "linesCovered": 1739,
+    "linesTotal": 3736
+  },
+  "lint": {
+    "errors": 113,
+    "warnings": 3,
+    "topRules": {
+      "@typescript-eslint/no-explicit-any": 90,
+      "react-hooks/set-state-in-effect": 10,
+      "react-hooks/refs": 3,
+      "react-hooks/exhaustive-deps": 3,
+      "prefer-const": 2,
+      "@typescript-eslint/no-unused-vars": 2,
+      "no-empty": 1,
+      "react-hooks/purity": 1
+    },
+    "durationMs": 6454
+  },
+  "typecheck": {
+    "errors": 0,
+    "durationMs": 4023
+  }
+}

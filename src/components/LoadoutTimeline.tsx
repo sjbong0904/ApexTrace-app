@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import type { Match } from '../types';
 import { formatMatchElapsedTime } from '../utils/helpers';
 import { SHORT_WEAPON_NAMES } from '../utils/gameData';
-import { getLoadoutRowTheme, getWeaponImageUrl, getWeaponSilhouetteScale, WHITE_SILHOUETTE_FILTER } from '../utils/weaponTheme';
+import { getLoadoutRowTheme, getWeaponSilhouetteUrl, getWeaponSilhouetteScale, WHITE_SILHOUETTE_FILTER } from '../utils/weaponTheme';
 import { MATCH_PANEL_BODY_PADDING, MATCH_TIMELINE_CONTENT_HEIGHT, matchTimelineContentStyle, matchTimelineRowGap, matchTimelineRowStyle, matchTimelineTimeStyle } from './matchPanelStyles';
 
 const isEmptyWeapon = (weapon?: string | null) =>
@@ -39,7 +39,7 @@ const WeaponImage = ({ weapon }: { weapon?: string | null }) => {
     return (
         <div style={weaponImageWrapStyle}>
             <img
-                src={getWeaponImageUrl(weapon!)}
+                src={getWeaponSilhouetteUrl(weapon!)}
                 alt={displayName}
                 title={displayName}
                 style={{
@@ -56,7 +56,14 @@ const WeaponImage = ({ weapon }: { weapon?: string | null }) => {
     );
 };
 
-const LoadoutTimeline = ({ match }: { match: Match }) => {
+interface LoadoutTimelineProps {
+    match: Match;
+    /** Row clicked → move the map replay to this epoch-ms moment. */
+    onSeek?: (timestamp: number) => void;
+    activeTimestamp?: number | null;
+}
+
+const LoadoutTimeline = ({ match, onSeek, activeTimestamp = null }: LoadoutTimelineProps) => {
     const { t } = useTranslation();
 
     const entries = useMemo(() => {
@@ -92,12 +99,20 @@ const LoadoutTimeline = ({ match }: { match: Match }) => {
                         return (
                             <div
                                 key={`${entry.timestamp}-${index}`}
+                                role={onSeek ? 'button' : undefined}
+                                tabIndex={onSeek ? 0 : undefined}
+                                title={onSeek ? t('combatLog.seekHint', { defaultValue: 'Show this moment in the replay' }) : undefined}
+                                onClick={onSeek ? () => onSeek(entry.timestamp) : undefined}
+                                onKeyDown={onSeek ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onSeek(entry.timestamp); } } : undefined}
                                 style={{
                                     ...matchTimelineRowStyle({
                                         background: rowBg,
                                         borderLeft: `4px solid ${borderColor}`,
                                     }),
                                     ...matchTimelineRowGap(index === entries.length - 1),
+                                    cursor: onSeek ? 'pointer' : undefined,
+                                    outline: activeTimestamp === entry.timestamp ? '1px solid var(--color-rank-first)' : undefined,
+                                    outlineOffset: -1,
                                 }}
                             >
                                 <div style={matchTimelineTimeStyle}>

@@ -3,7 +3,6 @@ import type { Match } from '../types';
 import type { MatchHistory } from '../utils/match';
 import Sidebar from './Sidebar';
 import SidebarStats from './SidebarStats';
-import PerformanceTrend from './PerformanceTrend';
 
 interface UserData {
     uid: string | null;
@@ -15,6 +14,8 @@ interface UserData {
     rankDiv?: number | null;
     legend?: string | null;
     role?: string;
+    currentXp?: number | null;
+    neededXp?: number | null;
 }
 
 interface InlineProfileSectionProps {
@@ -24,7 +25,7 @@ interface InlineProfileSectionProps {
     statusMessage?: string;
     user: UserData;
     history: MatchHistory[];
-    /** Recent matches for placement trend chart (Dashboard) */
+    /** Mode/season-filtered matches (newest first) for the LAST 20 card: RP chart, placement blocks, summary. */
     trendHistory?: Match[];
     isFavorite: boolean;
     isPinned: boolean;
@@ -32,12 +33,17 @@ interface InlineProfileSectionProps {
     onToggleFavorite: () => void;
     onTogglePin: () => void;
     onReturnToPinned: () => void;
+    /** Manual profile refresh — shown next to the player name. */
+    onRefresh?: () => void;
+    refreshCooldown?: number;
     compact?: boolean;
     /** Hide pin / favorite controls (web shell). */
     showFavoritePin?: boolean;
+    /** Premium: account (GEP player_stats) scopes in the stats card. */
+    isPremium?: boolean;
 }
 
-/** Profile : stats — stats grows more for the placement trend. */
+/** Profile : stats — stats column holds the RP chart + placement blocks. */
 const PROFILE_STATS_COLUMNS = 'minmax(0, 1fr) minmax(0, 1.75fr)';
 
 /**
@@ -57,11 +63,12 @@ const InlineProfileSection: React.FC<InlineProfileSectionProps> = ({
     onToggleFavorite,
     onTogglePin,
     onReturnToPinned,
+    onRefresh,
+    refreshCooldown = 0,
     compact = false,
     showFavoritePin = true,
+    isPremium = false,
 }) => {
-    const showTrendInStatsColumn = Boolean(trendHistory) && !compact;
-    const showTrendBelow = Boolean(trendHistory) && compact;
     const profileStackRows = modeTabsSlot ? 3 : 2;
     const cardsRow = profileStackRows;
 
@@ -126,7 +133,10 @@ const InlineProfileSection: React.FC<InlineProfileSectionProps> = ({
                         onToggleFavorite={onToggleFavorite}
                         onTogglePin={onTogglePin}
                         onReturnToPinned={onReturnToPinned}
+                        onRefresh={onRefresh}
+                        refreshCooldown={refreshCooldown}
                         showFavoritePin={showFavoritePin}
+                        isPremium={isPremium}
                     />
                 </div>
 
@@ -151,34 +161,15 @@ const InlineProfileSection: React.FC<InlineProfileSectionProps> = ({
                         display: 'flex',
                         flexDirection: 'column',
                     }}>
-                        <SidebarStats history={history} layout="inline" dense={compact} />
+                        <SidebarStats
+                            history={(trendHistory as unknown as MatchHistory[] | undefined) ?? history}
+                            layout="inline"
+                            dense={compact}
+                        />
                     </div>
-
-                    {showTrendInStatsColumn && trendHistory ? (
-                        <div style={{
-                            flex: '0 0 auto',
-                            borderTop: '1px solid var(--color-border)',
-                            padding: '8px 12px 10px',
-                        }}>
-                            <PerformanceTrend history={trendHistory} embedded />
-                        </div>
-                    ) : null}
                 </div>
             </div>
 
-            {showTrendBelow && trendHistory ? (
-                <div
-                    style={{
-                        marginTop: 10,
-                        borderRadius: 12,
-                        border: '1px solid var(--color-border)',
-                        background: 'var(--color-bg-card)',
-                        padding: '10px 12px 12px',
-                    }}
-                >
-                    <PerformanceTrend history={trendHistory} embedded />
-                </div>
-            ) : null}
         </div>
     );
 };

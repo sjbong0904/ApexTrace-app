@@ -1,37 +1,76 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { FaCrown, FaLock } from 'react-icons/fa';
+import { FaCrown, FaCheck } from 'react-icons/fa';
+import { PremiumNotifyButton } from './PremiumDialog';
+import { openPremiumDialog } from '../utils/premium';
+
+export interface PremiumTeaser {
+    /** e.g. "Best map" */
+    label: string;
+    /** e.g. "World's Edge" */
+    name: string;
+    /** e.g. ["Avg dmg 1,240", "Avg place #6.1", "14 games"] */
+    stats: string[];
+}
 
 interface PremiumBlurGateProps {
     locked: boolean;
-    title?: string;
+    /** Value headline for this tab, e.g. "See which maps you're losing on". */
+    headline?: string;
+    /** 2–3 concrete things Premium shows here. */
+    bullets?: string[];
+    /** One free row of the user's own data, shown unblurred. */
+    teaser?: PremiumTeaser | null;
     children: React.ReactNode;
     compact?: boolean;
 }
 
-const PremiumBlurGate: React.FC<PremiumBlurGateProps> = ({ locked, title, children, compact = false }) => {
+const GOLD = 'var(--color-rank-first)';
+
+const PremiumBlurGate: React.FC<PremiumBlurGateProps> = ({ locked, headline, bullets = [], teaser, children, compact = false }) => {
     const { t } = useTranslation();
 
     if (!locked) return <>{children}</>;
 
     const card = (
         <div className={compact ? 'premium-blur-card premium-blur-card--compact' : 'premium-blur-card'}>
-            <div className={compact ? 'premium-blur-icon premium-blur-icon--compact' : 'premium-blur-icon'}>
-                <FaLock size={compact ? 18 : 22} color="var(--color-text-dim)" />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 11, fontWeight: 900, letterSpacing: '0.06em', color: GOLD }}>
+                <FaCrown size={12} /> PREMIUM
             </div>
-            {title && (
+
+            {teaser && (
+                <div className="premium-teaser">
+                    <div className="premium-teaser-head">
+                        <span className="premium-teaser-label">{teaser.label}</span>
+                        <span className="premium-teaser-free">{t('statistics.premiumLock.freePreview', { defaultValue: 'Free preview' })}</span>
+                    </div>
+                    <div className="premium-teaser-name">{teaser.name}</div>
+                    <div className="premium-teaser-stats">
+                        {teaser.stats.map((s) => <span key={s}>{s}</span>)}
+                    </div>
+                </div>
+            )}
+
+            {headline && (
                 <div className={compact ? 'premium-blur-title premium-blur-title--compact' : 'premium-blur-title'}>
-                    {t('statistics.premiumLock.unlockAnalytics', { title })}
+                    {headline}
                 </div>
             )}
-            {!compact && (
-                <div className="premium-blur-desc">
-                    {t('statistics.premiumLock.getDetailedInsights')}
-                </div>
+
+            {!compact && bullets.length > 0 && (
+                <ul className="premium-blur-bullets">
+                    {bullets.map((b) => (
+                        <li key={b}><FaCheck size={10} color={GOLD} style={{ flexShrink: 0, marginTop: 4 }} />{b}</li>
+                    ))}
+                </ul>
             )}
-            <button type="button" className={compact ? 'premium-blur-cta premium-blur-cta--compact' : 'premium-blur-cta'}>
-                <FaCrown size={compact ? 12 : 14} style={{ flexShrink: 0 }} /> {t('statistics.premiumLock.comingSoonCta')}
-            </button>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, width: '100%' }}>
+                <PremiumNotifyButton compact={compact} />
+                <button type="button" className="premium-blur-link" onClick={() => openPremiumDialog('stats-lock')}>
+                    {t('statistics.premiumLock.compare', { defaultValue: 'Compare Free and Premium' })} ›
+                </button>
+            </div>
         </div>
     );
 

@@ -30,7 +30,9 @@ export const useWindowAutoResize = (
             if (!result.success || !result.window) return;
             const currentWindow = result.window;
 
-            if (currentWindow.state === 'Minimized' || !currentWindow.isVisible) return;
+            const state = String(currentWindow.stateEx || currentWindow.state || '').toLowerCase();
+            // Maximized / hidden windows must not be changeSize'd — that repaints the native window white.
+            if (state === 'minimized' || state === 'maximized' || currentWindow.isVisible === false) return;
 
             try {
                 const bg = overwolf.windows.getMainWindow() as BackgroundWindow;

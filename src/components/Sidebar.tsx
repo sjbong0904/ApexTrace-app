@@ -2,7 +2,7 @@ import React, { useMemo, useState, useEffect, useRef, useLayoutEffect } from 're
 import {
     FaStar, FaRegStar, FaThumbtack, FaUndo, FaSkull, FaShieldAlt,
     FaRunning, FaFistRaised, FaMedal, FaCrown, FaCode, FaTrophy,
-    FaGem, FaUserTag, FaFire, FaUserSecret, FaHandsHelping
+    FaGem, FaUserTag, FaFire, FaUserSecret, FaHandsHelping, FaSync
 } from 'react-icons/fa';
 import { GiBullets, GiGunshot } from 'react-icons/gi';
 import { useTranslation } from 'react-i18next';
@@ -10,6 +10,9 @@ import { hasUsableMatchStats, type MatchHistory } from '../utils/match';
 import { formatFullRankName, isKnownLegend } from '../utils/helpers';
 import { getWeaponTagTheme, getLegendImageId, getWeaponImageId, getWeaponDisplayName, type WeaponTagTier } from '../utils/weaponTheme';
 import ProfileTagIcon from './ProfileTagIcon';
+import ProfileRecordView from './ProfileRecordView';
+import { hasAccountRecord } from '../utils/accountRecord';
+import { useAccountStats } from '../hooks/useAccountStats';
 
 interface UserData {
     uid: string | null;
@@ -21,6 +24,8 @@ interface UserData {
     rankDiv?: number | null;
     legend?: string | null;
     role?: string;
+    currentXp?: number | null;
+    neededXp?: number | null;
 }
 
 interface SidebarProps {
@@ -32,13 +37,36 @@ interface SidebarProps {
     onToggleFavorite: () => void;
     onTogglePin: () => void;
     onReturnToPinned: () => void;
+    /** Manual refresh, shown to the right of the player name. */
+    onRefresh?: () => void;
+    refreshCooldown?: number;
     /** panel = old full-height sidebar; inline = card inside main scroll */
     layout?: 'panel' | 'inline';
     /** Smaller avatar/padding for narrow side-by-side layouts */
     dense?: boolean;
     /** Hide pin / favorite controls (web shell). */
     showFavoritePin?: boolean;
+    /** Premium: profile ↔ account record (GEP all-time / ranked season) switch. */
+    isPremium?: boolean;
 }
+
+type CardView = 'PROFILE' | 'RECORD';
+
+/** Stacked profile/record layer: hidden layer still takes space, so the cell height never changes. */
+const swapLayerStyle = (active: boolean): React.CSSProperties => ({
+    gridArea: '1 / 1',
+    width: '100%',
+    minWidth: 0,
+    alignSelf: 'start',
+    opacity: active ? 1 : 0,
+    visibility: active ? 'visible' : 'hidden',
+    pointerEvents: active ? 'auto' : 'none',
+    transition: active ? 'opacity 0.15s ease' : 'opacity 0.15s ease, visibility 0s linear 0.15s',
+});
+const CARD_VIEW_STORAGE_KEY = 'apex_profile_card_view';
+const readCardView = (): CardView => {
+    try { return localStorage.getItem(CARD_VIEW_STORAGE_KEY) === 'RECORD' ? 'RECORD' : 'PROFILE'; } catch { return 'PROFILE'; }
+};
 
 interface PlayerTag {
     label: string;
@@ -114,34 +142,53 @@ const getRoleTagConfig = (role: string): RoleTagConfig => {
     return { label: role.toUpperCase(), icon: ROLE_ICONS.default, bg: 'linear-gradient(110deg, #1a1a1a 25%, #bdc3c7 50%, #1a1a1a 75%)', color: '#f0f0f0', themeColor: '#bdc3c7', glow: 'rgba(189, 195, 199, 0.7)', score: 9999, isRole: true };
 };
 
+/*
+ * Badge shine sweeps once when the badge appears and again on hover — never on an infinite loop.
+ * background-position is not compositor-animated: an infinite animation kept the renderer producing
+ * frames (~270/s) while the app sat idle, and on high-refresh monitors those presents showed up as
+ * white flicker. At 200% the repeating 200%-wide gradient lines up with 0%, so no fill-mode is needed.
+ * The hover keyframes are a copy under another name so the animation restarts on hover.
+ */
 const SIDEBAR_STYLES = `
     @keyframes roleShine {
-        0% { background-position: -200% center; }
-        20% { background-position: 200% center; }
-        100% { background-position: 200% center; }
+        from { background-position: -200% center; }
+        to { background-position: 200% center; }
     }
-    @keyframes weaponGodShine {
-        0% { background-position: -200% center; }
-        25% { background-position: 200% center; }
-        100% { background-position: 200% center; }
+    @keyframes roleShineHover {
+        from { background-position: -200% center; }
+        to { background-position: 200% center; }
     }
-    .role-badge { background-size: 200% auto !important; animation: roleShine 10s linear infinite; }
+    .role-badge { background-size: 200% auto !important; animation: roleShine 2s linear 1; }
+    .role-badge:hover { animation: roleShineHover 2s linear 1; }
     .weapon-god-badge {
         background-size: 200% auto !important;
-        animation: weaponGodShine 3.5s linear infinite;
+        animation: roleShine 0.9s linear 1;
     }
+    .weapon-god-badge:hover { animation: roleShineHover 0.9s linear 1; }
     .tag-item:hover { transform: translateY(-2px); transition: transform 0.2s; }
+    .sidebar-refresh-btn:not(:disabled):hover { color: var(--color-text-primary) !important; transform: rotate(180deg); }
 `;
 
 const Sidebar: React.FC<SidebarProps> = ({
     user, history, isFavorite, isPinned, hasPinnedUser,
     onToggleFavorite, onTogglePin, onReturnToPinned,
+    onRefresh, refreshCooldown = 0,
     showFavoritePin = true,
     layout = 'panel',
     dense = false,
+    isPremium = false,
 }) => {
     const { t } = useTranslation();
     const isInline = layout === 'inline';
+    const account = useAccountStats(isPremium ? user?.uid ?? null : null);
+    const [storedCardView, setStoredCardView] = useState<CardView>(readCardView);
+    const canShowRecord = isPremium && hasAccountRecord(account);
+    // Falls back to the profile when this account has no GEP snapshot.
+    const cardView: CardView = canShowRecord ? storedCardView : 'PROFILE';
+    const chooseCardView = (next: CardView) => {
+        setStoredCardView(next);
+        try { localStorage.setItem(CARD_VIEW_STORAGE_KEY, next); } catch { /* per-viewer convenience only */ }
+    };
     const [viewMode, setViewMode] = useState<'compact' | 'medium'>(() =>
         typeof window !== 'undefined' && window.innerHeight <= 800 ? 'compact' : 'medium',
     );
@@ -347,7 +394,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         return () => window.removeEventListener('resize', handleResize);
     }, []);
 
-    // hasPinnedUser 포함: 핀 버튼 표시 여부가 이름 영역 너비에 영향을 줌
+    // onRefresh 포함: 새로고침 버튼 표시 여부가 이름 영역 너비에 영향을 줌
     useLayoutEffect(() => {
         const el = nameRef.current;
         if (!el) return;
@@ -358,7 +405,7 @@ const Sidebar: React.FC<SidebarProps> = ({
             currentSize--;
             el.style.fontSize = `${currentSize}px`;
         }
-    }, [user.name, effectiveMode, hasPinnedUser]);
+    }, [user.name, effectiveMode, onRefresh, cardView]);
 
     if (!user || !user.uid) {
         return (
@@ -375,7 +422,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                 justifyContent: 'center',
             }}>
                 <div style={{ opacity: 0.3, textAlign: 'center', padding: '20px' }}>
-                    <img src="https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/unknown.png" alt="Logo" style={{ width: '80px', marginBottom: '15px', filter: 'grayscale(100%)' }} />
+                    <img src="/images/unknown.png" alt="Logo" style={{ width: '80px', marginBottom: '15px', filter: 'grayscale(100%)' }} />
                     <div style={{ fontSize: '18px', fontWeight: 'bold' }}>ApexTrace</div>
                     <span style={{ fontSize: '12px', fontWeight: 'normal', lineHeight: '1.4', display: 'block' }}>{t('sidebar.emptyNotice')}</span>
                 </div>
@@ -385,11 +432,11 @@ const Sidebar: React.FC<SidebarProps> = ({
 
     const getRankAsset = (rankName: string): string => {
         if (!rankName || rankName === '-' || rankName === 'Waiting...' || rankName === 'Unranked')
-            return 'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/unranked.png';
+            return '/images/unranked.png';
         const tier = rankName.split(' ')[0].toLowerCase();
         if (tier === 'apex')
-            return 'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/predator.png';
-        return `https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/${tier}.png`;
+            return '/images/predator.png';
+        return `/images/${tier}.png`;
     };
 
     const rankIcon = getRankAsset(user.rankName || '');
@@ -397,7 +444,7 @@ const Sidebar: React.FC<SidebarProps> = ({
         ? t('favorites.predator')
         : formatFullRankName(user.rankName, user.rankDiv);
     const legendName = user.legend ? user.legend.toLowerCase() : 'unknown';
-    const displayImage = `https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/${legendName}.png`;
+    const displayImage = `/images/${legendName}.png`;
     const avatarSize = dense ? '56px' : effectiveMode === 'compact' ? '72px' : '100px';
     const rankIconSize = dense ? '24px' : effectiveMode === 'compact' ? '28px' : '40px';
     const containerPadding = effectiveMode === 'compact' ? '20px 15px' : '30px 20px';
@@ -405,6 +452,16 @@ const Sidebar: React.FC<SidebarProps> = ({
     const btnSize = dense ? 20 : 24;
     const btnGap = dense ? 6 : 8;
     const totalLevel = ((user.prestige || 0) * 500) + (user.level || 0);
+    // GEP player_stats only (local player, or someone who has used the app).
+    const hasXp = typeof user.currentXp === 'number' && typeof user.neededXp === 'number' && user.neededXp > 0;
+    const xpPct = hasXp ? Math.min(100, Math.max(0, (user.currentXp! / user.neededXp!) * 100)) : 0;
+    const xpLabel = hasXp
+        ? t('favorites.xpProgress', {
+            current: user.currentXp!.toLocaleString(),
+            needed: user.neededXp!.toLocaleString(),
+            defaultValue: '{{current}} / {{needed}} XP',
+        })
+        : '';
 
     const inlinePadding = dense ? '12px 10px' : effectiveMode === 'compact' ? '14px 12px' : '20px 16px';
     const avatarBorder = dense ? '3px' : '4px';
@@ -431,14 +488,26 @@ const Sidebar: React.FC<SidebarProps> = ({
             <div ref={contentRef} style={{ padding: isInline ? inlinePadding : containerPadding, display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
 
                 {showFavoritePin && (
-                <div style={{ position: 'absolute', top: dense ? 8 : 15, width: '100%', padding: dense ? '0 10px' : '0 20px', display: 'flex', justifyContent: 'space-between', left: 0, boxSizing: 'border-box', zIndex: 10, overflow: 'hidden', maxWidth: '100%' }}>
-                    <button
-                        onClick={onTogglePin}
-                        title={isPinned ? t('controls.unpin') : t('controls.pin')}
-                        style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: dense ? 16 : 20, color: isPinned ? 'var(--color-success)' : 'var(--color-text-subtle)', transform: isPinned ? 'rotate(-45deg)' : 'rotate(0deg)', transition: 'color 0.2s ease, transform 0.2s ease', padding: '5px', filter: isPinned ? 'drop-shadow(0 0 5px rgba(46, 204, 113, 0.5))' : 'none' }}
-                    >
-                        <FaThumbtack />
-                    </button>
+                <div style={{ position: 'absolute', top: dense ? 8 : 15, width: '100%', padding: dense ? '0 10px' : '0 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', left: 0, boxSizing: 'border-box', zIndex: 10, overflow: 'hidden', maxWidth: '100%' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+                        <button
+                            onClick={onTogglePin}
+                            title={isPinned ? t('controls.unpin') : t('controls.pin')}
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: dense ? 16 : 20, color: isPinned ? 'var(--color-success)' : 'var(--color-text-subtle)', transform: isPinned ? 'rotate(-45deg)' : 'rotate(0deg)', transition: 'color 0.2s ease, transform 0.2s ease', padding: '5px', filter: isPinned ? 'drop-shadow(0 0 5px rgba(46, 204, 113, 0.5))' : 'none' }}
+                        >
+                            <FaThumbtack />
+                        </button>
+                        {showReturnBtn && (
+                            <button
+                                onClick={onReturnToPinned}
+                                title={t('controls.returnToPinned')}
+                                aria-label={t('controls.returnToPinned')}
+                                style={{ width: `${btnSize}px`, height: `${btnSize}px`, minWidth: `${btnSize}px`, minHeight: `${btnSize}px`, borderRadius: '50%', background: 'var(--color-success)', border: 'none', color: 'var(--color-text-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, cursor: 'pointer', flexShrink: 0, transition: 'all 0.2s', boxShadow: '0 2px 5px rgba(46, 204, 113, 0.4)' }}
+                            >
+                                <FaUndo size={dense ? 10 : 12} />
+                            </button>
+                        )}
+                    </div>
                     <button
                         onClick={onToggleFavorite}
                         title={t('nav.favorites')}
@@ -454,27 +523,107 @@ const Sidebar: React.FC<SidebarProps> = ({
                 </div>
 
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', marginBottom: '4px', position: 'relative' }}>
-                    {showReturnBtn && <div style={{ width: `${btnSize}px`, marginRight: `${btnGap}px`, flexShrink: 0 }} />}
+                    {onRefresh && <div style={{ width: `${btnSize}px`, marginRight: `${btnGap}px`, flexShrink: 0 }} />}
                     <div
                         ref={nameRef}
                         style={{ fontWeight: 'bold', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'clip', maxWidth: '100%', lineHeight: '1.2', textAlign: 'center' }}
                     >
                         {user.name}
                     </div>
-                    {showReturnBtn && (
+                    {onRefresh && (
                         <button
-                            onClick={onReturnToPinned}
-                            title={t('controls.returnToPinned')}
-                            style={{ width: `${btnSize}px`, height: `${btnSize}px`, minWidth: `${btnSize}px`, minHeight: `${btnSize}px`, marginLeft: `${btnGap}px`, borderRadius: '50%', background: 'var(--color-success)', border: 'none', color: 'var(--color-text-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, cursor: 'pointer', flexShrink: 0, transition: 'all 0.2s', boxShadow: '0 2px 5px rgba(46, 204, 113, 0.4)' }}
+                            onClick={onRefresh}
+                            disabled={refreshCooldown > 0}
+                            title={refreshCooldown > 0 ? t('controls.waitSec', { sec: refreshCooldown }) : t('controls.refresh')}
+                            aria-label={t('controls.refresh')}
+                            className="sidebar-refresh-btn"
+                            style={{ width: `${btnSize}px`, height: `${btnSize}px`, minWidth: `${btnSize}px`, minHeight: `${btnSize}px`, marginLeft: `${btnGap}px`, borderRadius: '50%', background: 'transparent', border: 'none', color: refreshCooldown > 0 ? 'var(--color-border-light)' : 'var(--color-text-dim)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, cursor: refreshCooldown > 0 ? 'not-allowed' : 'pointer', flexShrink: 0, transition: 'color 0.2s, transform 0.2s' }}
                         >
-                            <FaUndo size={12} />
+                            <FaSync size={dense ? 12 : 14} />
                         </button>
                     )}
                 </div>
 
-                <div style={{ fontSize: dense ? 11 : 13, color: 'var(--color-text-muted)', marginBottom: dense ? 8 : 15, background: 'var(--color-bg-card)', padding: '2px 10px', borderRadius: '12px' }}>
+                <div style={{ fontSize: dense ? 11 : 13, color: 'var(--color-text-muted)', marginBottom: hasXp || canShowRecord ? (dense ? 6 : 8) : (dense ? 8 : 15), background: 'var(--color-bg-card)', padding: '2px 10px', borderRadius: '12px' }}>
                     {t('favorites.level')} {totalLevel}
                 </div>
+
+                {(hasXp || canShowRecord) && (
+                    <div
+                        style={{ width: '100%', marginBottom: dense ? 8 : 15, display: 'flex', flexDirection: 'column', gap: 4 }}
+                    >
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, minWidth: 0 }}>
+                            {canShowRecord ? (
+                                <div
+                                    role="tablist"
+                                    aria-label={t('profileRecord.switchLabel', { defaultValue: 'Profile card view' })}
+                                    style={{
+                                        display: 'inline-flex', padding: 2, gap: 2, borderRadius: 999, flexShrink: 0,
+                                        background: 'var(--color-bg-deep)', border: '1px solid var(--color-border)',
+                                    }}
+                                >
+                                    {(['PROFILE', 'RECORD'] as const).map((v) => {
+                                        const active = cardView === v;
+                                        return (
+                                            <button
+                                                key={v}
+                                                type="button"
+                                                role="tab"
+                                                aria-selected={active}
+                                                onMouseDown={(e) => e.preventDefault()}
+                                                onClick={() => chooseCardView(v)}
+                                                style={{
+                                                    padding: dense ? '1px 7px' : '2px 9px', borderRadius: 999, border: 'none', cursor: 'pointer',
+                                                    fontSize: dense ? 9 : 10, fontWeight: 700, lineHeight: 1.3, whiteSpace: 'nowrap',
+                                                    background: active ? 'var(--color-accent)' : 'transparent',
+                                                    color: active ? 'var(--color-text-primary)' : 'var(--color-text-muted)',
+                                                    outline: 'none',
+                                                }}
+                                            >
+                                                {v === 'PROFILE'
+                                                    ? t('profileRecord.tabProfile', { defaultValue: 'Profile' })
+                                                    : t('profileRecord.tabRecord', { defaultValue: 'Record' })}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            ) : <span />}
+                            {hasXp ? (
+                                <div title={xpLabel} style={{ fontSize: dense ? 9 : 10, color: 'var(--color-text-subtle)', textAlign: 'right', lineHeight: 1.2, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 }}>
+                                    {xpLabel}
+                                </div>
+                            ) : null}
+                        </div>
+                        {hasXp && (
+                        <div
+                            role="progressbar"
+                            aria-label={xpLabel}
+                            aria-valuemin={0}
+                            aria-valuemax={user.neededXp!}
+                            aria-valuenow={user.currentXp!}
+                            style={{ height: dense ? 3 : 4, borderRadius: 999, background: 'var(--color-bg-card)', border: '1px solid var(--color-border)', overflow: 'hidden', boxSizing: 'content-box' }}
+                        >
+                            <div style={{ width: `${xpPct}%`, height: '100%', background: 'var(--color-accent, var(--color-warning))', transition: 'width 0.4s ease' }} />
+                        </div>
+                        )}
+                    </div>
+                )}
+
+                {/* Both views share one grid cell: the cell keeps the taller one's height,
+                    so switching never resizes the card (or the stats card beside it). */}
+                <div style={{ display: 'grid', width: '100%' }}>
+                {canShowRecord ? (
+                    <div
+                        aria-hidden={cardView !== 'RECORD'}
+                        style={swapLayerStyle(cardView === 'RECORD')}
+                    >
+                        <ProfileRecordView account={account} dense={dense || effectiveMode === 'compact'} />
+                    </div>
+                ) : null}
+                <div
+                    aria-hidden={cardView !== 'PROFILE'}
+                    style={{ ...swapLayerStyle(cardView === 'PROFILE'), display: 'flex', flexDirection: 'column', alignItems: 'center' }}
+                >
 
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: dense ? 6 : 10, marginBottom: rankMarginBottom, background: 'var(--color-bg-card)', border: '1px solid var(--color-border)', padding: dense ? '6px 10px' : '8px 15px', borderRadius: '8px', width: '100%', boxSizing: 'border-box' }}>
                     <img src={rankIcon} alt="Rank" style={{ width: rankIconSize, height: rankIconSize, objectFit: 'contain' }} />
@@ -578,6 +727,8 @@ const Sidebar: React.FC<SidebarProps> = ({
                         })}
                     </div>
                 )}
+                </div>
+                </div>
             </div>
         </div>
     );

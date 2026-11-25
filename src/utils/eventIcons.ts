@@ -1,5 +1,4 @@
-export const EVENT_ICON_BASE =
-    'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/events';
+export const EVENT_ICON_BASE = '/images/events';
 
 /** Combat log event icon file names (without extension). */
 export const EVENT_ICON_FILES: Record<string, string> = {

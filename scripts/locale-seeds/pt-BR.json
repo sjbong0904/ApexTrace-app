@@ -32,6 +32,7 @@
     "waitSec": "Aguardar {{sec}} s",
     "refresh": "Atualizar",
     "collapseAll": "Recolher tudo",
+    "first": "« Início",
     "prev": "◀ Ant.",
     "page": "Página",
     "of": "/",
@@ -318,7 +319,7 @@
   },
   "combatLog": {
     "noEvents": "Nenhum evento de combate registrado.",
-    "title": "Registro de combate",
+    "title": "Combate",
     "eventsCount": "{{count}} eventos",
     "me": "Eu",
     "unknown": "Desconhecido"
@@ -445,6 +446,10 @@
     "footer": {
       "copyright": "© 2026 ApexTrace. Todos os direitos reservados.",
       "poweredBy": "Powered by Overwolf"
+    },
+    "externalLink": {
+      "title": "Abrir no seu navegador?",
+      "message": "Isso abrirá seu navegador fora do jogo."
     }
   },
   "playstyles": {
@@ -575,7 +580,19 @@
     "totalKnocks": "Total de derrubadas",
     "knocksSuffix": " derrubadas",
     "totalAssists": "Total de assistências",
-    "assistsSuffix": " assistências"
+    "assistsSuffix": " assistências",
+    "notCollected": "Não registrado nesta partida",
+    "damagePerKnock": "Dano por knock",
+    "dmgKnockSuffix": " dano/knock",
+    "headshotRate": "Taxa de headshot",
+    "headshotRateHint": "{{headshots}} de {{hits}} acertos",
+    "grenadeDamage": "Dano de granada",
+    "timesKnocked": "Vezes derrubado",
+    "timesSuffix": "x",
+    "revivesRespawns": "Reanimado · Renascido",
+    "revivesRespawnsHint": "Reanimado {{revives}}x · Renascido {{respawns}}x",
+    "ultimatesUsed": "Ultimates usadas",
+    "timeOutsideRing": "Tempo fora do anel"
   },
   "statistics": {
     "tabs": {
@@ -655,7 +672,9 @@
       "radarHoverModeVertex": "Stat point",
       "radarHoverModeLabel": "Category",
       "radarHoverHintVertex": "Hover stat points on the chart",
-      "radarHoverHintLabel": "Hover category labels around the chart"
+      "radarHoverHintLabel": "Hover category labels around the chart",
+      "groupMatchResults": "Resultados das partidas",
+      "groupPersonalStats": "Estatísticas pessoais"
     },
     "maps": {
       "statistics": "Estatísticas",

@@ -42,3 +42,13 @@ supa.txt
 tebex*.txt
 
 .vercel
+
+# Test coverage output
+coverage/
+
+# Load benchmark network fixture (live responses incl. game_constants)
+scripts/loadbench/fixtures/
+
+# Python bytecode
+__pycache__/
+*.pyc

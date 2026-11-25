@@ -24,7 +24,10 @@ const ChartContainer: React.FC<ChartContainerProps> = ({
     const wrapRef = useRef<HTMLDivElement>(null);
     const [size, setSize] = useState({ width: 0, height: 0 });
     const onSizeChangeRef = useRef(onSizeChange);
-    onSizeChangeRef.current = onSizeChange;
+    // Keep the latest callback without re-subscribing; runs before the measuring effect below.
+    useLayoutEffect(() => {
+        onSizeChangeRef.current = onSizeChange;
+    });
 
     useLayoutEffect(() => {
         const el = wrapRef.current;

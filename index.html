@@ -22,8 +22,37 @@
       onerror="onAdsSDKNotLoaded()"
     ></script>
   </head>
-  <body>
-    <div id="root"></div>
+  <body style="margin:0;background:#1e1e1e">
+    <!--
+      Boot shell: painted before any JS (Overwolf QA: window visible right away, a loader is OK).
+      React replaces it on first render. If startup fails (e.g. first launch offline), src/bootShell.ts
+      turns it into a "check your connection" screen. The bar keeps the window draggable / closable.
+    -->
+    <style>
+      #boot-shell{position:fixed;inset:0;display:flex;flex-direction:column;background:#1e1e1e;color:#9aa3ad;font:12px/1.5 system-ui,'Segoe UI',sans-serif}
+      #boot-bar{height:35px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;background:#101010;user-select:none}
+      #boot-title{padding-left:15px;font-weight:700;letter-spacing:1px;color:#9aa3ad}
+      #boot-bar button{width:45px;height:35px;border:0;background:transparent;color:#9aa3ad;font-size:14px;cursor:pointer}
+      #boot-bar button:hover{background:rgba(255,255,255,.08)}
+      #boot-body{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;text-align:center;padding:24px}
+      #boot-spinner{width:28px;height:28px;border:3px solid rgba(255,255,255,.15);border-top-color:#e8513f;border-radius:50%;animation:boot-spin .8s linear infinite}
+      #boot-message{max-width:420px;color:#c8cdd3}
+      #boot-retry{display:none;padding:8px 18px;border:1px solid #e8513f;border-radius:6px;background:transparent;color:#e8513f;font-weight:700;cursor:pointer}
+      @keyframes boot-spin{to{transform:rotate(360deg)}}
+    </style>
+    <div id="root">
+      <div id="boot-shell">
+        <div id="boot-bar">
+          <span id="boot-title">APEXTRACE</span>
+          <span><button id="boot-min" type="button" aria-label="Minimize">&#8211;</button><button id="boot-close" type="button" aria-label="Close">&#10005;</button></span>
+        </div>
+        <div id="boot-body">
+          <div id="boot-spinner"></div>
+          <div id="boot-message">Loading…</div>
+          <button id="boot-retry" type="button">Try again</button>
+        </div>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

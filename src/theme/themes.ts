@@ -82,9 +82,10 @@ export const darkTheme: Theme = {
     textPrimary:   '#ffffff',
     textSecondary: '#eeeeee',
     textDim:       '#cccccc',
-    textMuted:     '#888888',
+    // Muted ≥ 4.5:1 on bgCard (small 9–10px labels use it); faint ≥ 3.5:1 for secondary hints.
+    textMuted:     '#9a9a9a',
     textSubtle:    '#555555',
-    textFaint:     '#666666',
+    textFaint:     '#7c7c7c',
 
     accent:      '#e74c3c',
     accentHover: '#ff4757',

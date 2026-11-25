@@ -1,17 +1,19 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { formatRelativeTime, formatFullRankName, getPlatformInfo, getRelativeTime, getRankTierColor } from '../utils/helpers';
 import { FaWindows, FaXbox, FaPlaystation, FaGamepad } from 'react-icons/fa';
 import { BsNintendoSwitch } from 'react-icons/bs';
+import type { PlayerCandidate } from '../types';
 
-interface PlayerSelectionModalProps {
-    candidates: any[];
-    onSelect: (user: any) => void;
+/** Generic so each caller gets back its own candidate type. */
+interface PlayerSelectionModalProps<T extends PlayerCandidate> {
+    candidates: T[];
+    onSelect: (user: T) => void;
     onClose: () => void;
     onSearchApi: () => Promise<void>;
 }
 
-const PlatformIcon = ({ hw }: { hw?: number | null }) => {
+const PlatformIcon = ({ hw }: { hw?: number | string | null }) => {
     if (hw === undefined || hw === null) return <FaGamepad color="var(--color-text-faint)" size={14} title="Unknown Platform" />;
     const h = Number(hw);
     if (h === 7 || h === 2) return <FaWindows color="#00a8fc" size={14} title="PC" />;
@@ -21,7 +23,7 @@ const PlatformIcon = ({ hw }: { hw?: number | null }) => {
     return <FaGamepad color="var(--color-text-faint)" size={14} title="Unknown" />;
 };
 
-const PlayerSelectionModal: React.FC<PlayerSelectionModalProps> = ({ candidates, onSelect, onClose }) => {
+const PlayerSelectionModal = <T extends PlayerCandidate>({ candidates, onSelect, onClose }: PlayerSelectionModalProps<T>) => {
     const { t } = useTranslation();
     const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
 
@@ -48,7 +50,7 @@ const PlayerSelectionModal: React.FC<PlayerSelectionModalProps> = ({ candidates,
                     {candidates.map((user, idx) => {
                         const platformData = getPlatformInfo(user.hw);
                         const rawRankName = user.rank_name || user.rankName || 'Unranked';
-                        let displayRank = rawRankName === 'Apex Predator'
+                        const displayRank = rawRankName === 'Apex Predator'
                             ? 'Predator'
                             : formatFullRankName(rawRankName, user.rankDiv ?? user.rank_div);
 
@@ -60,7 +62,7 @@ const PlayerSelectionModal: React.FC<PlayerSelectionModalProps> = ({ candidates,
                                 justNowKey: 'playerModal.searchedJustNow',
                             });
                         const legendName = user.legend ? user.legend.toLowerCase() : 'unknown';
-                        const portrait = `https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/${legendName}.png`;
+                        const portrait = `/images/${legendName}.png`;
 
                         return (
                             <div
@@ -85,7 +87,7 @@ const PlayerSelectionModal: React.FC<PlayerSelectionModalProps> = ({ candidates,
                                         src={portrait}
                                         alt={user.name}
                                         style={{ width: '100%', height: '100%', objectFit: 'cover' }}
-                                        onError={(e) => { (e.target as HTMLImageElement).src = 'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/unknown.png'; }}
+                                        onError={(e) => { (e.target as HTMLImageElement).src = '/images/unknown.png'; }}
                                     />
                                 </div>
 
@@ -115,7 +117,7 @@ const PlayerSelectionModal: React.FC<PlayerSelectionModalProps> = ({ candidates,
                                     <div style={{ fontSize: '12px', display: 'flex', alignItems: 'center', gap: '8px' }}>
                                         <span style={{ color: getTierColor(rawRankName), fontWeight: 'bold' }}>{displayRank}</span>
                                         <span style={{ color: 'var(--color-text-muted)' }}>Lv.{user.level || 0}</span>
-                                        <span style={{ color: (timePart && timePart !== 'justNow') ? '#4ade80' : 'var(--color-text-subtle)' }}>
+                                        <span style={{ color: (timePart && timePart !== 'justNow') ? 'var(--color-success)' : 'var(--color-text-subtle)' }}>
                                             {lastActiveLabel}
                                         </span>
                                     </div>

@@ -1,5 +1,6 @@
 import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
-import { getWeaponImageUrl, getWeaponSilhouetteScale } from '../utils/weaponTheme';
+import { cachedObjectUrl, peekStoredUrl, remoteImageUrl } from '../utils/imageSource';
+import { getWeaponSilhouetteUrl, getWeaponSilhouetteScale } from '../utils/weaponTheme';
 
 interface ProfileTagIconProps {
     imageId: string;
@@ -58,31 +59,50 @@ const LegendTagIcon = ({ src }: { src: string }) => {
 };
 
 const ProfileTagIcon = ({ imageId, imageType, color, fallback }: ProfileTagIconProps) => {
+    const localSrc = imageType === 'weapon'
+        ? getWeaponSilhouetteUrl(imageId)
+        : `/images/${imageId}.png`;
+    const cached = peekStoredUrl(localSrc);
     const [failed, setFailed] = useState(false);
-    const [ready, setReady] = useState(false);
-    const src = imageType === 'weapon'
-        ? getWeaponImageUrl(imageId)
-        : `https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/${imageId}.png`;
+    const [ready, setReady] = useState(Boolean(cached));
+    const [src, setSrc] = useState(cached);
+    // New image id: reset during render (not in the effect) so the old icon never flashes.
+    const [shownSrc, setShownSrc] = useState(localSrc);
+    if (shownSrc !== localSrc) {
+        setShownSrc(localSrc);
+        setSrc(cached);
+        setReady(Boolean(cached));
+        setFailed(false);
+    }
     const scale = imageType === 'weapon' ? getWeaponSilhouetteScale(imageId) : 1;
     const placeholderWidth = imageType === 'weapon' ? 20 : 18;
     const placeholderHeight = imageType === 'weapon' ? 14 : 16;
 
     useEffect(() => {
+        // A cached file resolves from memory right away; otherwise it is read from disk / downloaded.
         let cancelled = false;
-        setFailed(false);
-        setReady(false);
-        const img = new Image();
-        img.onload = () => {
-            if (!cancelled) setReady(true);
-        };
-        img.onerror = () => {
-            if (!cancelled) setFailed(true);
-        };
-        img.src = src;
+        void cachedObjectUrl(remoteImageUrl(localSrc)).then((url) => {
+            if (cancelled) return;
+            if (url.startsWith('blob:') || url.startsWith('data:')) {
+                setSrc(url);
+                setReady(true);
+                return;
+            }
+            const probe = new Image();
+            probe.onload = () => {
+                if (cancelled) return;
+                setSrc(url);
+                setReady(true);
+            };
+            probe.onerror = () => {
+                if (!cancelled) setFailed(true);
+            };
+            probe.src = url;
+        });
         return () => {
             cancelled = true;
         };
-    }, [src]);
+    }, [localSrc]);
 
     if (failed) {
         return <>{fallback}</>;

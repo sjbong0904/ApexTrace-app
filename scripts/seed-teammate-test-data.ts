@@ -170,7 +170,6 @@ const rowFromMatch = (uid: string, match: LegacyMatch, seasonId: number) => ({
     rank_score: null,
     rp_change: match.rpChange,
     rp_processed: match.rpProcessed,
-    is_kill_leader: null,
     rank: match.rank,
     loadout: match.loadout,
     team_stats: match.teamStats,

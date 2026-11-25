@@ -2,6 +2,7 @@ import React from 'react';
 import {
     getTierRowColor,
     getTierLabelFontSize,
+    getTierItemBackground,
     TIER_FALLBACK_IMG,
     type TierTableItem,
     type TierTableMode,
@@ -148,7 +149,7 @@ const TierTableCaptureView: React.FC<TierTableCaptureViewProps> = ({
                                         height: tierSize.h,
                                         borderRadius: mode === 'legend' ? '50%' : 6,
                                         border: '1px solid var(--color-border-light)',
-                                        background: 'var(--color-bg-sub-header)',
+                                        background: getTierItemBackground(mode, item.id, 'var(--color-bg-sub-header)'),
                                         display: 'flex',
                                         alignItems: 'center',
                                         justifyContent: 'center',

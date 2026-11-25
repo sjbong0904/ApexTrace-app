@@ -26,7 +26,7 @@ export const WEAPON_FALLBACK_ROWS: WeaponRow[] = [
         category: 'AR',
         ammoType: ['Light'],
         FireMods: ['Auto', 'Single'],
-        image: 'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/r-301.png',
+        image: '/images/r-301.png',
         descKey: 'weaponDb.desc.r301',
         stats: {
             dmg: { body: 15, head: 20, leg: 11 },
@@ -41,7 +41,7 @@ export const WEAPON_FALLBACK_ROWS: WeaponRow[] = [
         category: 'AR',
         ammoType: ['Heavy'],
         FireMods: ['Auto', 'Single'],
-        image: 'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/flatline.png',
+        image: '/images/flatline.png',
         descKey: 'weaponDb.desc.flatline',
         stats: {
             dmg: { body: 20, head: 26, leg: 15 },
@@ -58,7 +58,7 @@ export const WEAPON_FALLBACK_ROWS: WeaponRow[] = [
         category: 'AR',
         ammoType: ['Heavy'],
         FireMods: ['Burst', 'Single'],
-        image: 'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/hemlok.png',
+        image: '/images/hemlok.png',
         descKey: 'weaponDb.desc.hemlok',
         stats: {
             dmg: { body: 20, head: 28, leg: 15 },
@@ -74,7 +74,7 @@ export const WEAPON_FALLBACK_ROWS: WeaponRow[] = [
         category: 'AR',
         ammoType: ['Heavy'],
         FireMods: ['Auto', 'Breach'],
-        image: 'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/hemlok.png',
+        image: '/images/hemlok.png',
         descKey: 'weaponDb.desc.hemlok_elite',
         stats: {
             dmg: { body: 22, head: 31, leg: 17 },
@@ -90,7 +90,7 @@ export const WEAPON_FALLBACK_ROWS: WeaponRow[] = [
         category: 'AR',
         ammoType: ['Energy'],
         FireMods: ['Auto'],
-        image: 'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/havoc.png',
+        image: '/images/havoc.png',
         descKey: 'weaponDb.desc.havoc',
         stats: {
             dmg: { body: 20, head: 26, leg: 15 },
@@ -107,7 +107,7 @@ export const WEAPON_FALLBACK_ROWS: WeaponRow[] = [
         category: 'AR',
         ammoType: ['Energy'],
         FireMods: ['Burst'],
-        image: 'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/nemesis.png',
+        image: '/images/nemesis.png',
         descKey: 'weaponDb.desc.nemesis',
         stats: {
             dmg: { body: 17, head: 22, leg: 13 },
@@ -126,7 +126,7 @@ export const WEAPON_FALLBACK_ROWS: WeaponRow[] = [
         category: 'SMG',
         ammoType: ['Light'],
         FireMods: ['Auto'],
-        image: 'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/alternator.png',
+        image: '/images/alternator.png',
         descKey: 'weaponDb.desc.alternator',
         stats: {
             dmg: { body: 19, head: 24, leg: 15 },
@@ -144,7 +144,7 @@ export const WEAPON_FALLBACK_ROWS: WeaponRow[] = [
         category: 'SMG',
         ammoType: ['Light'],
         FireMods: ['Auto'],
-        image: 'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/r-99.png',
+        image: '/images/r-99.png',
         descKey: 'weaponDb.desc.r99',
         stats: {
             dmg: { body: 13, head: 16, leg: 10 },
@@ -159,7 +159,7 @@ export const WEAPON_FALLBACK_ROWS: WeaponRow[] = [
         category: 'SMG',
         ammoType: ['Energy'],
         FireMods: ['Auto'],
-        image: 'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/volt.png',
+        image: '/images/volt.png',
         descKey: 'weaponDb.desc.volt',
         stats: {
             dmg: { body: 15, head: 23, leg: 12 },
@@ -176,7 +176,7 @@ export const WEAPON_FALLBACK_ROWS: WeaponRow[] = [
         category: 'SMG',
         ammoType: ['Heavy'],
         FireMods: ['Burst', 'Auto'],
-        image: 'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/prowler.png',
+        image: '/images/prowler.png',
         descKey: 'weaponDb.desc.prowler',
         stats: {
             dmg: { body: 16, head: 20, leg: 13 },
@@ -196,7 +196,7 @@ export const WEAPON_FALLBACK_ROWS: WeaponRow[] = [
         category: 'SMG',
         ammoType: ['Heavy', 'Light'], 
         FireMods: ['Auto'],
-        image: 'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/c.a.r..png',
+        image: '/images/c.a.r..png',
         descKey: 'weaponDb.desc.car',
         stats: {
             dmg: { body: 14, head: 18, leg: 11 },
@@ -212,7 +212,7 @@ export const WEAPON_FALLBACK_ROWS: WeaponRow[] = [
         category: 'SMG',
         ammoType: ['Mythic'], 
         FireMods: ['Auto'],
-        image: 'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/c.a.r..png',
+        image: '/images/c.a.r..png',
         descKey: 'weaponDb.desc.carCp',
         stats: {
             dmg: { body: 0, head: 0, leg: 0 },
@@ -232,7 +232,7 @@ export const WEAPON_FALLBACK_ROWS: WeaponRow[] = [
         category: 'LMG',
         ammoType: ['Energy'],
         FireMods: ['Auto'],
-        image: 'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/devotion.png',
+        image: '/images/devotion.png',
         descKey: 'weaponDb.desc.devotion',
         stats: {
             dmg: { body: 16, head: 20, leg: 14 },
@@ -249,7 +249,7 @@ export const WEAPON_FALLBACK_ROWS: WeaponRow[] = [
         category: 'LMG',
         ammoType: ['Light'],
         FireMods: ['Auto'],
-        image: 'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/spitfire.png',
+        image: '/images/spitfire.png',
         descKey: 'weaponDb.desc.spitfire',
         stats: {
             dmg: { body: 21, head: 26, leg: 18 },
@@ -264,7 +264,7 @@ export const WEAPON_FALLBACK_ROWS: WeaponRow[] = [
         category: 'LMG',
         ammoType: ['Heavy'],
         FireMods: ['Auto'],
-        image: 'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/rampage.png',
+        image: '/images/rampage.png',
         descKey: 'weaponDb.desc.rampage',
         stats: {
             dmg: { body: 29, head: 36, leg: 25 },
@@ -280,7 +280,7 @@ export const WEAPON_FALLBACK_ROWS: WeaponRow[] = [
         category: 'LMG',
         ammoType: ['Energy'],
         FireMods: ['Auto'],
-        image: 'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/l-star.png',
+        image: '/images/l-star.png',
         descKey: 'weaponDb.desc.lstar',
         stats: {
             dmg: { body: 17, head: 28, leg: 14 },
@@ -299,7 +299,7 @@ export const WEAPON_FALLBACK_ROWS: WeaponRow[] = [
         category: 'LMG',
         ammoType: ['Mythic'],
         FireMods: ['Auto'],
-        image: 'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/l-star.png',
+        image: '/images/l-star.png',
         descKey: 'weaponDb.desc.lstarCp',
         stats: {
             dmg: { body: 17, head: 28, leg: 14 },
@@ -318,7 +318,7 @@ export const WEAPON_FALLBACK_ROWS: WeaponRow[] = [
         category: 'MARKSMAN',
         ammoType: ['Energy'],
         FireMods: ['Single'],
-        image: 'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/tripletake.png',
+        image: '/images/tripletake.png',
         descKey: 'weaponDb.desc.tripletake',
         stats: {
             dmg: { body: 22, head: 33, leg: 20 },
@@ -334,7 +334,7 @@ export const WEAPON_FALLBACK_ROWS: WeaponRow[] = [
         category: 'MARKSMAN',
         ammoType: ['Arrows'],
         FireMods: ['Single'],
-        image: 'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/bocek.png',
+        image: '/images/bocek.png',
         descKey: 'weaponDb.desc.bocek',
         stats: {
             dmg: { body: 60, head: 90, leg: 48 },
@@ -350,7 +350,7 @@ export const WEAPON_FALLBACK_ROWS: WeaponRow[] = [
         category: 'MARKSMAN',
         ammoType: ['Light'],
         FireMods: ['Single'],
-        image: 'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/g7scout.png',
+        image: '/images/g7scout.png',
         descKey: 'weaponDb.desc.g7scout',
         stats: {
             dmg: { body: 36, head: 52, leg: 27 },
@@ -366,7 +366,7 @@ export const WEAPON_FALLBACK_ROWS: WeaponRow[] = [
         category: 'MARKSMAN',
         ammoType: ['Mythic'],
         FireMods: ['Single'],
-        image: 'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/g7scout.png',
+        image: '/images/g7scout.png',
         descKey: 'weaponDb.desc.g7scoutCp',
         stats: {
             dmg: { body: 37, head: 54, leg: 28 },
@@ -382,7 +382,7 @@ export const WEAPON_FALLBACK_ROWS: WeaponRow[] = [
         category: 'MARKSMAN',
         ammoType: ['Heavy'],
         FireMods: ['Single'],
-        image: 'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/30-30.png',
+        image: '/images/30-30.png',
         descKey: 'weaponDb.desc.repeater3030',
         stats: {
             dmg: { body: 43, head: 60, leg: 37 },
@@ -402,7 +402,7 @@ export const WEAPON_FALLBACK_ROWS: WeaponRow[] = [
         category: 'SNIPER',
         ammoType: ['Sniper'],
         FireMods: ['Beam'],
-        image: 'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/chargerifle.png',
+        image: '/images/chargerifle.png',
         descKey: 'weaponDb.desc.chargerifle',
         stats: {
             dmg: { body: 75, head: 135, leg: 68 },
@@ -420,7 +420,7 @@ export const WEAPON_FALLBACK_ROWS: WeaponRow[] = [
         category: 'SNIPER',
         ammoType: ['Mythic'],
         FireMods: ['Single'],
-        image: 'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/kraber.png',
+        image: '/images/kraber.png',
         descKey: 'weaponDb.desc.kraber',
         stats: {
             dmg: { body: 150, head: 210, leg: 120 },
@@ -436,7 +436,7 @@ export const WEAPON_FALLBACK_ROWS: WeaponRow[] = [
         category: 'SNIPER',
         ammoType: ['Sniper'],
         FireMods: ['Single'],
-        image: 'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/sentinel.png',
+        image: '/images/sentinel.png',
         descKey: 'weaponDb.desc.sentinel',
         stats: {
             dmg: { body: 70, head: 126, leg: 63 },
@@ -452,7 +452,7 @@ export const WEAPON_FALLBACK_ROWS: WeaponRow[] = [
         category: 'SNIPER',
         ammoType: ['Sniper'],
         FireMods: ['Single'],
-        image: 'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/longbow.png',
+        image: '/images/longbow.png',
         descKey: 'weaponDb.desc.longbow',
         stats: {
             dmg: { body: 60, head: 108, leg: 48 },
@@ -469,7 +469,7 @@ export const WEAPON_FALLBACK_ROWS: WeaponRow[] = [
         category: 'SHOTGUN',
         ammoType: ['Shotgun'],
         FireMods: ['Auto'],
-        image: 'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/mozambique.png',
+        image: '/images/mozambique.png',
         descKey: 'weaponDb.desc.mozambique',
         stats: {
             dmg: { body: 51, head: 63, leg: 51 },
@@ -485,7 +485,7 @@ export const WEAPON_FALLBACK_ROWS: WeaponRow[] = [
         category: 'SHOTGUN',
         ammoType: ['Shotgun'],
         FireMods: ['Auto'],
-        image: 'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/mozambique_akimbo.png',
+        image: '/images/mozambique_akimbo.png',
         descKey: 'weaponDb.desc.mozambiqueAkimbo',
         stats: {
             dmg: { body: 51, head: 63, leg: 51 },
@@ -494,13 +494,29 @@ export const WEAPON_FALLBACK_ROWS: WeaponRow[] = [
         attachments: ['Shotgun-Bolt', 'Optic']
     },
     {
+        id: 'mozambique_cp',
+        baseId: 'mozambique',
+        variant: 'CARE_PACKAGE',
+        nameKey: 'weaponDb.names.mozambiqueCp',
+        category: 'SHOTGUN',
+        ammoType: ['Mythic'],
+        FireMods: ['Auto'],
+        image: '/images/mozambique_akimbo.png',
+        descKey: 'weaponDb.desc.mozambiqueCp',
+        stats: {
+            dmg: { body: 51, head: 63, leg: 51 },
+            magSize: { lv0: 10 },
+        },
+        attachments: []
+    },
+    {
         id: 'mastiff',
         variant: 'STANDARD',
         nameKey: 'weaponDb.names.mastiff',
         category: 'SHOTGUN',
         ammoType: ['Shotgun'],
         FireMods: ['Single'],
-        image: 'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/mastiff.png',
+        image: '/images/mastiff.png',
         descKey: 'weaponDb.desc.mastiff',
         stats: {
             dmg: { body: 95, head: 95, leg: 95 },
@@ -517,7 +533,7 @@ export const WEAPON_FALLBACK_ROWS: WeaponRow[] = [
         category: 'SHOTGUN',
         ammoType: ['Shotgun'],
         FireMods: ['Single'],
-        image: 'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/peacekeeper.png',
+        image: '/images/peacekeeper.png',
         descKey: 'weaponDb.desc.peacekeeper',
         stats: {
             dmg: { body: 99, head: 99, leg: 99 },
@@ -535,7 +551,7 @@ export const WEAPON_FALLBACK_ROWS: WeaponRow[] = [
         category: 'SHOTGUN',
         ammoType: ['Shotgun'],
         FireMods: ['Auto'],
-        image: 'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/eva-8.png',
+        image: '/images/eva-8.png',
         descKey: 'weaponDb.desc.eva8',
         stats: {
             dmg: { body: 56, head: 56, leg: 56 },
@@ -554,13 +570,29 @@ export const WEAPON_FALLBACK_ROWS: WeaponRow[] = [
         category: 'PISTOL',
         ammoType: ['Sniper'],
         FireMods: ['Single'],
-        image: 'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/wingman.png',
+        image: '/images/wingman.png',
         descKey: 'weaponDb.desc.wingman',
         stats: {
             dmg: { body: 50, head: 75, leg: 45 },
             magSize: { lv0: 5, lv1: 6, lv2: 7, lv3: 8, lv4: 8 },
         },
         attachments: [ 'Razer-Sight', 'Sniper-Mag', 'Optic']
+    },
+    {
+        id: 'wingman_akimbo',
+        baseId: 'wingman',
+        variant: 'AKIMBO',
+        nameKey: 'weaponDb.names.wingmanAkimbo',
+        category: 'PISTOL',
+        ammoType: ['Heavy'],
+        FireMods: ['Single'],
+        image: '/images/wingman.png',
+        descKey: 'weaponDb.desc.wingmanAkimbo',
+        stats: {
+            dmg: { body: 50, head: 75, leg: 45 },
+            magSize: { lv0: 10, lv1: 12, lv2: 14, lv3: 16, lv4: 16 },
+        },
+        attachments: ['Razer-Sight', 'Heavy-Mag', 'Optic']
     },
     {
         id: 're-45',
@@ -570,7 +602,7 @@ export const WEAPON_FALLBACK_ROWS: WeaponRow[] = [
         category: 'PISTOL',
         ammoType: ['Energy'],
         FireMods: ['Burst'],
-        image: 'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/re-45.png',
+        image: '/images/re-45.png',
         descKey: 'weaponDb.desc.re45',
         stats: {
             dmg: { body: 12, head: 18, leg: 11 },
@@ -585,7 +617,7 @@ export const WEAPON_FALLBACK_ROWS: WeaponRow[] = [
         category: 'PISTOL',
         ammoType: ['Light'],
         FireMods: ['Single'],
-        image: 'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/p2020.png',
+        image: '/images/p2020.png',
         descKey: 'weaponDb.desc.p2020',
         stats: {
             dmg: { body: 24, head: 30, leg: 22 },
@@ -604,7 +636,7 @@ export const WEAPON_FALLBACK_ROWS: WeaponRow[] = [
         category: 'PISTOL',
         ammoType: ['Light'],
         FireMods: ['Auto'],
-        image: 'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/p2020_akimbo.png',
+        image: '/images/p2020_akimbo.png',
         descKey: 'weaponDb.desc.p2020Akimbo',
         stats: {
             dmg: { body: 24, head: 30, leg: 22 },
@@ -623,7 +655,7 @@ export const WEAPON_FALLBACK_ROWS: WeaponRow[] = [
         category: 'PISTOL',
         ammoType: ['Mythic'],
         FireMods: ['Auto'],
-        image: 'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/p2020_akimbo.png',
+        image: '/images/p2020_akimbo.png',
         descKey: 'weaponDb.desc.p2020Cp',
         stats: {
             dmg: { body: 25, head: 31, leg: 23 },

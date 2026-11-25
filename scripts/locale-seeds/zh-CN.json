@@ -32,6 +32,7 @@
     "waitSec": "等待 {{sec}} 秒",
     "refresh": "刷新",
     "collapseAll": "全部折叠",
+    "first": "« 首页",
     "prev": "◀ 上一页",
     "page": "页",
     "of": "/",
@@ -318,7 +319,7 @@
   },
   "combatLog": {
     "noEvents": "暂无战斗事件记录。",
-    "title": "战斗日志",
+    "title": "战斗",
     "eventsCount": "{{count}} 个事件",
     "me": "我",
     "unknown": "未知"
@@ -445,6 +446,10 @@
     "footer": {
       "copyright": "© 2026 ApexTrace. 保留所有权利。",
       "poweredBy": "Powered by Overwolf"
+    },
+    "externalLink": {
+      "title": "在浏览器中打开？",
+      "message": "这将在游戏外打开你的网页浏览器。"
     }
   },
   "playstyles": {
@@ -575,7 +580,19 @@
     "totalKnocks": "总击倒",
     "knocksSuffix": " 击倒",
     "totalAssists": "总助攻",
-    "assistsSuffix": " 助攻"
+    "assistsSuffix": " 助攻",
+    "notCollected": "本场比赛未记录",
+    "damagePerKnock": "每次击倒伤害",
+    "dmgKnockSuffix": " 伤害/击倒",
+    "headshotRate": "爆头率",
+    "headshotRateHint": "{{hits}} 次命中中 {{headshots}} 次爆头",
+    "grenadeDamage": "手雷伤害",
+    "timesKnocked": "被击倒次数",
+    "timesSuffix": "次",
+    "revivesRespawns": "被救起 · 被重生",
+    "revivesRespawnsHint": "被救起 {{revives}} 次 · 被重生 {{respawns}} 次",
+    "ultimatesUsed": "大招使用次数",
+    "timeOutsideRing": "圈外停留时间"
   },
   "statistics": {
     "tabs": {
@@ -655,7 +672,9 @@
       "radarHoverModeVertex": "Stat point",
       "radarHoverModeLabel": "Category",
       "radarHoverHintVertex": "Hover stat points on the chart",
-      "radarHoverHintLabel": "Hover category labels around the chart"
+      "radarHoverHintLabel": "Hover category labels around the chart",
+      "groupMatchResults": "比赛结果",
+      "groupPersonalStats": "个人数据"
     },
     "maps": {
       "statistics": "统计",

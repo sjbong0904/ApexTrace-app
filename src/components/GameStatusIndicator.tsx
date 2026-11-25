@@ -15,8 +15,8 @@ const getOverallStatusInfo = (state: number, t: (key: string, options?: { defaul
     switch (state) {
         case 1:
             return {
-                color: '#2ecc71',
-                shadow: '0 0 10px #2ecc71',
+                color: 'var(--color-success)',
+                shadow: '0 0 10px var(--color-success)',
                 title: t('gameStatus.overall.goodTitle', { defaultValue: 'Event Status: Normal' }),
                 summary: t('gameStatus.overall.goodSummary', {
                     defaultValue: 'Game events ApexTrace uses are currently reported as healthy.',
@@ -24,8 +24,8 @@ const getOverallStatusInfo = (state: number, t: (key: string, options?: { defaul
             };
         case 2:
             return {
-                color: '#f1c40f',
-                shadow: '0 0 10px #f1c40f',
+                color: 'var(--color-rank-first)',
+                shadow: '0 0 10px var(--color-rank-first)',
                 title: t('gameStatus.overall.partialTitle', { defaultValue: 'Event Status: Partial Outage' }),
                 summary: t('gameStatus.overall.partialSummary', {
                     defaultValue: 'Some game events are degraded. Match recording may be incomplete.',
@@ -33,8 +33,8 @@ const getOverallStatusInfo = (state: number, t: (key: string, options?: { defaul
             };
         case 3:
             return {
-                color: '#e74c3c',
-                shadow: '0 0 10px #e74c3c',
+                color: 'var(--color-accent)',
+                shadow: '0 0 10px var(--color-accent)',
                 title: t('gameStatus.overall.unavailableTitle', { defaultValue: 'Event Status: Unavailable' }),
                 summary: t('gameStatus.overall.unavailableSummary', {
                     defaultValue: 'Many game events are down. Several match stats may not be recorded.',
@@ -42,7 +42,7 @@ const getOverallStatusInfo = (state: number, t: (key: string, options?: { defaul
             };
         default:
             return {
-                color: '#95a5a6',
+                color: 'var(--color-rank-other)',
                 shadow: 'none',
                 title: t('gameStatus.overall.unknownTitle', { defaultValue: 'Event Status: Unknown' }),
                 summary: t('gameStatus.overall.unknownSummary', {
@@ -66,19 +66,23 @@ const GameStatusIndicator: React.FC = () => {
     const [statusData, setStatusData] = useState<GepStatusResponse | null>(null);
     const [lastUpdated, setLastUpdated] = useState<number | null>(null);
 
-    const refreshStatus = useCallback(async () => {
-        setLoading(true);
-        const data = await fetchGepStatus();
+    const applyStatus = useCallback((data: GepStatusResponse | null) => {
         setStatusData(data);
         setLastUpdated(Date.now());
         setLoading(false);
     }, []);
 
+    const refreshStatus = useCallback(async () => {
+        setLoading(true);
+        applyStatus(await fetchGepStatus());
+    }, [applyStatus]);
+
     useEffect(() => {
-        refreshStatus();
+        // `loading` already starts true, so the first load skips the spinner reset.
+        void fetchGepStatus().then(applyStatus);
         const interval = window.setInterval(refreshStatus, GEP_STATUS_REFRESH_MS);
         return () => window.clearInterval(interval);
-    }, [refreshStatus]);
+    }, [refreshStatus, applyStatus]);
 
     useEffect(() => {
         if (!open) return;

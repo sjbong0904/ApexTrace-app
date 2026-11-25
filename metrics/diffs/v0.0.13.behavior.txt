@@ -1,0 +1,1112 @@
+
+ RUN  v3.2.7 C:/Users/sjbon/AppData/Local/Temp/apex-metrics-n8czFE/tree
+
+ ✓ src/utils/__tests__/matchMode.test.ts > matchMode > missing / fallback / supported 2ms
+ ✓ src/utils/__tests__/matchMode.test.ts > matchMode > Ranked Trios → tabs 0ms
+ ✓ src/utils/__tests__/matchMode.test.ts > matchMode > Trios → tabs 0ms
+ ✓ src/utils/__tests__/matchMode.test.ts > matchMode > Duos → tabs 0ms
+ ✓ src/utils/__tests__/matchMode.test.ts > matchMode > BR → tabs 0ms
+ ✓ src/utils/__tests__/matchMode.test.ts > matchMode > Mixtape → tabs 0ms
+ ✓ src/utils/__tests__/matchMode.test.ts > matchMode > statistics mode filter 0ms
+ ✓ src/utils/__tests__/matchMode.test.ts > matchMode > labels and colors 0ms
+ ✓ src/utils/__tests__/helpers.test.ts > normalizeMapDisplayName > null → Unknown 1ms
+ ✓ src/utils/__tests__/helpers.test.ts > normalizeMapDisplayName >  → Unknown 0ms
+ ✓ src/utils/__tests__/helpers.test.ts > normalizeMapDisplayName > UNKNOWN → Unknown 0ms
+ ✓ src/utils/__tests__/helpers.test.ts > normalizeMapDisplayName > mp_rr_desertlands_hu → World's Edge 0ms
+ ✓ src/utils/__tests__/helpers.test.ts > normalizeMapDisplayName > worlds edge → World's Edge 0ms
+ ✓ src/utils/__tests__/helpers.test.ts > normalizeMapDisplayName > mp_rr_canyonlands_hu → Kings Canyon 0ms
+ ✓ src/utils/__tests__/helpers.test.ts > normalizeMapDisplayName > mp_rr_olympus_mu2 → Olympus 0ms
+ × src/utils/__tests__/helpers.test.ts > rank helpers > placement colors by tier 7ms
+   → expected 'var(--color-rank-first)' to be '#fdcb6e' // Object.is equality
+ × src/utils/__tests__/helpers.test.ts > rank helpers > RP floors map to tier names 0ms
+   → (0 , getRankTierNameFromRp) is not a function
+ ✓ src/utils/__tests__/helpers.test.ts > rank helpers > tier key ignores division 0ms
+ ✓ src/utils/__tests__/helpers.test.ts > rank helpers > formatFullRankName dedupes roman suffixes 1ms
+ ✓ src/utils/__tests__/helpers.test.ts > stat colors > K/D thresholds 0ms
+ ✓ src/utils/__tests__/helpers.test.ts > stat colors > win rate respects hasValue 0ms
+ ✓ src/utils/__tests__/helpers.test.ts > formatMatchTime > digital and text 0ms
+ ✓ src/utils/__tests__/helpers.test.ts > player / legend identity > isSamePlayer ignores clan tags, spaces, case 0ms
+ ✓ src/utils/__tests__/helpers.test.ts > player / legend identity > isKnownLegend 0ms
+ ✓ src/utils/__tests__/helpers.test.ts > getMatchDeaths > prefers stored deaths 0ms
+ ✓ src/utils/__tests__/helpers.test.ts > getMatchDeaths > counts death events for the player 0ms
+ ✓ src/utils/__tests__/helpers.test.ts > getMatchDeaths > legacy fallback: win=0 / loss=1 0ms
+ ✓ src/utils/__tests__/golden.test.ts > golden: demo dataset > normalizes every match 73ms
+ × src/utils/__tests__/golden.test.ts > golden: demo dataset > calculateStats 21ms
+   → Snapshot `golden: demo dataset > calculateStats 1` mismatched
+ ✓ src/utils/__tests__/golden.test.ts > golden: demo dataset > overview analytics (tier/score) 4ms
+ ✓ src/utils/__tests__/golden.test.ts > golden: demo dataset > aggregate: legends 1ms
+ ✓ src/utils/__tests__/scoring.test.ts > score curves > linearScore clamps 2ms
+ ✓ src/utils/__tests__/scoring.test.ts > score curves > logScore is monotonic between floor and ceiling 0ms
+ ✓ src/utils/__tests__/scoring.test.ts > score curves > strictify compresses mid scores 0ms
+ ✓ src/utils/__tests__/scoring.test.ts > score curves > curvedMetricScore: 1000 dmg ≈ 85 pts 0ms
+ ✓ src/utils/__tests__/scoring.test.ts > score curves > hybridRankScore penalizes tiny samples 0ms
+ ✓ src/utils/__tests__/scoring.test.ts > tableSort > toggles direction on same column 1ms
+ ✓ src/utils/__tests__/scoring.test.ts > tableSort > missing rows stay last in both directions 0ms
+ ✓ src/utils/__tests__/scoring.test.ts > tableSort > avg placement: lower is better 0ms
+ ✓ src/utils/__tests__/scoring.test.ts > hasUsableMatchStats > rejects null placement or all-null stats 0ms
+ × src/utils/__tests__/golden.test.ts > golden: demo dataset > aggregate: weapons 181ms
+   → Snapshot `golden: demo dataset > aggregate: weapons 1` mismatched
+ ↓ src/utils/__tests__/golden.test.ts > golden: demo dataset > aggregate: threats 0ms
+ × src/utils/__tests__/golden.test.ts > golden: demo dataset > aggregate: maps 4ms
+   → Snapshot `golden: demo dataset > aggregate: maps 1` mismatched
+ ✓ src/utils/__tests__/golden.test.ts > golden: demo dataset > teammate baseline 12ms
+ ↓ src/utils/__tests__/golden.test.ts > golden: demo dataset > per-match detail stats 1ms
+ ↓ src/utils/__tests__/golden.test.ts > golden: demo dataset > map replay + ring overlay summary 1ms
+ ↓ src/utils/__tests__/golden.test.ts > golden: demo dataset > recent comparison for newest match 1ms
+
+  Snapshots  3 failed
+ Test Files  5 failed | 2 passed (7)
+      Tests  5 failed | 38 passed | 4 skipped (47)
+   Start at  00:15:22
+   Duration  900ms (transform 396ms, setup 82ms, collect 429ms, tests 324ms, environment 1ms, prepare 1.36s)
+
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 3 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/utils/__tests__/appState.test.ts [ src/utils/__tests__/appState.test.ts ]
+Error: Cannot find module '../accountRecord' imported from 'C:/Users/sjbon/AppData/Local/Temp/apex-metrics-n8czFE/tree/src/utils/__tests__/appState.test.ts'
+ ❯ src/utils/__tests__/appState.test.ts:4:1
+      2| import { afterEach, beforeEach, describe, expect, it, vi } from 'vites…
+      3| import type { Match } from '../../types';
+      4| import { hasAccountRecord, summarizeBrBlock } from '../accountRecord';
+       | ^
+      5| import {
+      6|     consumeFreeReplay,
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
+Serialized Error: { code: 'ERR_MODULE_NOT_FOUND' }
+Caused by: Error: Failed to load url ../accountRecord (resolved id: ../accountRecord) in C:/Users/sjbon/AppData/Local/Temp/apex-metrics-n8czFE/tree/src/utils/__tests__/appState.test.ts. Does the file exist?
+ ❯ loadAndTransform ../../../../../Desktop/Projects/apex-trace%20-%20%EB%B3%B5%EC%82%AC%EB%B3%B8/node_modules/vite/dist/node/chunks/config.js:22662:33
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/8]⎯
+
+ FAIL  src/utils/__tests__/replay.test.ts [ src/utils/__tests__/replay.test.ts ]
+Error: Cannot find module '../groundPath' imported from 'C:/Users/sjbon/AppData/Local/Temp/apex-metrics-n8czFE/tree/src/utils/__tests__/replay.test.ts'
+ ❯ src/utils/__tests__/replay.test.ts:4:1
+      2| import { describe, expect, it } from 'vitest';
+      3| import type { Match, RingRound, RingSample } from '../../types';
+      4| import { findLandingIndex, groundPathPoints } from '../groundPath';
+       | ^
+      5| import { buildRingCircles, resolveRingCenter } from '../ringOverlay';
+      6| import { buildMapReplay, formatReplayClock, getReplayFrame } from '../…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
+Serialized Error: { code: 'ERR_MODULE_NOT_FOUND' }
+Caused by: Error: Failed to load url ../groundPath (resolved id: ../groundPath) in C:/Users/sjbon/AppData/Local/Temp/apex-metrics-n8czFE/tree/src/utils/__tests__/replay.test.ts. Does the file exist?
+ ❯ loadAndTransform ../../../../../Desktop/Projects/apex-trace%20-%20%EB%B3%B5%EC%82%AC%EB%B3%B8/node_modules/vite/dist/node/chunks/config.js:22662:33
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/8]⎯
+
+ FAIL  src/utils/__tests__/seasons.test.ts [ src/utils/__tests__/seasons.test.ts ]
+Error: Cannot find module '../seasonGroups' imported from 'C:/Users/sjbon/AppData/Local/Temp/apex-metrics-n8czFE/tree/src/utils/__tests__/seasons.test.ts'
+ ❯ src/utils/__tests__/seasons.test.ts:10:1
+      8|     type SeasonBoundary,
+      9| } from '../seasons';
+     10| import {
+       | ^
+     11|     findSeasonGroup,
+     12|     getSeasonGroupRange,
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
+Serialized Error: { code: 'ERR_MODULE_NOT_FOUND' }
+Caused by: Error: Failed to load url ../seasonGroups (resolved id: ../seasonGroups) in C:/Users/sjbon/AppData/Local/Temp/apex-metrics-n8czFE/tree/src/utils/__tests__/seasons.test.ts. Does the file exist?
+ ❯ loadAndTransform ../../../../../Desktop/Projects/apex-trace%20-%20%EB%B3%B5%EC%82%AC%EB%B3%B8/node_modules/vite/dist/node/chunks/config.js:22662:33
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/8]⎯
+
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 5 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  src/utils/__tests__/golden.test.ts > golden: demo dataset > calculateStats
+Error: Snapshot `golden: demo dataset > calculateStats 1` mismatched
+
+- Expected
++ Received
+
+@@ -1,25 +1,23 @@
+  {
+    "assists": 50,
+    "avgDamage": 1315,
+    "avgKills": "3.8",
+-   "avgKnocks": "4.0",
+    "avgPlacement": "6.0",
+    "avgTime": "14m 4s",
+    "avgTimeSec": 845,
+    "avgmin": 14,
+    "avgsec": 5,
+    "deaths": 20,
+    "kd": "4.35",
+    "kda": "6.85",
+    "kills": 87,
+-   "knockToKillRate": "95.6",
+    "lograte": "57.7",
+    "matches": 23,
+    "maxKills": 10,
+    "mostLegend": "alter",
+-   "mostWeapon": "EVA-8",
++   "mostWeapon": "L-STAR",
+    "squadKills": 194,
+    "top5Rate": "65.2",
+    "totalDamage": 30245,
+    "winRate": "13.0",
+    "wins": 3,
+
+ ❯ src/utils/__tests__/golden.test.ts:49:60
+     47|     it('calculateStats', async (ctx) => {
+     48|         const { calculateStats } = await need(ctx, () => import('../st…
+     49|         expect(round(calculateStats(await loadHistory()))).toMatchSnap…
+       |                                                            ^
+     50|     });
+     51| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/8]⎯
+
+ FAIL  src/utils/__tests__/golden.test.ts > golden: demo dataset > aggregate: weapons
+Error: Snapshot `golden: demo dataset > aggregate: weapons 1` mismatched
+
+- Expected
++ Received
+
+  [
+    {
+      "avgPlacement": "3.0",
+      "games": 2,
+-     "hasKd": true,
+      "hasWinRate": true,
+-     "holdMs": 27548,
++     "holdMs": 956168,
+-     "holdTime": "00:00",
++     "holdTime": "00:15",
+-     "id": "eva-8",
++     "id": "l-star",
+-     "kd": 164.26,
+-     "kda": 246.39,
++     "kd": 109.97,
+-     "name": "EVA-8",
++     "name": "L-STAR",
+-     "qualifyGames": 1,
++     "qualifyGames": 2,
+-     "rankScore": 35.5674,
++     "rankScore": 151.4276,
+      "topLegends": [
+-       "mad maggie",
+        "alter",
+-     ],
+-     "usageGames": 2,
+-     "usageLabel": "2",
++       "axle",
++     ],
+-     "winRate": "0.0",
++     "winRate": "50.0",
+    },
+    {
+-     "avgPlacement": "3.0",
++     "avgPlacement": "5.1",
+-     "games": 2,
+-     "hasKd": true,
++     "games": 14,
+      "hasWinRate": true,
+-     "holdMs": 956168,
++     "holdMs": 10549574,
+-     "holdTime": "00:15",
++     "holdTime": "02:55",
+-     "id": "l-star",
+-     "kd": 109.97,
++     "id": "c.a.r.",
+-     "kda": 159.95,
++     "kd": 5.73,
+-     "name": "L-STAR",
++     "name": "C.A.R.",
+-     "qualifyGames": 2,
++     "qualifyGames": 14,
+-     "rankScore": 23.8119,
++     "rankScore": 101.3888,
+      "topLegends": [
+-       "alter",
+-       "axle",
+-     ],
+-     "usageGames": 2,
+-     "usageLabel": "2",
++       "mad maggie",
++       "pathfinder",
++       "vantage",
++     ],
+-     "winRate": "50.0",
++     "winRate": "14.3",
+    },
+    {
+-     "avgPlacement": "5.1",
++     "avgPlacement": "5.5",
+-     "games": 15,
+-     "hasKd": true,
++     "games": 13,
+      "hasWinRate": true,
+-     "holdMs": 10549574,
++     "holdMs": 8585690,
+-     "holdTime": "02:55",
++     "holdTime": "02:23",
+-     "id": "car",
++     "id": "nemesis",
+-     "kd": 5.73,
+-     "kda": 9.74,
++     "kd": 5.07,
+-     "name": "C.A.R.",
++     "name": "NEMESIS",
+-     "qualifyGames": 14,
++     "qualifyGames": 13,
+-     "rankScore": 16.1636,
++     "rankScore": 75.7624,
+      "topLegends": [
++       "vantage",
+        "mad maggie",
+-       "pathfinder",
++       "alter",
++     ],
++     "winRate": "15.4",
++   },
+-       "vantage",
+-     ],
+-     "usageGames": 15,
+-     "usageLabel": "15",
++   {
++     "avgPlacement": "3.7",
++     "games": 3,
++     "hasWinRate": true,
++     "holdMs": 2943947,
++     "holdTime": "00:49",
++     "id": "sentinel",
++     "kd": 2.65,
++     "name": "SENTINEL",
++     "qualifyGames": 3,
++     "rankScore": 14.2655,
++     "topLegends": [
++       "mad maggie",
++       "pathfinder",
++     ],
+-     "winRate": "14.3",
++     "winRate": "0.0",
+    },
+    {
+-     "avgPlacement": "5.5",
++     "avgPlacement": "2.0",
+-     "games": 13,
+-     "hasKd": true,
++     "games": 1,
+      "hasWinRate": true,
+-     "holdMs": 8563849,
++     "holdMs": 1197067,
+-     "holdTime": "02:22",
++     "holdTime": "00:19",
+-     "id": "nemesis",
++     "id": "g7 scout",
+-     "kd": 5.08,
+-     "kda": 6.7,
++     "kd": 3.41,
+-     "name": "NEMESIS",
++     "name": "G7 SCOUT",
+-     "qualifyGames": 13,
++     "qualifyGames": 1,
+-     "rankScore": 12.3093,
++     "rankScore": 6.3183,
+      "topLegends": [
+-       "vantage",
++       "pathfinder",
+        "mad maggie",
+        "alter",
+      ],
+-     "usageGames": 13,
++     "winRate": "0.0",
++   },
++   {
++     "avgPlacement": "4.7",
++     "games": 3,
++     "hasWinRate": true,
++     "holdMs": 1543503,
++     "holdTime": "00:25",
++     "id": "r-99",
++     "kd": 1.84,
++     "name": "R-99",
++     "qualifyGames": 3,
+-     "usageLabel": "13",
++     "rankScore": 4.6931,
++     "topLegends": [
++       "mad maggie",
++       "vantage",
++       "lifeline",
++     ],
+-     "winRate": "15.4",
++     "winRate": "0.0",
+    },
+    {
+      "avgPlacement": "6.2",
+-     "games": 9,
+-     "hasKd": true,
++     "games": 5,
+      "hasWinRate": true,
+-     "holdMs": 1604997,
++     "holdMs": 1614194,
+      "holdTime": "00:26",
+      "id": "prowler",
+-     "kd": 1.66,
+-     "kda": 4.99,
++     "kd": 1.65,
+      "name": "PROWLER",
+      "qualifyGames": 5,
+-     "rankScore": 2.6587,
++     "rankScore": 4.4448,
+      "topLegends": [
++       "mad maggie",
+        "alter",
+        "pathfinder",
+-       "vantage",
+-     ],
+-     "usageGames": 9,
+-     "usageLabel": "9",
++     ],
++     "winRate": "20.0",
++   },
++   {
++     "avgPlacement": "7.8",
++     "games": 5,
++     "hasWinRate": true,
++     "holdMs": 3027064,
++     "holdTime": "00:50",
++     "id": "longbow",
++     "kd": 0.55,
++     "name": "LONGBOW",
++     "qualifyGames": 5,
++     "rankScore": 3.0562,
++     "topLegends": [
++       "pathfinder",
++       "vantage",
++       "lifeline",
++     ],
+      "winRate": "20.0",
+    },
+    {
+      "avgPlacement": "3.7",
+-     "games": 4,
+-     "hasKd": true,
++     "games": 3,
+      "hasWinRate": true,
+-     "holdMs": 711825,
++     "holdMs": 789437,
+-     "holdTime": "00:11",
++     "holdTime": "00:13",
+      "id": "hemlok",
+-     "kd": 2.89,
+-     "kda": 5.79,
++     "kd": 2.72,
+      "name": "HEMLOK",
+      "qualifyGames": 3,
+-     "rankScore": 1.6599,
++     "rankScore": 2.8869,
+      "topLegends": [
+-       "mad maggie",
+-       "axle",
+-       "alter",
+-     ],
+-     "usageGames": 4,
+-     "usageLabel": "4",
++       "vantage",
++       "alter",
++       "mad maggie",
++     ],
+      "winRate": "0.0",
+    },
+    {
+-     "avgPlacement": "10.3",
++     "avgPlacement": "3.0",
+-     "games": 3,
+-     "hasKd": true,
++     "games": 1,
+      "hasWinRate": true,
+-     "holdMs": 251149,
++     "holdMs": 253363,
+      "holdTime": "00:04",
+-     "id": "alternator",
++     "id": "volt",
+-     "kd": 4,
+-     "kda": 4,
++     "kd": 9.28,
+-     "name": "ALTERNATOR",
++     "name": "VOLT",
+-     "qualifyGames": 3,
++     "qualifyGames": 1,
+-     "rankScore": 1.5465,
++     "rankScore": 1.8896,
+      "topLegends": [
+-       "vantage",
+-       "sparrow",
++       "pathfinder",
++       "mad maggie",
++     ],
++     "winRate": "0.0",
++   },
+-       "axle",
+-     ],
+-     "usageGames": 3,
++   {
++     "avgPlacement": "3.0",
++     "games": 1,
++     "hasWinRate": true,
++     "holdMs": 27548,
++     "holdTime": "00:00",
++     "id": "eva-8",
++     "kd": 164.26,
++     "name": "EVA-8",
++     "qualifyGames": 1,
+-     "usageLabel": "3",
++     "rankScore": 1.0399,
++     "topLegends": [
++       "alter",
++     ],
+      "winRate": "0.0",
+    },
+    {
+      "avgPlacement": "13.5",
+      "games": 2,
+-     "hasKd": true,
+      "hasWinRate": true,
+-     "holdMs": 223760,
++     "holdMs": 227900,
+      "holdTime": "00:03",
+      "id": "flatline",
+-     "kd": 5.7,
+-     "kda": 5.7,
++     "kd": 5.62,
+      "name": "FLATLINE",
+      "qualifyGames": 2,
+-     "rankScore": 1.2342,
++     "rankScore": 0.9735,
+      "topLegends": [
+        "vantage",
+-     ],
+-     "usageGames": 2,
+-     "usageLabel": "2",
++       "mad maggie",
++     ],
+      "winRate": "0.0",
+    },
+    {
+-     "avgPlacement": "3.7",
++     "avgPlacement": "10.3",
+      "games": 3,
+-     "hasKd": true,
+      "hasWinRate": true,
+-     "holdMs": 2943947,
++     "holdMs": 288365,
+-     "holdTime": "00:49",
++     "holdTime": "00:04",
+-     "id": "sentinel",
++     "id": "alternator",
+-     "kd": 2.65,
+-     "kda": 2.65,
++     "kd": 3.82,
+-     "name": "SENTINEL",
++     "name": "ALTERNATOR",
+      "qualifyGames": 3,
+-     "rankScore": 1.0246,
++     "rankScore": 0.9459,
+      "topLegends": [
+        "mad maggie",
+-       "pathfinder",
+-     ],
+-     "usageGames": 3,
+-     "usageLabel": "3",
++       "vantage",
++       "sparrow",
++     ],
+      "winRate": "0.0",
+    },
+    {
+-     "avgPlacement": "4.7",
++     "avgPlacement": "2.0",
+-     "games": 3,
+-     "hasKd": true,
++     "games": 2,
+      "hasWinRate": true,
+-     "holdMs": 1415561,
++     "holdMs": 752551,
+-     "holdTime": "00:23",
++     "holdTime": "00:12",
+-     "id": "r-99",
++     "id": "re-45",
+-     "kd": 2.09,
+-     "kda": 6.27,
++     "kd": 0,
+-     "name": "R-99",
++     "name": "RE-45",
+-     "qualifyGames": 3,
++     "qualifyGames": 2,
+-     "rankScore": 0.8081,
++     "rankScore": 0,
+      "topLegends": [
+-       "vantage",
++       "alter",
+-       "mad maggie",
+-       "fuse",
+-     ],
+-     "usageGames": 3,
+-     "usageLabel": "3",
++       "axle",
++     ],
+-     "winRate": "0.0",
++     "winRate": "50.0",
+    },
+    {
+      "avgPlacement": "3.0",
+      "games": 1,
+-     "hasKd": true,
+      "hasWinRate": true,
+-     "holdMs": 246620,
++     "holdMs": 290225,
+      "holdTime": "00:04",
+-     "id": "volt",
+-     "kd": 9.37,
++     "id": "kraber",
+-     "kda": 9.37,
++     "kd": 0,
+-     "name": "VOLT",
++     "name": "KRABER",
+      "qualifyGames": 1,
+-     "rankScore": 0.7208,
++     "rankScore": 0,
+      "topLegends": [
+-       "mad maggie",
++       "alter",
+      ],
+-     "usageGames": 1,
+-     "usageLabel": "1",
+      "winRate": "0.0",
+    },
+    {
+-     "avgPlacement": "7.8",
++     "avgPlacement": "1.0",
+-     "games": 5,
+-     "hasKd": true,
++     "games": 1,
+      "hasWinRate": true,
+-     "holdMs": 3027064,
++     "holdMs": 287419,
+-     "holdTime": "00:50",
++     "holdTime": "00:04",
+-     "id": "longbow",
+-     "kd": 0.55,
++     "id": "p2020",
+-     "kda": 0.55,
++     "kd": 0,
+-     "name": "LONGBOW",
++     "name": "P2020",
+-     "qualifyGames": 5,
++     "qualifyGames": 1,
+-     "rankScore": 0.4249,
++     "rankScore": 0,
+      "topLegends": [
+        "pathfinder",
+        "vantage",
+-       "lifeline",
+-     ],
+-     "usageGames": 5,
+-     "usageLabel": "5",
++       "mad maggie",
++     ],
+-     "winRate": "20.0",
++     "winRate": "100.0",
+    },
+    {
+-     "avgPlacement": "2.0",
++     "avgPlacement": "-",
+-     "games": 1,
+-     "hasKd": true,
++     "games": 0,
+-     "hasWinRate": true,
++     "hasWinRate": false,
+-     "holdMs": 1111437,
++     "holdMs": 223274,
+-     "holdTime": "00:18",
++     "holdTime": "00:03",
+-     "id": "g7scout",
++     "id": "havoc",
+-     "kd": 3.68,
+-     "kda": 5.52,
++     "kd": 0,
+-     "name": "G7 SCOUT",
++     "name": "HAVOC",
+-     "qualifyGames": 1,
++     "qualifyGames": 0,
+-     "rankScore": 0.2831,
++     "rankScore": 0,
+      "topLegends": [
+-       "pathfinder",
+-     ],
+-     "usageGames": 1,
+-     "usageLabel": "1",
++       "mad maggie",
++       "alter",
++     ],
+-     "winRate": "0.0",
++     "winRate": "-",
+    },
+    {
+-     "avgPlacement": "1.0",
++     "avgPlacement": "3.0",
+      "games": 1,
+-     "hasKd": false,
+      "hasWinRate": true,
+-     "holdMs": 0,
++     "holdMs": 205311,
+-     "holdTime": "00:00",
++     "holdTime": "00:03",
+-     "id": "p2020_akimbo",
++     "id": "wingman",
+-     "kd": null,
+-     "kda": null,
++     "kd": 0,
+-     "name": "P2020 AKIMBO",
++     "name": "WINGMAN",
+      "qualifyGames": 1,
+-     "rankScore": 0.0769,
++     "rankScore": 0,
+      "topLegends": [
+        "mad maggie",
+-     ],
+-     "usageGames": 1,
+-     "usageLabel": "1",
++       "vantage",
++     ],
+-     "winRate": "100.0",
++     "winRate": "0.0",
+    },
+    {
+-     "avgPlacement": "3.0",
++     "avgPlacement": "2.0",
+      "games": 1,
+-     "hasKd": false,
+      "hasWinRate": true,
+-     "holdMs": 0,
++     "holdMs": 175832,
+-     "holdTime": "00:00",
++     "holdTime": "00:02",
+-     "id": "mozambique_akimbo",
+-     "kd": null,
+-     "kda": null,
+-     "name": "MOZAMBIQUE AKIMBO",
++     "id": "mastiff",
++     "kd": 0,
++     "name": "MASTIFF",
+      "qualifyGames": 1,
+-     "rankScore": 0.0769,
++     "rankScore": 0,
+      "topLegends": [
+-       "alter",
++       "pathfinder",
+      ],
+-     "usageGames": 1,
+-     "usageLabel": "1",
+      "winRate": "0.0",
+    },
+    {
+-     "avgPlacement": "2.0",
++     "avgPlacement": "-",
+-     "games": 2,
+-     "hasKd": true,
++     "games": 0,
+-     "hasWinRate": true,
++     "hasWinRate": false,
+-     "holdMs": 748367,
++     "holdMs": 148193,
+-     "holdTime": "00:12",
++     "holdTime": "00:02",
+-     "id": "re-45",
+-     "kd": 0,
++     "id": "triple take",
+-     "kda": 0,
++     "kd": 0,
+-     "name": "RE-45",
++     "name": "TRIPLE TAKE",
+-     "qualifyGames": 2,
++     "qualifyGames": 0,
+      "rankScore": 0,
+      "topLegends": [
+-       "alter",
+-     ],
+-     "usageGames": 2,
+-     "usageLabel": "2",
++       "vantage",
++       "pathfinder",
++     ],
+-     "winRate": "50.0",
++     "winRate": "-",
+    },
+    {
+      "avgPlacement": "15.0",
+-     "games": 2,
+-     "hasKd": true,
++     "games": 1,
+      "hasWinRate": true,
+      "holdMs": 137782,
+      "holdTime": "00:02",
+      "id": "devotion",
+      "kd": 0,
+-     "kda": 3.41,
+      "name": "DEVOTION",
+      "qualifyGames": 1,
+      "rankScore": 0,
+      "topLegends": [
+        "vantage",
+-       "alter",
+-     ],
+-     "usageGames": 2,
++     ],
++     "winRate": "0.0",
++   },
++   {
++     "avgPlacement": "3.0",
++     "games": 1,
++     "hasWinRate": true,
++     "holdMs": 95009,
++     "holdTime": "00:01",
++     "id": "mozambique",
++     "kd": 0,
++     "name": "MOZAMBIQUE",
++     "qualifyGames": 1,
+-     "usageLabel": "2",
++     "rankScore": 0,
++     "topLegends": [
++       "alter",
++     ],
+      "winRate": "0.0",
+    },
+    {
+      "avgPlacement": "14.0",
+-     "games": 2,
+-     "hasKd": true,
++     "games": 1,
+      "hasWinRate": true,
+-     "holdMs": 83311,
++     "holdMs": 87252,
+      "holdTime": "00:01",
+      "id": "peacekeeper",
+      "kd": 0,
+-     "kda": 6.11,
+      "name": "PEACEKEEPER",
+      "qualifyGames": 1,
+      "rankScore": 0,
+      "topLegends": [
+-       "vantage",
+        "sparrow",
+-     ],
+-     "usageGames": 2,
+-     "usageLabel": "2",
++       "vantage",
++     ],
+      "winRate": "0.0",
+    },
+    {
+-     "avgPlacement": "3.0",
++     "avgPlacement": "-",
+-     "games": 1,
+-     "hasKd": true,
++     "games": 0,
+-     "hasWinRate": true,
++     "hasWinRate": false,
+-     "holdMs": 290225,
++     "holdMs": 80422,
+-     "holdTime": "00:04",
++     "holdTime": "00:01",
+-     "id": "kraber",
++     "id": "spitfire",
+      "kd": 0,
+-     "kda": 0,
+-     "name": "KRABER",
++     "name": "SPITFIRE",
+-     "qualifyGames": 1,
++     "qualifyGames": 0,
+      "rankScore": 0,
+      "topLegends": [
+-       "alter",
++       "lifeline",
+-     ],
+-     "usageGames": 1,
+-     "usageLabel": "1",
++       "alter",
++     ],
+-     "winRate": "0.0",
++     "winRate": "-",
+    },
+    {
+-     "avgPlacement": "1.0",
++     "avgPlacement": "-",
+-     "games": 1,
+-     "hasKd": false,
++     "games": 0,
+-     "hasWinRate": true,
++     "hasWinRate": false,
+-     "holdMs": 279302,
++     "holdMs": 53302,
+-     "holdTime": "00:04",
++     "holdTime": "00:00",
+-     "id": "p2020",
++     "id": "r-301",
+-     "kd": null,
+-     "kda": null,
++     "kd": 0,
+-     "name": "P2020",
++     "name": "R-301",
+-     "qualifyGames": 1,
++     "qualifyGames": 0,
+      "rankScore": 0,
+      "topLegends": [
+        "mad maggie",
+-     ],
+-     "usageGames": 1,
+-     "usageLabel": "1",
++       "axle",
++       "fuse",
++     ],
+-     "winRate": "100.0",
++     "winRate": "-",
+    },
+    {
+-     "avgPlacement": "2.0",
++     "avgPlacement": "-",
+-     "games": 1,
+-     "hasKd": true,
++     "games": 0,
+-     "hasWinRate": true,
++     "hasWinRate": false,
+-     "holdMs": 175832,
++     "holdMs": 20556,
+-     "holdTime": "00:02",
++     "holdTime": "00:00",
+-     "id": "mastiff",
++     "id": "charge rifle",
+      "kd": 0,
+-     "kda": 0,
+-     "name": "MASTIFF",
++     "name": "CHARGE RIFLE",
+-     "qualifyGames": 1,
++     "qualifyGames": 0,
+      "rankScore": 0,
+      "topLegends": [
+        "pathfinder",
+-     ],
+-     "usageGames": 1,
++       "axle",
++     ],
++     "winRate": "-",
++   },
++   {
++     "avgPlacement": "-",
++     "games": 0,
+-     "usageLabel": "1",
+-     "winRate": "0.0",
++     "hasWinRate": false,
++     "holdMs": 17398,
++     "holdTime": "00:00",
+-   },
++     "id": "rampage",
+-   {
+-     "avgPlacement": "3.0",
++     "kd": 0,
++     "name": "RAMPAGE",
++     "qualifyGames": 0,
++     "rankScore": 0,
++     "topLegends": [
++       "vantage",
++       "alter",
++     ],
++     "winRate": "-",
+-     "games": 1,
+-     "hasKd": true,
++   },
++   {
++     "avgPlacement": "-",
++     "games": 0,
+-     "hasWinRate": true,
++     "hasWinRate": false,
+-     "holdMs": 129150,
++     "holdMs": 13660,
+-     "holdTime": "00:02",
++     "holdTime": "00:00",
+-     "id": "wingman",
+-     "kd": 0,
++     "id": "bocek",
+-     "kda": 0,
++     "kd": 0,
+-     "name": "WINGMAN",
++     "name": "BOCEK",
+-     "qualifyGames": 1,
++     "qualifyGames": 0,
+      "rankScore": 0,
+      "topLegends": [
+-       "mad maggie",
++       "vantage",
+      ],
+-     "usageGames": 1,
+-     "usageLabel": "1",
++     "winRate": "-",
++   },
++   {
++     "avgPlacement": "1.0",
++     "games": 1,
++     "hasWinRate": true,
++     "holdMs": 0,
++     "holdTime": "00:00",
++     "id": "p2020_akimbo",
++     "kd": 1,
++     "name": "P2020 AKIMBO",
++     "qualifyGames": 1,
++     "rankScore": 0,
++     "topLegends": [
++       "mad maggie",
++     ],
+-     "winRate": "0.0",
++     "winRate": "100.0",
+    },
+    {
+      "avgPlacement": "3.0",
+      "games": 1,
+-     "hasKd": true,
+      "hasWinRate": true,
+-     "holdMs": 95009,
++     "holdMs": 0,
+-     "holdTime": "00:01",
++     "holdTime": "00:00",
+-     "id": "mozambique",
+-     "kd": 0,
++     "id": "mozambique_akimbo",
+-     "kda": 0,
++     "kd": 2,
+-     "name": "MOZAMBIQUE",
++     "name": "MOZAMBIQUE AKIMBO",
+      "qualifyGames": 1,
+      "rankScore": 0,
+      "topLegends": [
+        "alter",
+      ],
+-     "usageGames": 1,
+-     "usageLabel": "1",
+      "winRate": "0.0",
+    },
+  ]
+
+ ❯ src/utils/__tests__/golden.test.ts:68:57
+     66|         it(`aggregate: ${name}`, async (ctx) => {
+     67|             const mod = await need(ctx, () => import('../statsAggregat…
+     68|             expect(round(mod[fn](await loadHistory()))).toMatchSnapsho…
+       |                                                         ^
+     69|         });
+     70|     }
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/8]⎯
+
+ FAIL  src/utils/__tests__/golden.test.ts > golden: demo dataset > aggregate: maps
+Error: Snapshot `golden: demo dataset > aggregate: maps 1` mismatched
+
+- Expected
++ Received
+
+  [
+    {
+-     "avgDamage": 1373,
+-     "avgPlacement": "3.8",
+-     "games": 4,
+-     "kd": 11.5,
+-     "name": "E-District",
+-     "rankScore": 6.605,
++     "games": 11,
++     "name": "Broken Moon",
+-     "share": 17.3913,
++     "share": 47.8261,
+-     "winRate": "50.0",
++     "winRate": "0.0",
+    },
+    {
+-     "avgDamage": 1097,
+-     "avgPlacement": "6.4",
+-     "games": 11,
+-     "kd": 2.27,
+-     "name": "Broken Moon",
+-     "rankScore": 4.5819,
++     "games": 5,
++     "name": "Storm Point",
+-     "share": 47.8261,
++     "share": 21.7391,
+      "winRate": "0.0",
+    },
+    {
+-     "avgDamage": 1193,
+-     "avgPlacement": "9.0",
+-     "games": 5,
+-     "kd": 3.8,
+-     "name": "Storm Point",
+-     "rankScore": 2.9355,
++     "games": 4,
++     "name": "E-District",
+-     "share": 21.7391,
++     "share": 17.3913,
+-     "winRate": "0.0",
++     "winRate": "50.0",
+    },
+    {
+-     "avgDamage": 2304,
+-     "avgPlacement": "3.0",
+      "games": 2,
+-     "kd": 7,
+      "name": "World's Edge",
+-     "rankScore": 1.5157,
+      "share": 8.6957,
+      "winRate": "0.0",
+    },
+    {
+-     "avgDamage": 2116,
+-     "avgPlacement": "1.0",
+      "games": 1,
+-     "kd": 6,
+      "name": "Olympus",
+-     "rankScore": 0.4615,
+      "share": 4.3478,
+      "winRate": "100.0",
+    },
+  ]
+
+ ❯ src/utils/__tests__/golden.test.ts:68:57
+     66|         it(`aggregate: ${name}`, async (ctx) => {
+     67|             const mod = await need(ctx, () => import('../statsAggregat…
+     68|             expect(round(mod[fn](await loadHistory()))).toMatchSnapsho…
+       |                                                         ^
+     69|         });
+     70|     }
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/8]⎯
+
+ FAIL  src/utils/__tests__/helpers.test.ts > rank helpers > placement colors by tier
+AssertionError: expected 'var(--color-rank-first)' to be '#fdcb6e' // Object.is equality
+
+Expected: "#fdcb6e"
+Received: "var(--color-rank-first)"
+
+ ❯ src/utils/__tests__/helpers.test.ts:33:33
+     31| describe('rank helpers', () => {
+     32|     it('placement colors by tier', () => {
+     33|         expect(getRankColor(1)).toBe(STAT_TIER_COLOR.elite);
+       |                                 ^
+     34|         expect(getRankColor('#3')).toBe(STAT_TIER_COLOR.high);
+     35|         expect(getRankColor(8)).toBe(STAT_TIER_COLOR.normal);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/8]⎯
+
+ FAIL  src/utils/__tests__/helpers.test.ts > rank helpers > RP floors map to tier names
+TypeError: (0 , getRankTierNameFromRp) is not a function
+ ❯ src/utils/__tests__/helpers.test.ts:41:16
+     39| 
+     40|     it('RP floors map to tier names', () => {
+     41|         expect(getRankTierNameFromRp(0)).toBe('Rookie');
+       |                ^
+     42|         expect(getRankTierNameFromRp(999)).toBe('Rookie');
+     43|         expect(getRankTierNameFromRp(1000)).toBe('Bronze');
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/8]⎯
+

@@ -32,6 +32,7 @@
     "waitSec": "Attendre {{sec}} s",
     "refresh": "Actualiser",
     "collapseAll": "Tout réduire",
+    "first": "« Début",
     "prev": "◀ Préc.",
     "page": "Page",
     "of": "/",
@@ -318,7 +319,7 @@
   },
   "combatLog": {
     "noEvents": "Aucun événement de combat enregistré.",
-    "title": "Journal de combat",
+    "title": "Combat",
     "eventsCount": "{{count}} événements",
     "me": "Moi",
     "unknown": "Inconnu"
@@ -445,6 +446,10 @@
     "footer": {
       "copyright": "© 2026 ApexTrace. Tous droits réservés.",
       "poweredBy": "Powered by Overwolf"
+    },
+    "externalLink": {
+      "title": "Ouvrir dans votre navigateur ?",
+      "message": "Cela ouvre votre navigateur web en dehors du jeu."
     }
   },
   "playstyles": {
@@ -575,7 +580,19 @@
     "totalKnocks": "Total des mises à terre",
     "knocksSuffix": " mises à terre",
     "totalAssists": "Total des assistances",
-    "assistsSuffix": " assist."
+    "assistsSuffix": " assist.",
+    "notCollected": "Non enregistré pour ce match",
+    "damagePerKnock": "Dégâts par KO",
+    "dmgKnockSuffix": " dég/KO",
+    "headshotRate": "Taux de headshot",
+    "headshotRateHint": "{{headshots}} sur {{hits}} touches",
+    "grenadeDamage": "Dégâts de grenade",
+    "timesKnocked": "Fois mis KO",
+    "timesSuffix": "x",
+    "revivesRespawns": "Réanimé · Réapparu",
+    "revivesRespawnsHint": "Réanimé {{revives}}x · Réapparu {{respawns}}x",
+    "ultimatesUsed": "Ultimes utilisés",
+    "timeOutsideRing": "Temps hors de l'anneau"
   },
   "statistics": {
     "tabs": {
@@ -655,7 +672,9 @@
       "radarHoverModeVertex": "Stat point",
       "radarHoverModeLabel": "Category",
       "radarHoverHintVertex": "Hover stat points on the chart",
-      "radarHoverHintLabel": "Hover category labels around the chart"
+      "radarHoverHintLabel": "Hover category labels around the chart",
+      "groupMatchResults": "Résultats des matchs",
+      "groupPersonalStats": "Stats personnelles"
     },
     "maps": {
       "statistics": "Statistiques",

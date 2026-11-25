@@ -14,9 +14,13 @@ import SearchBar from '../components/SearchBar';
 import { APP_LANGUAGES } from '../constants/languages';
 import { CONTENT_MAX_WIDTH, NARROW_LAYOUT_WIDTH } from '../hooks/useWindowAutoResize';
 import { isIncompleteMatchStats } from '../utils/match';
+import type { Match } from '../types';
 import { formatRelativeTime, getRankColor, getRelativeTime, normalizeMapDisplayName } from '../utils/helpers';
 import { getModeColor, getModeDisplayLabel, matchesHistoryTab } from '../utils/matchMode';
-import { getSelectableSeasons, resolveCurrentSeasonId, resolveSeasonEndMs } from '../utils/seasons';
+import { resolveCurrentSeasonId } from '../utils/seasons';
+import { useSeasonsWithData } from '../utils/seasonAvailability';
+import { groupSeasons, getSelectionRange, readWholeSeason, storeWholeSeason } from '../utils/seasonGroups';
+import SeasonPicker from '../components/SeasonPicker';
 import {
     fetchHistoryByUid,
     fetchSeasons,
@@ -126,10 +130,11 @@ export default function SimpleWebApp() {
 
     const [seasons, setSeasons] = useState<SeasonConfig[]>(FALLBACK_SEASONS);
     const [user, setUser] = useState<WebUser>(() => emptyUser('Player'));
-    const [history, setHistory] = useState<any[]>([]);
+    const [history, setHistory] = useState<Match[]>([]);
     const [selectedSeasonId, setSelectedSeasonId] = useState<number>(
         () => resolveCurrentSeasonId(FALLBACK_SEASONS) ?? FALLBACK_SEASONS[0].id,
     );
+    const [wholeSeason, setWholeSeason] = useState<boolean>(readWholeSeason);
     const [mainTab, setMainTab] = useState('DASHBOARD');
     const [activeTab, setActiveTab] = useState('BR');
     const [currentPage, setCurrentPage] = useState(1);
@@ -147,7 +152,15 @@ export default function SimpleWebApp() {
     const isNarrowLayout = windowWidth < NARROW_LAYOUT_WIDTH;
     const showSideAds = windowWidth >= WEB_ADS_MIN_VIEWPORT;
 
-    const selectableSeasons = useMemo(() => getSelectableSeasons(seasons), [seasons]);
+    const seasonGroups = useMemo(() => groupSeasons(seasons), [seasons]);
+
+    /** Dropdown seasons: only those where the viewed player has stored matches (+ the current season). */
+    const pickerSeasons = useSeasonsWithData(user.uid, seasons);
+    useEffect(() => {
+        if (pickerSeasons.some((s) => s.id === selectedSeasonId)) return;
+        const next = resolveCurrentSeasonId(pickerSeasons);
+        if (next != null) setSelectedSeasonId(next);
+    }, [pickerSeasons, selectedSeasonId]);
 
     useEffect(() => {
         const onResize = () => setWindowWidth(window.innerWidth);
@@ -269,15 +282,14 @@ export default function SimpleWebApp() {
             }
 
             const matchTime = match.startTime || match.endTime || 0;
-            const currentSeason = seasons.find((s) => s.id === selectedSeasonId);
-            if (!currentSeason) return true;
+            const range = getSelectionRange(seasons, seasonGroups, selectedSeasonId, wholeSeason);
+            if (!range) return true;
 
-            const seasonEnd = resolveSeasonEndMs(seasons, selectedSeasonId);
-            const isAfterStart = matchTime >= currentSeason.startTime;
-            const isBeforeEnd = seasonEnd != null ? matchTime < seasonEnd : true;
+            const isAfterStart = matchTime >= (range.startTime ?? 0);
+            const isBeforeEnd = range.endTime != null ? matchTime < range.endTime : true;
             return isAfterStart && isBeforeEnd;
         });
-    }, [history, activeTab, selectedSeasonId, seasons]);
+    }, [history, activeTab, selectedSeasonId, wholeSeason, seasons, seasonGroups]);
 
     const totalPages = Math.max(1, Math.ceil(filteredHistory.length / MATCHES_PER_PAGE));
     const effectiveCurrentPage = Math.min(currentPage, totalPages);
@@ -293,7 +305,7 @@ export default function SimpleWebApp() {
     useEffect(() => {
         setCurrentPage(1);
         setExpandedMatchIds([]);
-    }, [activeTab, selectedSeasonId, user.uid]);
+    }, [activeTab, selectedSeasonId, wholeSeason, user.uid]);
 
     const handleMatchToggle = (matchId: string) => {
         setExpandedMatchIds((prev) =>
@@ -590,18 +602,18 @@ export default function SimpleWebApp() {
                                                 <div style={{ minWidth: 0, flex: 1 }} />
                                             )}
                                             <div style={{ display: 'flex', alignItems: 'center', gap: isNarrowLayout ? 8 : 12, flexShrink: 0, paddingBottom: 4 }}>
-                                                <AppSelect
-                                                    sizeVariant="md"
-                                                    value={selectedSeasonId}
-                                                    onChange={(e) => {
-                                                        setSelectedSeasonId(Number(e.target.value));
+                                                <SeasonPicker
+                                                    seasons={pickerSeasons}
+                                                    selectedSeasonId={selectedSeasonId}
+                                                    wholeSeason={wholeSeason}
+                                                    compact={isNarrowLayout}
+                                                    onChange={({ seasonId, wholeSeason: whole }) => {
+                                                        setSelectedSeasonId(seasonId);
+                                                        setWholeSeason(whole);
+                                                        storeWholeSeason(whole);
                                                         mainScrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
                                                     }}
-                                                >
-                                                    {selectableSeasons.map((season) => (
-                                                        <option key={season.id} value={season.id}>{season.name}</option>
-                                                    ))}
-                                                </AppSelect>
+                                                />
                                                 <button
                                                     type="button"
                                                     onClick={() => void handleManualRefresh()}
@@ -649,7 +661,7 @@ export default function SimpleWebApp() {
                                     statusMessage={statusMessage}
                                     user={user}
                                     history={history}
-                                    trendHistory={filteredHistory.slice(0, 20)}
+                                    trendHistory={filteredHistory}
                                     isFavorite={false}
                                     isPinned={false}
                                     hasPinnedUser={false}
@@ -665,6 +677,7 @@ export default function SimpleWebApp() {
                                     isPremium={false}
                                     overviewOnly
                                     selectedSeasonId={selectedSeasonId}
+                                    wholeSeason={wholeSeason}
                                     seasons={seasons}
                                     profileUid={user.uid}
                                     profileName={user.name}
@@ -676,18 +689,22 @@ export default function SimpleWebApp() {
                             ) : (
                                 <>
                                     {expandedMatchIds.length > 0 && (
-                                        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
+                                        // Sticky: follows the scroll so a long expanded list can be collapsed from anywhere.
+                                        <div style={{ position: 'sticky', top: 8, zIndex: 30, display: 'flex', justifyContent: 'flex-end', marginBottom: 12, pointerEvents: 'none' }}>
                                             <button
                                                 type="button"
                                                 onClick={collapseAll}
                                                 style={{
-                                                    background: 'transparent',
+                                                    pointerEvents: 'auto',
+                                                    background: 'var(--color-bg-card)',
                                                     border: '1px solid var(--color-border-light)',
-                                                    color: 'var(--color-text-muted)',
-                                                    padding: '4px 10px',
+                                                    color: 'var(--color-text-secondary)',
+                                                    padding: '5px 12px',
                                                     cursor: 'pointer',
-                                                    borderRadius: 4,
+                                                    borderRadius: 999,
                                                     fontSize: 11,
+                                                    fontWeight: 700,
+                                                    boxShadow: '0 4px 12px rgba(0,0,0,0.35)',
                                                 }}
                                             >
                                                 {t('controls.collapseAll')}
@@ -724,7 +741,7 @@ export default function SimpleWebApp() {
                                         </div>
                                     ) : (
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', paddingTop: '8px' }}>
-                                            {currentMatches.map((match: any) => {
+                                            {currentMatches.map((match) => {
                                                 const matchId = String(
                                                     match.matchId
                                                     || `${match.startTime || match.endTime || 0}-${match.mode || 'mode'}-${match.map || 'map'}`,
@@ -821,11 +838,11 @@ export default function SimpleWebApp() {
                                                                         }}
                                                                     >
                                                                         <img
-                                                                            src={`https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/${legendFile}.png`}
+                                                                            src={`/images/${legendFile}.png`}
                                                                             alt={match.legend || '?'}
                                                                             style={{ width: '100%', height: '100%', objectFit: 'cover', transform: 'scale(1.1)' }}
                                                                             onError={(e) => {
-                                                                                (e.target as HTMLImageElement).src = 'https://ureuzkxyyozzzluzawwr.supabase.co/storage/v1/object/public/images/unknown.png';
+                                                                                (e.target as HTMLImageElement).src = '/images/unknown.png';
                                                                             }}
                                                                         />
                                                                     </div>
@@ -842,7 +859,6 @@ export default function SimpleWebApp() {
                                                                             fontWeight: 'bold',
                                                                             lineHeight: '1',
                                                                             whiteSpace: 'nowrap',
-                                                                            backdropFilter: 'blur(2px)',
                                                                             pointerEvents: 'none',
                                                                         }}
                                                                     >
@@ -1082,6 +1098,25 @@ export default function SimpleWebApp() {
                                                         borderTop: '1px solid var(--color-border)',
                                                     }}
                                                 >
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            setCurrentPage(1);
+                                                            mainScrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+                                                        }}
+                                                        disabled={effectiveCurrentPage === 1}
+                                                        style={{
+                                                            padding: '8px 14px',
+                                                            background: effectiveCurrentPage === 1 ? 'var(--color-bg-card-hover)' : 'var(--color-border-light)',
+                                                            color: effectiveCurrentPage === 1 ? 'var(--color-text-faint)' : 'var(--color-text-primary)',
+                                                            border: 'none',
+                                                            borderRadius: '6px',
+                                                            cursor: effectiveCurrentPage === 1 ? 'not-allowed' : 'pointer',
+                                                            fontWeight: 'bold',
+                                                        }}
+                                                    >
+                                                        {t('controls.first', { defaultValue: '« First' })}
+                                                    </button>
                                                     <button
                                                         type="button"
                                                         onClick={() => {
