@@ -98,11 +98,12 @@ const MatchDetailBody = ({ match, isPremium, isExpanded, mapReady = true, modeLa
                         seekTimestamp={seek?.t ?? null}
                     />
                 </div>
-                {isExpanded && (
-                    <div style={{ flex: `0 0 ${SHARE_BAR_PX}px`, minHeight: 0 }}>
-                        <MatchShareActions match={match} modeLabel={modeLabel} modeColor={modeColor} />
-                    </div>
-                )}
+                {/* Not gated on isExpanded: that flips false as soon as the row starts closing,
+                    while MatchAccordion keeps this body mounted through the close animation —
+                    dropping the bar then let the tabs grow 40px mid-collapse. */}
+                <div style={{ flex: `0 0 ${SHARE_BAR_PX}px`, minHeight: 0 }}>
+                    <MatchShareActions match={match} modeLabel={modeLabel} modeColor={modeColor} />
+                </div>
             </div>
         </div>
     );
