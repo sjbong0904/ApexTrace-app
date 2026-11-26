@@ -831,6 +831,10 @@ class MatchService {
             window.Utils.finalizeMatchDataQuality(match);
         }
 
+        // GEP `damage` hits can be fractional (e.g. 4.6); matches.damage is an integer
+        // column and a fraction made POST /history fail with 500 (22P02).
+        if (Number.isFinite(match.damage)) match.damage = Math.round(match.damage);
+
         match._saved = true;
 
         delete match._rosterCache; delete match._squadNames; delete match._unknownKillers;

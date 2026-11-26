@@ -68,6 +68,11 @@ v0.0.15(Overwolf QA 제출본) 이후 전체 변경. 0.0.16은 태그·배포 �
 
 ### 수정
 
+- **랭크 RP 변화가 2판씩 같게 표시 + 매치 저장 500** — 2026-11-27 SiNiz 랭크 4판이 +212, +212, +354, +354로 표시됨. 실제 값(GEP `rank_score` 10308 → 10599 → 10811 → 10958 → 11312)은 +291, +212, +147, +354.
+  - **원인 1 — 저장 실패:** GEP `damage` 히트 `amount`가 소수(4.6)인 경우가 있어 `damage` 합이 `2717.8`처럼 소수가 됐고, 정수 컬럼이 거부해 `POST /history`가 500(22P02). 4판 중 2판이 DB에 없음. 클라이언트는 업로드 직전 `damage`를 반올림하고, 프록시 `rowFromMatch`는 정수 컬럼을 모두 반올림(라이브 v0.0.15도 소수를 보내므로 프록시 쪽이 실제 해결).
+  - **원인 2 — 로컬 RP 오배정:** 이번 세션에서 `br_ranked_latest`가 `match_end` 10~15초 **전**에 와서 그 판 RP는 서버 `pending_rp`로 넘어갔는데, 업로드가 실패해 그 판이 RP 없는 채 남음. 다음 판의 변화가 오자 로컬 `applyLocalRankedDelta`가 "끝났고 RP 없는 랭크 판"으로 그 판을 골라 붙였고, 서버도 같은 값을 원래 판에 붙여 두 판이 같아짐. 직전 변화가 속한 매치(대상 판, 없으면 진행 중이던 랭크 판)를 `Store.playerStats.brRankedOwnerId`에 기억해 다음 변화의 대상에서 뺌(`pickLocalRpTarget`, 진행 중 판 제외·`end_time` 기준 규칙은 그대로).
+  - 테스트: `src/utils/__tests__/rpPin.test.ts` — 11/27 순서 재현(수정 전 규칙은 실패한 판을 고름), `match_end` 뒤에 오는 기존 경우 유지, 정수 컬럼 반올림.
+  - 저장 실패한 매치는 재시도 경로가 없어 이번 2판(1795710599461, 1795713102666)은 복구되지 않음.
 - **GEP 구독 누락 (ring / player_stats / match_summary / damage)** — Supabase `game_constants.gep_features`가 코드의 구독 목록을 통째로 대체해, 앱을 게임보다 먼저 켠 경우 원격 목록(14개, `ring` 없음)으로 구독되어 링·플레이어 스탯이 저장되지 않던 문제. 구독 목록은 이제 코드(`GEP_BASE_FEATURES`)가 소유하고, 원격 설정은 `gep_features_disabled`로 **끄기만** 가능(전체 또는 `minVersion`/`maxVersion` 범위). 구독 후 설정이 바뀌면 재구독하고, 누락·차단된 기능은 항상 `[GEP] subscription incomplete` WARN으로 남김. `gep_features`는 v0.0.15 이하 호환용으로만 남김.
 - **미수집 매치 컬럼 기록 시작**
   - `headshots` — GEP `damage` 이벤트 `headshot:"true"` 히트 수(헤드샷 **킬** 수 아님).
@@ -100,6 +105,7 @@ v0.0.15(Overwolf QA 제출본) 이후 전체 변경. 0.0.16은 태그·배포 �
 | `20261116120000_drop_matches_is_kill_leader.sql` | 적용됨(프록시가 먼저 필드 무시) | 없음 |
 | `20261116130000_add_matches_damage_hits.sql` | **2026-11-25 적용** | 없음 — nullable |
 | 프록시 `damageHits` ↔ `damage_hits` 매핑 (`6f89fb6`) | **2026-11-25 배포** | 없음 — 0.0.15 행은 null, 응답에 필드 하나 추가 |
+| 프록시 `rowFromMatch` 정수 컬럼 반올림(소수 `damage` → 500 방지, `d5db544`) | **2026-11-27 배포** — `dpl_9m1LzongTvWnD9yzJYABCzEKn7V5` READY, 배포 후 `/api/history`(summary) HTTP 200·20경기·기존 필드 그대로 | 개선 — 0.0.15도 소수 `damage`로 저장이 실패하던 매치가 저장됨. 정수 값은 그대로 |
 | `manual/fix_seasons_from_game_data.sql` | 적용됨(S30 Split 2 ~ S31 Split 2 일치 확인) | — |
 | `manual/repair_double_counted_levels.sql` | **미실행** — `level > 500` 92행 | 복구해도 0.0.15가 다시 쓸 수 있음 → 1.0.0 보급 후 실행 권장 |
 | `manual/repair_mangled_profile_names.sql` | **미실행** — 이름에 제어문자 621행 | 프록시가 깨진 이름 쓰기를 이미 차단(`9462a69`). 미리보기로 확인 후 실행 |

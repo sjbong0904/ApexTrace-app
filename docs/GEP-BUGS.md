@@ -75,6 +75,16 @@ Overwolf 측에 제보한 케이스. 재큐·연속 매치에서 경계 신호�
 ### `knocked_out`와 `healed_from_ko` 동시 발송
 같은 시각에 knockdown과 `healed_from_ko`가 같이 온 적이 있다 (2026-08-02 TST2 23:22:21).
 
+### `damage` 이벤트 `amount`가 소수
+대부분 `"4.000000"`처럼 정수지만 `"4.600000"` 같은 소수가 섞여 온다(2026-11-27 세션 4회). 히트 합계를 그대로 올리면 `match.damage`가 `2717.7999999999997`이 되고, 정수 컬럼 `matches.damage`가 거부해 `POST /history`가 500(22P02)으로 실패 → 그 매치가 DB에 저장되지 않음(11/27 SiNiz 랭크 4판 중 2판).
+- 앱 대응: 업로드 직전 `damage` 반올림(`MatchService._finalizeMatchObject`). 프록시 `rowFromMatch`도 정수 컬럼을 모두 반올림(라이브 빌드 방어).
+
+## 플레이어 스탯 (`player_stats`)
+
+### `br_ranked_latest`가 `match_end`보다 먼저 올 때가 있음
+코드는 랭크 변화가 `match_end` 후 약 80초에 온다고 가정했지만, 2026-11-27 세션에서는 4판 모두 `match_end` **약 10~15초 전**(경기 진행 중, `inMatch: true`)에 왔다. 그 판은 아직 진행 중이라 로컬에서 바로 붙이지 못하고 서버 `pending_rp`로 넘어감. 그 판 업로드가 실패하면 RP가 안 붙은 채 남아, 다음 판의 변화가 로컬에서 그 판에 붙었음(두 판이 같은 RP 변화로 표시).
+- 앱 대응: 직전 변화가 속한 매치(`Store.playerStats.brRankedOwnerId`)는 다음 변화의 로컬 대상에서 뺀다(`pickLocalRpTarget`).
+
 ---
 
 ## 로드아웃 / 모드

@@ -1518,30 +1518,59 @@ const sameSplitLocal = (prevAtMs, nextAtMs) => {
  * Mirrors the proxy's match pick: unprocessed ranked match still running at the previous
  * ranked snapshot and already started now. The server's rpApplied later confirms it.
  */
-const applyLocalRankedDelta = (delta, prevRankedAt, activeMatch) => {
-    const localUid = window.Store?.system?.localUser?.uid;
-    if (!delta || !localUid) return;
-    const now = Date.now();
-    if (!sameSplitLocal(prevRankedAt, now)) return;
+const isRankedMatch = (m) => String(m?.mode ?? '').toLowerCase().includes('ranked');
+
+/**
+ * Ended ranked match that owns a delta observed at `now` (latest start first), or null.
+ * Ended matches only: the delta usually lands ~80s after match_end, possibly while the
+ * next ranked match is already in the dropship, so a running match is never a target.
+ * `excludeMatchId` = the match the previous delta belonged to. GEP can also send the
+ * delta ~10s before match_end (still running → server pending_rp); if that match's
+ * upload then fails it stays unprocessed and would steal the next match's delta.
+ */
+const pickLocalRpTarget = ({ history, activeMatch, localUid, now, prevRankedAt, excludeMatchId }) => {
     const minEnd = Math.max(now - LOCAL_RP_WINDOW_MS, prevRankedAt || 0);
-    const isRanked = (m) => String(m?.mode ?? '').toLowerCase().includes('ranked');
-    // Ended matches only: the delta usually lands ~80s after match_end, possibly while the
-    // next ranked match is already in the dropship, so a running match is never a target.
-    // A delta sent before match_end goes to the server's pending_rp and comes back as
-    // POST /history's rpApplied.
+    const excluded = (m) => excludeMatchId != null && String(m.matchId) === String(excludeMatchId);
     const ended = [];
-    for (const m of (Array.isArray(window.Store.history) ? window.Store.history : [])) {
-        if (!m?.matchId || m.rpProcessed || !isRanked(m)) continue;
+    for (const m of (Array.isArray(history) ? history : [])) {
+        if (!m?.matchId || m.rpProcessed || !isRankedMatch(m) || excluded(m)) continue;
         if (m.platformId && String(m.platformId) !== String(localUid)) continue;
         if ((m.endTime || 0) < minEnd || (m.startTime || 0) > now) continue;
         ended.push(m);
     }
-    if (activeMatch?._ending && activeMatch.matchId && isRanked(activeMatch)) ended.push(activeMatch);
+    if (activeMatch?._ending && activeMatch.matchId && isRankedMatch(activeMatch) && !excluded(activeMatch)) {
+        ended.push(activeMatch);
+    }
     ended.sort((a, b) => (b.startTime || 0) - (a.startTime || 0));
-    const target = ended[0];
-    if (!target) return;
-    window.Utils?.playerStatsLog?.('rp_local_pin', { matchId: target.matchId, ...delta });
-    window.CoreController?.onRemoteRpApplied?.({ matchId: target.matchId, ...delta });
+    return ended[0] || null;
+};
+
+/** Match id a fresh delta belongs to: the pinned target, else the running ranked match. */
+const rpOwnerId = (target, activeMatch) => {
+    if (target?.matchId) return String(target.matchId);
+    if (activeMatch?.matchId && !activeMatch._ending && isRankedMatch(activeMatch)) return String(activeMatch.matchId);
+    return null;
+};
+
+/** Returns the id of the match this delta was attributed to (for the next delta's exclusion). */
+const applyLocalRankedDelta = (delta, prevRankedAt, activeMatch, prevOwnerId = null) => {
+    const localUid = window.Store?.system?.localUser?.uid;
+    if (!delta || !localUid) return null;
+    const now = Date.now();
+    if (!sameSplitLocal(prevRankedAt, now)) return null;
+    const target = pickLocalRpTarget({
+        history: window.Store.history,
+        activeMatch,
+        localUid,
+        now,
+        prevRankedAt,
+        excludeMatchId: prevOwnerId,
+    });
+    if (target) {
+        window.Utils?.playerStatsLog?.('rp_local_pin', { matchId: target.matchId, ...delta });
+        window.CoreController?.onRemoteRpApplied?.({ matchId: target.matchId, ...delta });
+    }
+    return rpOwnerId(target, activeMatch);
 };
 
 /**
@@ -1563,7 +1592,8 @@ const handlePlayerStatsUpdate = (statsInfo, match) => {
         if (key === 'player_stats_br_ranked_latest' && prev && JSON.stringify(prev) !== JSON.stringify(parsed)) {
             const prevRankedAt = store.brRankedAt;
             store.brRankedAt = Date.now();
-            applyLocalRankedDelta(localRankedDelta(prev, parsed), prevRankedAt, match);
+            store.brRankedOwnerId = applyLocalRankedDelta(
+                localRankedDelta(prev, parsed), prevRankedAt, match, store.brRankedOwnerId);
         } else if (key === 'player_stats_br_ranked_latest' && !prev) {
             store.brRankedAt = Date.now();
         }
@@ -1876,6 +1906,9 @@ const handleCombatEvent = (parsed, activeMatch) => {
 
 // 2. EVENT ROUTER
 const EventRouter = {
+    /** Pure; exposed for tests. */
+    pickLocalRpTarget,
+
     onInfoUpdates: (info) => {
         if (!info) return;
 
