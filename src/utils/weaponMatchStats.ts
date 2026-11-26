@@ -540,6 +540,18 @@ export const resolveWeaponCombatForMatch = (
     return normalizeWeaponCombat(raw);
 };
 
+/** Weapon with the most kills (then assists, then hold time) this match, or null when none is known. */
+export const getBestWeapon = (
+    match: MatchWeaponStatsInput & { weaponCombat?: unknown },
+): ({ id: string } & WeaponCombatEntry) | null => {
+    const entries = Object.entries(resolveWeaponCombatForMatch(match)).filter(([id]) => id && id.toLowerCase() !== 'unknown');
+    if (entries.length === 0) return null;
+    entries.sort(([, a], [, b]) =>
+        (b.kills - a.kills) || ((b.assists || 0) - (a.assists || 0)) || ((b.holdMs || 0) - (a.holdMs || 0)));
+    const [id, entry] = entries[0];
+    return { id, ...entry };
+};
+
 /**
  * Attribute deaths of the local player to the knockdown weapon when possible
  * (enemy Nemesis knock → R-99 finish still credits Nemesis).

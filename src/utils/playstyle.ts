@@ -1,5 +1,5 @@
 import type { Match } from '../types';
-import { isSamePlayer } from './helpers';
+import { getMapConfig, isSamePlayer, toGameElapsedMs } from './helpers';
 import { getRevivesReceived, getTimeOutsideRingMs, getTimesKnocked } from './matchDetailStats';
 
 export type PlaystyleKey =
@@ -137,7 +137,86 @@ export function extractPlaystyleSignals(match: Match, outsideRingMs?: number | n
     };
 }
 
-type PlaystyleRule = [PlaystyleKey, (x: PlaystyleBase, f: PlaystyleSignals) => boolean];
+/** Ground distance in map units; jumps (respawn / redeploy) longer than 5 m-scale are skipped. */
+export const calculateTotalDistance = (path: Match['path'], mapName: string): number => {
+    if (!path || !Array.isArray(path) || path.length < 2) return 0;
+    const config = getMapConfig(mapName);
+    const scale = config?.scale || 30;
+    const RAW_JUMP_THRESHOLD = 5.0 * scale;
+
+    let totalDist = 0;
+    for (let i = 0; i < path.length - 1; i++) {
+        const p1 = path[i];
+        const p2 = path[i + 1];
+        if (!p1 || !p2 || typeof p1.x !== 'number' || typeof p2.x !== 'number') continue;
+        const dist = Math.sqrt(Math.pow(p2.x - p1.x, 2) + Math.pow(p2.y - p1.y, 2));
+        if (dist <= RAW_JUMP_THRESHOLD) totalDist += dist;
+    }
+    return Math.round(totalDist);
+};
+
+/**
+ * Per-match numbers the playstyle rules read. Shared by the match panel and the share card
+ * so both always name the same playstyle. `nowMs` stands in for endTime while a match is live.
+ */
+export function computePlaystyleBase(match: Match, nowMs: number = Date.now()): PlaystyleBase {
+    const placement = typeof match.placement === 'string' ? parseInt(match.placement) : (match.placement || 20);
+    const damage = Number(match.damage || 0);
+    const kills = Number(match.kills || 0);
+    const assists = Number(match.assists || 0);
+    const events = match.events || [];
+    const myName = match.playerName;
+
+    // 넉다운→킬 전환율: 피해자 기준 유니크 (동일 넉다운 로그 중복 시 분모 과대 방지)
+    const norm = (s: string) => s.replace(/\[.*?\]/g, '').replace(/\s+/g, '').toLowerCase();
+    const knockedVictims = new Set(
+        events
+            .filter((e) => e.type === 'knockdown' && e.attacker === myName)
+            .map((k) => k.victim)
+            .filter((v): v is string => !!v)
+            .map(norm),
+    );
+    let kcr = 0;
+    if (knockedVictims.size > 0) {
+        const finished = new Set(
+            events
+                .filter((e) => e.type === 'kill' && e.attacker === myName && e.victim && knockedVictims.has(norm(e.victim)))
+                .map((k) => norm(k.victim!)),
+        );
+        kcr = Math.min(100, Math.round((finished.size / knockedVictims.size) * 100));
+    } else {
+        const tk = Number(match.knocks || 0);
+        if (tk > 0) kcr = Math.min(100, Math.round((kills / tk) * 100));
+    }
+
+    let squadKills = Number(match.squadKills || 0);
+    if (assists + kills > squadKills) squadKills = assists + kills;
+
+    const durationMs = toGameElapsedMs((match.endTime || nowMs) - match.startTime);
+    const timeMin = durationMs / 1000 / 60;
+    const dist = calculateTotalDistance(match.path, match.map);
+
+    let kpp = Number(Math.round(((kills + assists) / squadKills) * 100));
+    if (squadKills === 0) kpp = 0;
+    else if (kpp > 100) kpp = 100;
+
+    return {
+        timeMin,
+        dpm: timeMin > 0.1 ? Math.round(damage / timeMin) : 0,
+        speed: timeMin > 0.5 ? Math.round(dist / timeMin) : 0,
+        dist,
+        dpk: kills > 0 ? Math.round(damage / kills) : 0,
+        kills,
+        damage,
+        kcr,
+        assists,
+        placement,
+        kpp,
+        squadKills,
+    };
+}
+
+type PlaystyleRule =[PlaystyleKey, (x: PlaystyleBase, f: PlaystyleSignals) => boolean];
 
 const RULES: PlaystyleRule[] = [
     ['deathbox', (x) => x.timeMin < 3 && x.damage < 150],

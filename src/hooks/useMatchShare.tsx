@@ -2,17 +2,45 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 import type { Match } from '../types';
-import { normalizeMapDisplayName } from '../utils/helpers';
+import { getMapConfig, normalizeMapDisplayName } from '../utils/helpers';
 import {
     buildMatchShareFilename,
     buildShareTargetUrl,
     captureShareCard,
     copyPngToClipboard,
     saveMatchSharePng,
+    resolveShareImageUrl,
+    svgPathsToDataUrl,
+    tintImageToDataUrl,
     type ShareSocialTarget,
 } from '../utils/matchShare';
 import { TierScreenshotCancelledError } from '../utils/tierTableScreenshot';
-import MatchShareCard from '../components/MatchShareCard';
+import MatchShareCard, { type MatchShareAssets } from '../components/MatchShareCard';
+import { classifyPlaystyle, computePlaystyleBase, extractPlaystyleSignals } from '../utils/playstyle';
+import { getBestWeapon } from '../utils/weaponMatchStats';
+import { getWeaponSilhouetteUrl } from '../utils/weaponTheme';
+
+/** Everything the card needs that html2canvas can't load/paint itself (images, icon, white silhouette). */
+export const prepareShareAssets = async (match: Match): Promise<MatchShareAssets> => {
+    const playstyle = classifyPlaystyle(computePlaystyleBase(match), extractPlaystyleSignals(match));
+    const bestWeapon = getBestWeapon(match);
+    const mapImg = getMapConfig(match.map, match.startTime ?? match.endTime ?? null)?.img;
+    const [icons, weaponSilhouette, mapImage, legendImage] = await Promise.all([
+        import('../assets/playstyleIcons').then((m) => m.PLAYSTYLE_ICON_PATHS).catch(() => null),
+        bestWeapon ? tintImageToDataUrl(getWeaponSilhouetteUrl(bestWeapon.id)) : Promise.resolve(null),
+        mapImg ? resolveShareImageUrl(`/images/${mapImg}`) : Promise.resolve(null),
+        resolveShareImageUrl(`/images/${(match.legend || 'unknown').toLowerCase()}.png`),
+    ]);
+    const iconPaths = icons?.[playstyle];
+    return {
+        playstyle,
+        playstyleIcon: iconPaths?.length ? svgPathsToDataUrl(iconPaths) : null,
+        bestWeapon,
+        weaponSilhouette,
+        mapImage,
+        legendImage,
+    };
+};
 
 export type ShareAction = 'copy' | 'save' | ShareSocialTarget;
 export type ShareStatus = { kind: 'ok' | 'error'; text: string } | null;
@@ -28,6 +56,7 @@ export const useMatchShare = (match: Match, modeLabel: string, modeColor: string
     const { t } = useTranslation();
     const [busy, setBusy] = useState<ShareAction | null>(null);
     const [status, setStatus] = useState<ShareStatus>(null);
+    const [assets, setAssets] = useState<MatchShareAssets | null>(null);
     const cardRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
@@ -40,6 +69,7 @@ export const useMatchShare = (match: Match, modeLabel: string, modeColor: string
         if (busy) return;
         setBusy(action);
         try {
+            setAssets(await prepareShareAssets(match));
             // The card mounts with `busy`; wait a frame so it is laid out before capture.
             await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
             const el = cardRef.current;
@@ -65,6 +95,7 @@ export const useMatchShare = (match: Match, modeLabel: string, modeColor: string
             setStatus({ kind: 'error', text: t('share.failed', { defaultValue: 'Could not create the image' }) });
         } finally {
             setBusy(null);
+            setAssets(null);
         }
     };
 
@@ -72,7 +103,7 @@ export const useMatchShare = (match: Match, modeLabel: string, modeColor: string
         ? createPortal(
             // Off-screen (not display:none) so html2canvas can measure and paint it.
             <div aria-hidden style={{ position: 'fixed', left: -10000, top: 0, pointerEvents: 'none' }}>
-                <MatchShareCard ref={cardRef} match={match} modeLabel={modeLabel} modeColor={modeColor} />
+                <MatchShareCard ref={cardRef} match={match} modeLabel={modeLabel} modeColor={modeColor} assets={assets} />
             </div>,
             document.body,
         )

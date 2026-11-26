@@ -1,20 +1,21 @@
 import html2canvas from 'html2canvas';
 
+import { cachedObjectUrl, LOCAL_IMAGE_ROOT, remoteImageUrl } from './imageSource';
 import {
     canvasToPngBlob,
-    drawTierTableWatermark,
     formatTierScreenshotTimestamp,
     promptSavePngScreenshot,
     waitForCaptureImages,
 } from './tierTableScreenshot';
 
-/** Render a share card element (already in the DOM) to a watermarked PNG. */
+/** Matches the share card's fixed panel color. */
+const SHARE_CARD_BG = '#101218';
+
+/** Render a share card element (already in the DOM) to a PNG. The card carries its own brand mark. */
 export const captureShareCard = async (element: HTMLElement): Promise<Blob> => {
     await waitForCaptureImages(element);
-    const backgroundColor =
-        getComputedStyle(document.documentElement).getPropertyValue('--color-bg-panel').trim() || '#181818';
     const canvas = await html2canvas(element, {
-        backgroundColor,
+        backgroundColor: SHARE_CARD_BG,
         scale: 2,
         useCORS: true,
         allowTaint: false,
@@ -22,10 +23,67 @@ export const captureShareCard = async (element: HTMLElement): Promise<Blob> => {
         width: element.offsetWidth,
         height: element.offsetHeight,
     });
-    const ctx = canvas.getContext('2d');
-    if (ctx) await drawTierTableWatermark(ctx, canvas.width, canvas.height);
     return canvasToPngBlob(canvas);
 };
+
+/**
+ * `/images/...` files are not packaged: an `<img>` first shows a 1×1 placeholder and swaps in the
+ * cached file later, which a capture can miss. Resolve the real (blob) URL up front instead.
+ */
+export const resolveShareImageUrl = async (path: string): Promise<string> =>
+    path.startsWith(`${LOCAL_IMAGE_ROOT}/`) ? cachedObjectUrl(remoteImageUrl(path)) : path;
+
+const loadImage = (src: string): Promise<HTMLImageElement | null> =>
+    new Promise((resolve) => {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => resolve(img.naturalWidth > 1 ? img : null);
+        img.onerror = () => resolve(null);
+        img.src = src;
+    });
+
+/**
+ * Recolor an image's opaque pixels to one color (with a soft drop shadow) and return a PNG data URL,
+ * or null on failure. html2canvas can't paint CSS `filter` / `mask-image`, so the share card bakes
+ * the white weapon silhouette ahead of capture instead.
+ */
+export const tintImageToDataUrl = async (path: string, color = '#ffffff'): Promise<string | null> => {
+    const img = await loadImage(await resolveShareImageUrl(path));
+    if (!img) return null;
+    try {
+        const pad = 4;
+        const w = img.naturalWidth;
+        const h = img.naturalHeight;
+        const tint = document.createElement('canvas');
+        tint.width = w;
+        tint.height = h;
+        const tctx = tint.getContext('2d');
+        if (!tctx) return null;
+        tctx.drawImage(img, 0, 0);
+        tctx.globalCompositeOperation = 'source-in';
+        tctx.fillStyle = color;
+        tctx.fillRect(0, 0, w, h);
+
+        const out = document.createElement('canvas');
+        out.width = w + pad * 2;
+        out.height = h + pad * 2;
+        const ctx = out.getContext('2d');
+        if (!ctx) return null;
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.45)';
+        ctx.shadowBlur = 4;
+        ctx.shadowOffsetY = 1;
+        ctx.drawImage(tint, pad, pad);
+        return out.toDataURL('image/png');
+    } catch {
+        return null;
+    }
+};
+
+/** Inline SVG icon (white paths) as a data URL, so html2canvas paints it like any `<img>`. */
+export const svgPathsToDataUrl = (paths: readonly string[], viewBox = '0 0 512 512', fill = '#ffffff'): string =>
+    `data:image/svg+xml;charset=utf-8,${encodeURIComponent(
+        `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${viewBox}">${paths.map((d) => `<path fill="${fill}" d="${d}"/>`).join('')}</svg>`,
+    )}`;
 
 /**
  * Copy a PNG to the clipboard (Discord / KakaoTalk paste). Returns false when the

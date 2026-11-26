@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { getMapConfig, formatMatchTime, toGameElapsedMs } from '../utils/helpers';
+import { formatMatchTime, toGameElapsedMs } from '../utils/helpers';
 import type { Match } from '../types';
 import { FaInfoCircle } from 'react-icons/fa';
 import { useTranslation } from 'react-i18next';
 import { c } from '../theme';
-import { resolveWeaponCombatForMatch } from '../utils/weaponMatchStats';
+import { getBestWeapon } from '../utils/weaponMatchStats';
 import { getWeaponDisplayName, getWeaponSilhouetteScale, getWeaponSilhouetteUrl, getWeaponCardBackground, WHITE_SILHOUETTE_FILTER, PROFILE_IMAGE_BASE, WEAPON_CARD_TEXT_WIDTH } from '../utils/weaponTheme';
 import { COMPARISON_MIN_SAMPLE, type RecentComparison } from '../utils/matchComparison';
 import {
@@ -16,7 +16,7 @@ import {
     getTimesKnocked,
     getUltimatesUsed,
 } from '../utils/matchDetailStats';
-import { classifyPlaystyle, extractPlaystyleSignals, PLAYSTYLE_VISUALS } from '../utils/playstyle';
+import { classifyPlaystyle, computePlaystyleBase, extractPlaystyleSignals, PLAYSTYLE_VISUALS } from '../utils/playstyle';
 import PlaystyleIcon from './PlaystyleIcon';
 
 interface AutoResizingTextProps {
@@ -75,23 +75,6 @@ const AutoResizingText = ({ text, baseSize = 16, color = 'var(--color-text-prima
             ) : null}
         </div>
     );
-};
-
-const calculateTotalDistance = (path: Match['path'], mapName: string) => {
-    if (!path || !Array.isArray(path) || path.length < 2) return 0;
-    const config = getMapConfig(mapName);
-    const scale = config?.scale || 30;
-    const RAW_JUMP_THRESHOLD = 5.0 * scale;
-
-    let totalDist = 0;
-    for (let i = 0; i < path.length - 1; i++) {
-        const p1 = path[i];
-        const p2 = path[i + 1];
-        if (!p1 || !p2 || typeof p1.x !== 'number' || typeof p2.x !== 'number') continue;
-        const dist = Math.sqrt(Math.pow(p2.x - p1.x, 2) + Math.pow(p2.y - p1.y, 2));
-        if (dist <= RAW_JUMP_THRESHOLD) totalDist += dist;
-    }
-    return Math.round(totalDist);
 };
 
 const boxStyle: React.CSSProperties = {
@@ -198,15 +181,7 @@ const BestWeaponCard = ({ match }: { match: Match }) => {
     const { t } = useTranslation();
     const [imgFailed, setImgFailed] = useState(false);
 
-    const best = useMemo(() => {
-        const combat = resolveWeaponCombatForMatch(match);
-        const entries = Object.entries(combat).filter(([id]) => id && id.toLowerCase() !== 'unknown');
-        if (entries.length === 0) return null;
-        entries.sort(([, a], [, b]) =>
-            (b.kills - a.kills) || ((b.assists || 0) - (a.assists || 0)) || ((b.holdMs || 0) - (a.holdMs || 0)));
-        const [id, entry] = entries[0];
-        return { id, ...entry };
-    }, [match]);
+    const best = useMemo(() => getBestWeapon(match), [match]);
 
     if (!best) {
         return (
@@ -492,12 +467,9 @@ const MatchStats = ({ match, onUserSelect, view = 'full', comparison = null }: M
     /** Stand-in end time for a match still in progress (no endTime yet), fixed when the panel opens. */
     const [openedAt] = useState(Date.now);
 
-    const placement = typeof match.placement === 'string' ? parseInt(match.placement) : (match.placement || 20);
     const totalDamage = Number(match.damage || 0);
-    const totalKills = Number(match.kills || 0);
     const totalAssists = Number(match.assists || 0);
     const totalKnocks = Number(match.knocks || 0);
-    const events = match.events || [];
     const myName = match.playerName;
 
     const teammateStats = useMemo(() => {
@@ -511,72 +483,18 @@ const MatchStats = ({ match, onUserSelect, view = 'full', comparison = null }: M
         return stats.sort((a, b) => b.kills - a.kills);
     }, [match.teamStats, myName]);
 
-    const knockEvents = events.filter(e =>
-        e.type === 'knockdown' && e.attacker === myName
-    );
-    const killEvents = events.filter(e =>
-        e.type === 'kill' && e.attacker === myName
-    );
-
-    // 넉다운→킬 전환율: 피해자 기준 유니크 (동일 넉다운 로그 중복 시 분모 과대 방지)
-    const KillConversionRate = useMemo(() => {
-        const norm = (s: string) => s.replace(/\[.*?\]/g, '').replace(/\s+/g, '').toLowerCase();
-        const knockedVictims = new Set(
-            knockEvents.map(k => k.victim).filter((v): v is string => !!v).map(norm)
-        );
-        if (knockedVictims.size > 0) {
-            const finishedVictims = new Set(
-                killEvents
-                    .filter(k => k.victim && knockedVictims.has(norm(k.victim)))
-                    .map(k => norm(k.victim!))
-            );
-            return Math.min(100, Math.round((finishedVictims.size / knockedVictims.size) * 100));
-        }
-        const tk = Number(match.knocks || 0);
-        if (tk > 0) return Math.min(100, Math.round((totalKills / tk) * 100));
-        return 0;
-    }, [knockEvents, killEvents, match.knocks, totalKills]);
-
-    let squadKills = Number(match.squadKills || 0);
-    if (totalAssists + totalKills > squadKills) {
-        squadKills = totalAssists + totalKills;
-    }
-
-    const durationMs = toGameElapsedMs((match.endTime || openedAt) - match.startTime);
-    const durationMin = durationMs / 1000 / 60;
-    const timeLabel = formatMatchTime(durationMs, 'text');
-    const dpm = durationMin > 0.1 ? Math.round(totalDamage / durationMin) : 0;
-    const distance = useMemo(() => calculateTotalDistance(match.path, match.map), [match.path, match.map]);
-    const avgSpeed = durationMin > 0.5 ? Math.round(distance / durationMin) : 0;
+    // Same numbers the share card classifies with (computePlaystyleBase), so both name the same playstyle.
+    const playstyleBase = useMemo(() => computePlaystyleBase(match, openedAt), [match, openedAt]);
+    const { dpm, speed: avgSpeed, dist: distance, dpk: dmgPerKill, kcr: KillConversionRate, kpp: KPP } = playstyleBase;
+    const timeLabel = formatMatchTime(toGameElapsedMs((match.endTime || openedAt) - match.startTime), 'text');
     const avgSpeedSec = (avgSpeed / 60).toFixed(1);
-    const dmgPerKill = totalKills > 0 ? Math.round(totalDamage / totalKills) : 0;
-
-    let KPP = Number(Math.round(((totalKills + totalAssists) / squadKills) * 100));
-    if (squadKills === 0) KPP = 0;
-    else if (KPP > 100) KPP = 100;
 
     const outsideRingMs = useMemo(() => getTimeOutsideRingMs(match), [match]);
     const playstyleSignals = useMemo(
         () => extractPlaystyleSignals(match, outsideRingMs),
         [match, outsideRingMs],
     );
-    const playstyleKey = classifyPlaystyle(
-        {
-            timeMin: durationMin,
-            dpm,
-            speed: avgSpeed,
-            dist: distance,
-            dpk: dmgPerKill,
-            kills: totalKills,
-            damage: totalDamage,
-            kcr: KillConversionRate,
-            assists: totalAssists,
-            placement,
-            kpp: KPP,
-            squadKills,
-        },
-        playstyleSignals,
-    );
+    const playstyleKey = classifyPlaystyle(playstyleBase, playstyleSignals);
     const style = {
         // Names stay English in every language (they read as gamer terms); the tooltip sub is localized.
         name: t(`playstyles.${playstyleKey}.name`, { lng: 'en' }),

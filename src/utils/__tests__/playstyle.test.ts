@@ -1,8 +1,10 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { Match } from '../../types';
 import { PLAYSTYLE_ICON_PATHS } from '../../assets/playstyleIcons';
 import {
+    calculateTotalDistance,
     classifyPlaystyle,
+    computePlaystyleBase,
     extractPlaystyleSignals,
     PLAYSTYLE_VISUALS,
     type PlaystyleBase,
@@ -296,5 +298,63 @@ describe('PLAYSTYLE_VISUALS', () => {
         expect(ALL_PLAYSTYLE_KEYS).toHaveLength(36);
         const icons = new Set(ALL_PLAYSTYLE_KEYS.map((key) => PLAYSTYLE_ICON_PATHS[key].join(' ')));
         expect(icons.size).toBe(36);
+    });
+});
+
+describe('computePlaystyleBase', () => {
+    const start = 1_700_000_000_000;
+
+    it('derives rates from the match totals', () => {
+        const b = computePlaystyleBase(asMatch({
+            startTime: start,
+            endTime: start + 10 * 60_000,
+            placement: '3',
+            damage: 1200,
+            kills: 4,
+            assists: 2,
+            squadKills: 10,
+            knocks: 5,
+        }));
+        expect(b.placement).toBe(3);
+        expect(b.kills).toBe(4);
+        expect(b.assists).toBe(2);
+        expect(b.dpk).toBe(300);
+        expect(b.kpp).toBe(60);
+        expect(b.kcr).toBe(80); // no knock events → kills / knocks
+        expect(b.timeMin).toBeGreaterThan(0);
+        expect(b.dpm).toBe(Math.round(1200 / b.timeMin));
+    });
+
+    it('counts unique knocked victims for kill conversion', () => {
+        const ev = (type: string, victim: string) => ({ type, attacker: 'Player', victim, timestamp: start });
+        const b = computePlaystyleBase(asMatch({
+            startTime: start,
+            endTime: start + 60_000,
+            kills: 1,
+            events: [ev('knockdown', 'A'), ev('knockdown', 'A'), ev('knockdown', '[TAG] B'), ev('kill', 'b')],
+        } as Partial<Match>));
+        expect(b.kcr).toBe(50);
+    });
+
+    it('raises squad kills to own kills + assists and caps kill participation', () => {
+        const b = computePlaystyleBase(asMatch({ startTime: start, endTime: start + 60_000, kills: 3, assists: 2, squadKills: 1 }));
+        expect(b.squadKills).toBe(5);
+        expect(b.kpp).toBe(100);
+    });
+
+    it('uses nowMs for a live match and defaults placement to 20', () => {
+        const b = computePlaystyleBase(asMatch({ startTime: start }), start + 5 * 60_000);
+        expect(b.placement).toBe(20);
+        expect(b.timeMin).toBeGreaterThan(0);
+    });
+});
+
+describe('calculateTotalDistance', () => {
+    it('sums steps and skips respawn jumps', () => {
+        vi.stubGlobal('window', {});
+        expect(calculateTotalDistance([], 'Kings Canyon')).toBe(0);
+        const path = [{ x: 0, y: 0 }, { x: 3, y: 4 }, { x: 1e9, y: 0 }] as Match['path'];
+        expect(calculateTotalDistance(path, 'Kings Canyon')).toBe(5);
+        vi.unstubAllGlobals();
     });
 });
