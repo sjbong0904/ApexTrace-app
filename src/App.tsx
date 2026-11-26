@@ -93,6 +93,14 @@ const ProfileLoadingOverlay = ({ label }: { label: string }) => (
     </div>
 );
 
+/** Collapse all pill: gap from the scroller's top edge, and its fixed height (it sits in the scroller's top padding). */
+const COLLAPSE_ALL_TOP_PX = 4;
+const COLLAPSE_ALL_HEIGHT_PX = 24;
+/**
+ * How far the pill hangs below the list's top edge. The gap above the first card is 32px
+ * (24px panel margin + 8px list padding); 4px centres the 24px pill in it.
+ */
+const COLLAPSE_ALL_DROP_PX = 4;
 
 const App = () => {
     const { t, i18n } = useTranslation();
@@ -1695,11 +1703,18 @@ const App = () => {
                                 {expandedMatchIds.length > 0 && (
                                     // Sticky: follows the scroll so a long expanded list can be collapsed from anywhere.
                                     // Wrapper ignores pointer events so the cards scrolling under it stay clickable.
-                                    <div style={{ position: 'sticky', top: 8, zIndex: 30, display: 'flex', justifyContent: 'flex-end', marginBottom: 12, pointerEvents: 'none' }}>
+                                    // Zero height: the button hangs upward into the scroller's top padding instead of
+                                    // taking a row, so opening the first match no longer pushes the whole list down.
+                                    <div style={{ position: 'sticky', top: COLLAPSE_ALL_TOP_PX + COLLAPSE_ALL_HEIGHT_PX - COLLAPSE_ALL_DROP_PX, zIndex: 30, height: 0, display: 'flex', justifyContent: 'flex-end', alignItems: 'flex-end', pointerEvents: 'none' }}>
                                         <button
                                             onClick={collapseAll}
                                             style={{
                                                 pointerEvents: 'auto',
+                                                height: COLLAPSE_ALL_HEIGHT_PX,
+                                                boxSizing: 'border-box',
+                                                lineHeight: 1,
+                                                flexShrink: 0,
+                                                marginBottom: -COLLAPSE_ALL_DROP_PX,
                                                 background: 'var(--color-bg-card)',
                                                 border: '1px solid var(--color-border-light)',
                                                 color: 'var(--color-text-secondary)',
