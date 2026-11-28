@@ -17,6 +17,7 @@
 | [PLAYSTYLE.md](./PLAYSTYLE.md) | 매치 플레이스타일 서사·키 설계 (v2 초안, 분포 시뮬레이션 포함) |
 | [NICKNAME-SEARCH.md](./NICKNAME-SEARCH.md) | 닉변·alias·exact 검색·keep-alive / ALS 예산 |
 | [DB-OPTIMIZATION.md](./DB-OPTIMIZATION.md) | Supabase 테이블·인덱스 실측과 단계별 최적화 계획 (미구현) |
+| [CLOUDFLARE-MIGRATION.md](./CLOUDFLARE-MIGRATION.md) | Vercel+Supabase → Workers+D1+R2 이전 계획: 새 스키마·API·이관·검증 Phase (미구현, 복사본 전용) |
 | [RING-HEATMAP.md](./RING-HEATMAP.md) | 전체 사용자 링 중심 히트맵: 격자 집계·같은 경기 중복 제거 설계 (미구현) |
 | [GEP-BUGS.md](./GEP-BUGS.md) | Apex GEP에서 실측한 버그·quirk |
 | [GEP-REQUESTS.md](./GEP-REQUESTS.md) | Overwolf GEP 이벤트 요청 (제출본·예정 티켓) |
