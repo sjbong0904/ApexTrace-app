@@ -74,6 +74,10 @@ node scripts/loadbench/run.mjs --dist dist --network live
 - 한계: 게임 실행 중 동작(GEP 이벤트, 오버레이)과 실제 서버 응답 속도는 재생 모드에 포함되지 않습니다(서버는 `--network live`로 따로).
   ms 단위 값은 같은 PC에서도 ±5–10% 흔들리니, 그보다 작은 차이는 잡음으로 보세요.
 
+## 백엔드 이관 측정
+
+Cloudflare 이관 전후(B0/B1/B2) 비교는 [CLOUDFLARE-MIGRATION.md §11](./CLOUDFLARE-MIGRATION.md)을 따릅니다. 이 문서의 loadbench를 확장해 쓰고, 결과는 `metrics/migration/`에 따로 기록합니다 (버전 지표 `metrics/history/`와 섞지 않음).
+
 ## 골든 테스트
 
 `src/utils/__tests__/golden.test.ts`는 익명화된 실제 경기 데이터(`src/assets/demo/demoMatches.json`)로
