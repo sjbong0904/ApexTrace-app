@@ -98,18 +98,31 @@ Tier 2 detail 컬럼(`path`·`events`·`weapon_timeline`·`ring_rounds`)이 압�
 
 **Overwolf manifest:** `manifest.json:104-112` `externally_connectable.matches`에 Supabase·Vercel 도메인이 있다. 새 API 도메인을 추가해야 하고, Supabase 도메인은 직접 조회를 다 없앤 뒤 제거한다.
 
-### 1.5 프록시 소스
+### 1.5 프록시 소스 (2026-11-28 검토)
 
-`trace-proxy-server` 저장소는 이 PC에 없다. **Phase 1 전에 소스를 받아 와야 한다.** 그대로 옮겨야 하는 로직:
+위치: 이 저장소 안 `trace-proxy-server/` (별도 git 저장소, 이 저장소의 `.gitignore`에 포함). 최신 커밋 `d5db544`. Node(ESM) + `@supabase/supabase-js`, 코드 약 2,700줄. 환경 변수는 `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`, `SUPABASE_ANON_KEY`(admin 폴백), `MOZAMBIQUE_API_KEY`(ALS).
 
-- `lib/matchHistory.js`: `rowFromMatch` / `matchFromRow` (camelCase ↔ 컬럼, summary/detail 분기)
-- `resolveRelatedUids` (연동 계정 → `mainUid`)
-- 시즌 해석 (`lib/seasons.js`, 60초 메모리 캐시)
-- `computeMatchWeaponThreats` ([WEAPON-STATS.md](./WEAPON-STATS.md) 규칙. 클라이언트·background와 같아야 함)
-- address-book 비교·스킵 로직, alias sync ([NICKNAME-SEARCH.md](./NICKNAME-SEARCH.md))
-- ALS bridge 호출, `als_synced_at` 캐시 (uid 10분 / 닉네임 30분)
-- account-stats / pending RP 처리 (최근 커밋 `49fb9e3` 반영본)
-- `/admin/*` 핸들러
+| 파일 | 줄 | 이식 시 메모 |
+|------|----|-------------|
+| `lib/matchHistory.js` | 234 | `rowFromMatch`/`matchFromRow`/`SUMMARY_SELECT`. 정수 컬럼 `Math.round`, `_`·`isDead`/`startPos`/`endPos` 제거. 그대로 이식 |
+| `lib/weaponCombat.js` | 343 | 클라이언트 `src/utils/weaponMatchStats.ts`(`computeMatchWeaponCombat`·`computeMatchWeaponThreats`)와 **같은 로직의 JS 사본**. Worker는 사본을 만들지 말고 `src/utils/weaponMatchStats.ts`를 직접 import해서 한 곳만 유지한다 |
+| `lib/matchModes.js` | 37 | `includes()` 기반 버킷. `BR`(모드 불명 폴백)은 `ALL`에만 들어감. TRIO/DUO는 ranked 제외 |
+| `lib/profiles.js` | 16 | `resolveRelatedUids` → `{ mainUid, allUids, role }`. **읽기는 `allUids` 전체**(`.in('uid', allUids)`), 쓰기는 `mainUid` |
+| `lib/seasons.js` | 47 | 60초 메모리 캐시, `resolveSeasonId` |
+| `lib/accountStats.js` | 250 | GEP `player_stats` 스냅샷 저장 + **RP 고정 로직**: `br_ranked_latest` 두 스냅샷이 정확히 1판 차이이고 같은 split이면 `rp_change`를 계산해 해당 랭크 매치(`rp_processed = false`, `end_time >= minEnd`, `start_time <= at`)에 기록. 매치가 아직 없으면 `pending_rp`에 보관했다가 `POST /history`에서 적용 |
+| `lib/playerStats.js` | 257 | `player_season_stats` increment·GET 중 backfill. **이식하지 않음** (§3.9) |
+| `lib/nameAliases.js` | 225 | `normalizeName` = JS `trim().toLowerCase()`(유니코드). alias 최대 3개, TTL 30일, corrupt name(제어문자) 차단 |
+| `lib/adminAuth.js` | 64 | Supabase JWT + `admin_users`. Access로 대체 (§5) |
+| `api/history.js` | 148 | GET summary/detail/range, POST upsert. RP 컬럼은 `rp_processed`가 true일 때만 덮어씀 (클라이언트 재업로드가 서버가 채운 RP를 지우지 않게) |
+| `api/address-book.js` | 166 | GET uid/name, POST 변경분만 upsert + alias sync |
+| `api/apex-stats.js` | 184 | ALS bridge + DB 캐시. **캐시 적중 시 snake_case DB 행, ALS 응답 시 camelCase 객체**를 돌려준다. 클라이언트가 두 shape를 다 처리하므로 그대로 유지 |
+| `api/account-stats.js` | 58 | GET/POST. POST는 `text/plain` 본문(CORS preflight 회피) |
+| `api/rank-snapshots.js` | 90 | POST upsert, **GET `?uid&limit`(기본 60, 최대 365) 이미 있음** |
+| `api/keep-alive.js` | 97 | `als_synced_at` 오래된 순 12명, 5초 간격. Hobby라 하루 1회만 실행 중 |
+| `api/admin/[...path].js` | 297 | profiles/matches/weapons/seasons/languages CRUD, 모든 쓰기에 `confirm: true` 요구 |
+| `api/seasons.js`, `search-candidates.js`, `player-stats.js` | 73 | |
+
+`git status`에서 `lib/weaponCombat.js`가 수정됨으로 나오지만 `git diff` 내용은 비어 있다 (줄바꿈 차이로 보임). 실제 변경은 없다.
 
 ---
 
@@ -197,7 +210,7 @@ CREATE TABLE seasons (
 CREATE TABLE profiles (
   uid              TEXT PRIMARY KEY,
   name             TEXT NOT NULL,
-  name_norm        TEXT GENERATED ALWAYS AS (lower(trim(name))) STORED,
+  name_norm        TEXT NOT NULL,          -- Worker가 normalizeName(name)으로 계산해 같이 씀
   hw               INTEGER,                -- platform 대체 ([DB-OPTIMIZATION §3.4])
   level            INTEGER NOT NULL DEFAULT 0,
   prestige         INTEGER NOT NULL DEFAULT 0,
@@ -224,7 +237,7 @@ CREATE INDEX profiles_refresh_idx        ON profiles (refresh_priority DESC, als
 ```
 
 - 닉네임 검색은 `WHERE name_norm = ? ORDER BY rank_score DESC LIMIT 30`. `ILIKE` 이스케이프 로직은 버린다.
-- **정규화 동치성:** SQLite `trim()`은 ASCII 공백만, `lower()`는 ASCII만 처리한다. Worker에서 입력을 같은 규칙(`asciiTrim` + `asciiLower`)으로 정규화하는 함수 하나를 두고 테스트로 고정한다. 비ASCII 닉네임 대소문자 무시가 필요하면 generated column을 쓰지 말고 Worker가 계산한 `name_norm`을 저장한다 (Phase 1에서 결정, 아래 §9 Q4).
+- **`name_norm`은 generated column으로 만들지 않는다.** 현행 `normalizeName()`은 JS `trim().toLowerCase()`라 유니코드 공백·대소문자를 처리하고, 현행 검색 `ILIKE`도 유니코드 대소문자를 무시한다. SQLite `lower()`/`trim()`은 ASCII만 처리하므로 결과가 달라진다. 그래서 Worker가 `normalizeName()`(`nameAliases.js`와 같은 함수)으로 계산해 `name`과 함께 쓴다. `profile_name_aliases.name_norm`도 같은 함수를 쓴다.
 - `platform` 컬럼은 버린다. 이관 시 `hw`가 비어 있고 `platform`만 있는 행은 매핑해서 `hw`를 채운다.
 - `SQLite` 정렬에서 NULL은 오름차순 맨 앞이라 `als_synced_at` 오름차순만으로 "nulls first"가 된다.
 
@@ -278,6 +291,8 @@ CREATE TABLE matches (
   ultimates_used  INTEGER NOT NULL DEFAULT 0,
   headshots       INTEGER NOT NULL DEFAULT 0,
   rp_change       INTEGER,
+  rank_score      INTEGER,               -- 매치 후 RP (GEP 스냅샷에서 서버가 채움)
+  rp_processed    INTEGER NOT NULL DEFAULT 0,
   rank_json            TEXT NOT NULL DEFAULT '{}',
   loadout_json         TEXT NOT NULL DEFAULT '{}',
   team_stats_json      TEXT NOT NULL DEFAULT '[]',
@@ -295,12 +310,16 @@ CREATE INDEX matches_uid_start_idx ON matches (uid, start_time DESC);
 CREATE INDEX matches_uid_season_stats_idx
   ON matches (uid, season_id, stats_mode, start_time DESC)
   WHERE stats_mode IS NOT NULL;
+CREATE INDEX matches_rp_pending_idx            -- RP 고정 대상 찾기 (accountStats.findRankedMatchFor)
+  ON matches (uid, start_time DESC)
+  WHERE stats_mode = 'RANKED' AND rp_processed = 0;
 ```
 
 - `stats_mode` 규칙은 `matchModes.js getStatisticsModeBuckets()` · 클라이언트 `matchMode.ts`와 같아야 한다. mode를 정규화하므로 `LIKE` 없이 등호로 충분하다. **정규화 표에 없는 새 모드가 들어오면 `stats_mode`가 NULL이 되어 통계에서 빠진다.** 이것은 현행 `isSupportedMode()`와 같은 동작이다.
-- 삭제하는 컬럼: `is_kill_leader`(이미 drop), `rp_processed`·`rank_score`(실측상 한 번도 채워지지 않음, [DB-OPTIMIZATION §5.4](./DB-OPTIMIZATION.md)). **단, Phase 1에서 프록시 소스와 `49fb9e3` 이후 RP 로직이 이 두 컬럼을 읽거나 쓰는지 확인한 뒤 확정한다** (§9 Q3). `rp_change`는 유지한다.
+- `rank_score`·`rp_change`·`rp_processed`는 **유지한다.** [DB-OPTIMIZATION §5.4](./DB-OPTIMIZATION.md)에서는 미사용 후보였지만, 그 뒤 프록시에 GEP 스냅샷 기반 RP 고정 로직(`lib/accountStats.js`)이 들어가서 세 컬럼 모두 쓰인다. 현행 `ilike('mode', '%ranked%')` 조건은 `stats_mode = 'RANKED'`로 바꾼다.
+- `POST /history`의 RP 보존 규칙도 그대로 옮긴다: 업로드된 매치의 `rpProcessed`가 false면 upsert에서 `rank_score`·`rp_change`·`rp_processed`를 빼서 서버가 채운 값을 지키지 않게 한다.
 - `matches_uid_legend_start_time_desc_idx`는 프록시·admin에서 사용처를 찾은 경우에만 다시 만든다.
-- `uid`는 항상 `mainUid`다. 연동 계정 해석은 쓰기·읽기 모두 Worker에서 한다.
+- 쓰기 `uid`는 항상 `mainUid`다. **읽기(`GET /history`, RP 매치 찾기)는 현행처럼 `uid IN (mainUid, linkedUid)`로 조회한다.** 연동 전에 linked uid로 저장된 매치가 있을 수 있기 때문이다. 이관 시 linked uid 행을 `mainUid`로 합칠지는 §9 Q9.
 
 ### 3.5 R2 매치 detail
 
@@ -408,7 +427,7 @@ CREATE TABLE game_constants (
 | GET | `/seasons` | `seasons` 전체 | `s-maxage=3600` |
 | GET | `/search-candidates?query` | `profiles.name_norm` exact + alias | `s-maxage=60` |
 | GET | `/apex-stats?query&type` | `als_synced_at` 캐시 후 ALS 호출 | `s-maxage=180` |
-| GET | `/rank-snapshots?uid&from&to` (**신규 GET**) | `daily_rank_snapshots` 범위 | `s-maxage=60` |
+| GET | `/rank-snapshots?uid&limit` (현행 있음, 기본 60·최대 365) | `daily_rank_snapshots` 최신순. 클라이언트 `rankSnapshots.ts`의 직접 조회를 이것으로 바꾼다 | `s-maxage=60` |
 | POST | `/rank-snapshots` | upsert | — |
 | GET/POST | `/account-stats` | `player_account_stats` | — |
 | GET | `/languages` (**신규**) | `lang, display_name, version, is_default` (활성만) | `s-maxage=300` |
@@ -416,10 +435,23 @@ CREATE TABLE game_constants (
 | GET | `/weapons` (**신규**) | 활성 무기 전체 | `s-maxage=3600` |
 | GET | `/game-constants` (**신규**) | 전체 | `s-maxage=300` |
 | * | `/admin/*` | 현행 admin API와 같은 경로·shape. Access JWT 검증 후 처리 | `no-store` |
-| cron | `0 */2 * * *` keep-alive | `refresh_priority DESC, als_synced_at` 순 ALS 갱신 (예산은 현행과 같게) | — |
+| cron | `* * * * *` keep-alive | `refresh_priority DESC, als_synced_at` 순 12명, 5초 간격 ALS 갱신. 현행 README가 "Pro가 되면 매분"으로 계획한 주기. ALS 호출 예산은 Phase 0에서 확인 | — |
 | cron | `0 4 * * *` purge | alias TTL 30일, R2 고아 정리(월 1회 분기) | — |
 
-입력 검증은 모든 엔드포인트 공통 미들웨어에서 한다: `uid`는 `/^\d{1,25}$/`, `season_id`는 정수, `mode`는 `ALL|RANKED|TRIO|DUO`. 벗어나면 400 ([DB-OPTIMIZATION §3.1](./DB-OPTIMIZATION.md) 필터 보간 문제).
+입력 검증은 모든 엔드포인트 공통 미들웨어에서 한다: `uid`는 `/^\d{1,25}$/`, `season_id`는 정수, `mode`는 `ALL|RANKED|TRIO|DUO`. 벗어나면 400 ([DB-OPTIMIZATION §3.1](./DB-OPTIMIZATION.md) 필터 보간 문제). 모든 SQL은 바인딩 파라미터(`?`)만 쓰고 문자열로 조립하지 않는다.
+
+### 4.1.1 현행 프록시의 보안 문제 (새 Worker에서 고친다)
+
+| # | 문제 | 위치 | 새 Worker |
+|---|------|------|-----------|
+| S1 | **`POST /address-book`으로 누구나 아무 uid의 `role`(관리자가 붙이는 태그)과 `name`을 바꿀 수 있다.** `role`이 비교·upsert 필드에 들어 있고 인증이 없다 | `api/address-book.js` `COMPARABLE_FIELDS`, `toUpsert` | 허용 필드 화이트리스트(`name, linked_uid, hw, level, prestige, rank_*, legend, avatar`). `role`은 admin API에서만 쓴다 |
+| S2 | **`/keep-alive`에 인증이 없다.** 누구나 호출해서 ALS 호출 예산을 쓰고 함수 시간을 60초씩 잡을 수 있다 | `api/keep-alive.js` | HTTP 라우트를 두지 않고 `scheduled()` 핸들러에서만 실행 |
+| S3 | 사용자 입력 uid를 PostgREST `.or()` 필터 문자열에 그대로 넣는다 (필터 조작 가능) | `lib/profiles.js`, `api/address-book.js` GET, admin profiles | 입력 검증 + 바인딩 파라미터 |
+| S4 | 쓰기 API(`POST /history`, `/account-stats`, `/rank-snapshots`, `/address-book`)에 사용자 인증이 없다. 다른 사람 uid로 매치·RP를 써 넣을 수 있다 | 전체 | 이번 이전 범위 밖. 대신 uid별 레이트 리밋(Cloudflare Rate Limiting 바인딩)과 본문 크기 제한(예: 512 KB)을 둔다. 유료 기능을 붙일 때 Overwolf 사용자 기반 인증을 따로 설계한다 (§9 Q10) |
+| S5 | admin `PATCH /admin/matches`가 patch 객체를 필드 제한 없이 그대로 update한다 | `api/admin/[...path].js` | 컬럼 화이트리스트. detail 필드 수정 시 R2 새 버전으로 쓴다 (§3.5) |
+| S6 | CORS `Access-Control-Allow-Origin: *` + `Allow-Credentials: true` 조합 (브라우저가 무시하는 무의미한 설정) | `vercel.json` | 공개 API는 `*`만, admin은 Access 도메인만 허용 |
+
+S1·S2는 **QA 제출본이 쓰는 현행 프록시에도 그대로 있다.** 이전과 별개로 현행 프록시에서 먼저 고칠지 사용자 판단이 필요하다 (§9 Q11).
 
 ### 4.2 `POST /history` 처리 순서
 
@@ -427,10 +459,11 @@ CREATE TABLE game_constants (
 2. 시즌 해석 (`seasons` 60초 캐시)
 3. `normalizeMatch`: mode/map 정규화, `weaponThreats` 계산(클라이언트 값 우선), `_` 키·`isDead`/`startPos`/`endPos` 제거
 4. detail이 있으면 R2 `put` (path v2 인코딩, gzip)
-5. `db.batch([ matches upsert, profiles refresh_priority=2 갱신 ])`
-6. 랭크 스냅샷 해당 시 upsert (현행 조건 그대로)
+5. `db.batch([ matches upsert, profiles refresh_priority=2 갱신 ])`. `rpProcessed`가 false면 RP 세 컬럼은 upsert에서 뺀다 (§3.4)
+6. `applyPendingRpForMatch`: 랭크 매치이고 `player_account_stats.pending_rp`가 이 매치 조건(`end_time >= minEnd`, `start_time <= at`, 1시간 이내)에 맞으면 RP를 기록하고 `pending_rp`를 지운다. 현행과 같이 실패해도 응답은 성공으로 둔다
+7. 응답: `{ success, normalized, season_id, rpApplied }` (현행 shape)
 
-`player_season_stats` increment는 없다. upsert는 `ON CONFLICT(uid, match_id) DO UPDATE`라 재전송에도 안전하다.
+`player_season_stats` increment는 없다. 현행에서는 RP를 적용할 때도 payload를 다시 쓰지만, 새 구조에서는 `matches` 한 행만 update하면 통계에 바로 반영된다. upsert는 `ON CONFLICT(uid, match_id) DO UPDATE`라 재전송에도 안전하다.
 
 ### 4.3 `GET /player-stats` 와 읽기 비용
 
@@ -459,11 +492,13 @@ worker/
     index.ts               # Hono app, 라우트 등록, scheduled()
     routes/                # history.ts, addressBook.ts, playerStats.ts, meta.ts, admin.ts …
     lib/
-      matchRow.ts          # rowFromMatch / matchFromRow (프록시에서 이식)
-      normalize.ts         # mode/map/name_norm
+      matchRow.ts          # rowFromMatch / matchFromRow (trace-proxy-server/lib/matchHistory.js 이식)
+      normalize.ts         # mode/map/name_norm (normalizeName은 nameAliases.js와 동일)
       pathCodec.ts         # path v1 ↔ v2 (클라이언트 decodePath와 테스트 공유)
-      weaponThreats.ts     # computeMatchWeaponThreats 이식
+      weapon.ts            # ../../src/utils/weaponMatchStats.ts 를 re-export (사본 금지)
       related.ts           # resolveRelatedUids
+      accountStats.ts      # RP 고정 로직 (lib/accountStats.js 이식)
+      aliases.ts           # alias sync / purge / exact 검색 (lib/nameAliases.js 이식)
       seasons.ts           # 시즌 해석 + 캐시
       als.ts               # ALS bridge
       access.ts            # Cloudflare Access JWT 검증
@@ -548,13 +583,13 @@ scripts/migrate-to-cf/     # §7 이관 스크립트 (Node, Supabase 읽기 전�
 각 Phase는 별도 커밋(또는 티켓)으로 끝낸다. 커밋·푸시는 `update` 브랜치에만, 사용자 승인 후에 한다. `main`과 QA 제출본 태그는 건드리지 않는다.
 
 ### Phase 0 — 준비 (사용자 작업 포함)
-- [ ] `trace-proxy-server` 소스를 받아 온다 (§1.5)
+- [x] `trace-proxy-server` 소스 확보 (§1.5, 이 저장소 안 `trace-proxy-server/`)
 - [ ] Cloudflare 계정에 Workers Paid 활성화, 사용할 도메인을 Cloudflare DNS에 연결 (**사용자**)
 - [ ] Claude Code에서 Cloudflare MCP 인증 (`/mcp`) 또는 `wrangler login` (**사용자**)
 - [ ] §2.1 한도 표를 공식 문서로 확인하고 수정
 - [ ] §9 미결 사항 결정
 
-**완료 기준:** 프록시 소스가 로컬에 있고, `wrangler whoami`가 성공하고, §9 Q1·Q3·Q4가 결정됨.
+**완료 기준:** `wrangler whoami`가 성공하고, §9 Q1·Q9·Q11이 결정됨.
 
 ### Phase 1 — Worker 골격 + 스키마
 - [ ] `worker/` 생성 (Hono, TS, vitest-pool-workers)
@@ -613,12 +648,15 @@ scripts/migrate-to-cf/     # §7 이관 스크립트 (Node, Supabase 읽기 전�
 |---|------|--------|
 | Q1 | API 도메인 이름 | `api.<보유 도메인>` |
 | Q2 | D1 location hint | `apac` (현 사용자·기존 DB가 서울). 해외 사용자 비중이 커지면 D1 read replication 검토 |
-| Q3 | `rp_processed`, `rank_score` 컬럼 삭제 | 프록시 소스·RP 로직(`49fb9e3`)에서 사용처가 없으면 삭제 |
-| Q4 | `name_norm` 규칙 (ASCII만 vs 유니코드 대소문자) | 현행과 같은 결과를 내는 쪽. 현행 프록시 `normalizeName()` 확인 후 결정 |
+| Q3 | ~~`rp_processed`, `rank_score` 컬럼 삭제~~ | **결정: 유지.** RP 고정 로직이 사용 (§3.4) |
+| Q4 | ~~`name_norm` 규칙~~ | **결정: Worker가 JS `normalizeName()`으로 계산해 저장** (§3.2) |
 | Q5 | admin 앱 호스팅 | Workers Static Assets + Access (같은 플랫폼으로 통일) |
 | Q6 | `worker/`를 이 저장소에 둘지 별도 저장소로 뺄지 | 이 저장소 (클라이언트와 API shape를 같이 바꾸기 쉬움) |
 | Q7 | `src/web` 웹 앱(SimpleWebApp) 호스팅 | 현행 확인 후 Q5와 같이 결정 |
 | Q8 | 별도 디렉터리 `Projects/apex-admin`과 이 저장소 `admin/`의 관계 (어느 쪽이 운영본인지) | 실행 세션 시작 시 확인 |
+| Q9 | linked uid로 저장된 기존 매치를 이관 때 `mainUid`로 합칠지 | 합친다. 그러면 읽기를 `uid = mainUid` 하나로 단순화할 수 있다. 단 Phase 7 증분 동기화도 같은 규칙을 적용해야 한다 |
+| Q10 | 쓰기 API 사용자 인증 (§4.1.1 S4) | 이번 범위 밖. 레이트 리밋만 적용 |
+| Q11 | S1(role 덮어쓰기)·S2(keep-alive 무인증)를 현행 Vercel 프록시에서도 먼저 고칠지 | 고친다. 둘 다 몇 줄짜리이고 클라이언트 변경이 필요 없다. 단 QA 제출본이 쓰는 운영 서버 배포라 사용자 승인 후 진행 |
 
 ---
 
@@ -630,7 +668,7 @@ scripts/migrate-to-cf/     # §7 이관 스크립트 (Node, Supabase 읽기 전�
 |------|------|------|
 | T1 | `lib/pathCodec.ts` + 클라이언트 `decodePath()` + 공유 테스트 | 가능 |
 | T2 | `lib/normalize.ts` (mode/map/name_norm) + 테스트 | 가능 (규칙은 리드가 확정) |
-| T3 | `matchRow.ts`·`weaponThreats.ts` 이식 + 원본 대비 golden 테스트 | 가능 |
+| T3 | `matchRow.ts`·`accountStats.ts`·`aliases.ts` 이식 + 원본 대비 golden 테스트. 무기 로직은 `src/utils/weaponMatchStats.ts` import | 가능 |
 | T4 | 읽기 라우트 (Phase 2) | 가능 (라우트별 분할) |
 | T5 | 쓰기 라우트·Cron (Phase 3) | 일부 가능 (ALS 시크릿 처리는 리드) |
 | T6 | 이관 transform·SQL 청크 생성 | 가능. 실행과 검증 판단은 리드 |
